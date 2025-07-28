@@ -9,20 +9,43 @@
         @import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&display=swap');
         @import url('https://fonts.googleapis.com/css2?family=VT323&display=swap');
         html, body { height: 100%; margin: 0; }
+        body { display: flex; flex-direction: column; }
+        #terminal { flex-grow: 1; overflow-y: auto; padding: 10px; cursor: text; /* Change cursor to indicate it's a text area */ }
         .line { white-space: pre-wrap; word-wrap: break-word; line-height: 1.3; }
         .prompt { display: flex; }
         .prompt-text { flex-shrink: 0; }
         #commandInput { background-color: transparent; border: none; font-family: inherit; font-size: inherit; flex-grow: 1; padding: 0; margin: 0; }
         #commandInput:focus { outline: none; }
         body.relic-theme { background-color: #1a2123; color: #d4d4d4; font-family: 'Share Tech Mono', monospace; font-size: 18px; transition: background-color 0.1s; }
-        .relic-theme #terminal { padding: 10px; } .relic-theme .prompt-text { color: #E8772E; } .relic-theme #commandInput { color: #d4d4d4; } .relic-theme .system-msg { color: #00E5FF; text-shadow: 0 0 2px rgba(0, 229, 255, 0.5); } .relic-theme .error-msg, .relic-theme .data-msg-header { color: #E8772E; } .relic-theme .data-msg-body { color: #00E5FF; }
+        .relic-theme .prompt-text { color: #E8772E; } 
+        .relic-theme #commandInput { color: #d4d4d4; } 
+        .relic-theme .system-msg { color: #00E5FF; text-shadow: 0 0 2px rgba(0, 229, 255, 0.5); } 
+        .relic-theme .error-msg, .relic-theme .data-msg-header { color: #E8772E; } 
+        .relic-theme .data-msg-body { color: #00E5FF; }
         body.terminal-theme { background-color: #000; color: #0f0; font-family: 'VT323', monospace; font-size: 22px; transition: background-color 0.1s; }
-        .terminal-theme #terminal { padding: 10px; text-shadow: 0 0 3px #0f0; } .terminal-theme .prompt-text, .terminal-theme #commandInput, .terminal-theme .system-msg, .terminal-theme .error-msg, .terminal-theme .data-msg-header, .terminal-theme .data-msg-body { color: #0f0; }
+        .terminal-theme #terminal { text-shadow: 0 0 3px #0f0; } 
+        .terminal-theme .prompt-text, .terminal-theme #commandInput, .terminal-theme .system-msg, .terminal-theme .error-msg, .terminal-theme .data-msg-header, .terminal-theme .data-msg-body { color: #0f0; }
         .terminal-theme::after { content: " "; display: block; position: absolute; top: 0; left: 0; bottom: 0; right: 0; background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%), linear-gradient(90deg, rgba(255, 0, 0, 0.06), rgba(0, 255, 0, 0.02), rgba(0, 0, 255, 0.06)); z-index: 2; background-size: 100% 4px, 3px 100%; pointer-events: none; animation: flicker 0.15s infinite; }
         @keyframes flicker { 0% { opacity: 0.2; } 20% { opacity: 0.6; } 40% { opacity: 0.3; } 60% { opacity: 0.7; } 80% { opacity: 0.4; } 100% { opacity: 0.6; } }
         .file-locked { color: #E8772E; }
         #system-override-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0, 0, 0, 0.9); color: #ff4136; z-index: 10000; justify-content: center; align-items: center; text-align: center; font-size: 2.5em; text-transform: uppercase; }
         #system-override-overlay.warning { color: #FFDC00; }
+        
+        #qol-buttons {
+            position: fixed;
+            bottom: 10px;
+            right: 10px;
+            z-index: 5000;
+        }
+        #qol-buttons button {
+            background-color: rgba(0, 229, 255, 0.2);
+            border: 1px solid rgba(0, 229, 255, 0.5);
+            color: rgba(0, 229, 255, 0.8);
+            font-family: inherit;
+            padding: 5px 10px;
+            cursor: pointer;
+            border-radius: 4px;
+        }
     </style>
     <script src="firebase-config.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
@@ -33,6 +56,9 @@
     <div id="terminal">
         <div class="prompt"><span class="prompt-text">>&nbsp;</span><input type="text" id="commandInput" autofocus></div>
     </div>
+    <div id="qol-buttons">
+        <button id="clear-button">[ CLS ]</button>
+    </div>
 
 <script>
     firebase.initializeApp(firebaseConfig);
@@ -41,23 +67,22 @@
     const terminal = document.getElementById('terminal');
     const commandInput = document.getElementById('commandInput');
     const overrideOverlay = document.getElementById('system-override-overlay');
+    const clearButton = document.getElementById('clear-button');
     
+    // All other JS logic is identical to the previous version
+    // ...
     let isConnected = false, isScanning = false, isTyping = false;
     let config = { theme: 'relic-theme', systemName: "SYSTEM", osName: "OS", scanCommand: "scan", connectCommand: "connect", dataNoun: "Data", signalNoun: "Signal" };
     let unlockedKeys = {}, fileSystem = {}, glitches = {}, accessPasswords = {};
     let clearanceLevel = 1;
-
     let decodingChart = {};
     const defaultEncodingChart = {'A': '<>', 'B': '<%', 'C': '<^', 'D': '<&', 'E': '<*', 'F': '<-', 'G': '<+', 'H': '<@','I': '><', 'J': '>%', 'K': '>^', 'L': '>&', 'M': '>*', 'N': '>-', 'O': '>+', 'P': '>@','Q': '%<', 'R': '%>', 'S': '%^', 'T': '%&', 'U': '%*', 'V': '%-', 'W': '%+', 'X': '%@','Y': '^<', 'Z': '^>', '0': '^%', '1': '^&', '2': '^*', '3': '^-', '4': '^+', '5': '^@','6': '&<', '7': '&>', '8': '&%', '9': '&^'};
     decodingChart = Object.fromEntries(Object.entries(defaultEncodingChart).map(a => a.reverse()));
-    
     const doubledSymbols = ['<<', '>>', '%%', '^^', '&&', '**', '--', '++', '@@'];
     const allSymbols = [ ...doubledSymbols, '$',':','#','<','>','%','^','&','*','-','+','@'];
-
     const RECEIVED_HISTORY_KEY = 'receivedMessageHistory';
     function saveMessageToHistory(message) { let history = JSON.parse(localStorage.getItem(RECEIVED_HISTORY_KEY)) || []; if (!history.length || history[0] !== message) { history.unshift(message); if (history.length > 20) history.pop(); localStorage.setItem(RECEIVED_HISTORY_KEY, JSON.stringify(history)); } }
     function partiallyDecode(fullStream) { if (Object.keys(decodingChart).length === 0) return fullStream; const parts = fullStream.match(/(.*?)\$:(.*):#(.*)/); if (!parts) return fullStream; const leadingNoise = parts[1], encodedPart = parts[2], trailingNoise = parts[3]; let decodedContent = ''; for (let i = 0; i < encodedPart.length; i += 2) { const pair = encodedPart.substring(i, i + 2); const char = decodingChart[pair]; if (char && unlockedKeys[char]) { decodedContent += char; } else { decodedContent += pair; } } return `${leadingNoise}$:${decodedContent}:#${trailingNoise}`; }
-    
     function typeLine(text, className = '', speed = 15, callback = () => {}) { isTyping = true; const line = document.createElement('div'); line.className = 'line'; if (className) { className.split(' ').forEach(cls => line.classList.add(cls)); } terminal.insertBefore(line, terminal.lastElementChild); let i = 0; const interval = setInterval(() => { if (i < text.length) { line.innerHTML += text.charAt(i); i++; window.scrollTo(0, document.body.scrollHeight); } else { clearInterval(interval); isTyping = false; callback(); } }, speed); }
     function printLine(text, className = '') { const line = document.createElement('div'); line.innerHTML = text; line.className = 'line'; if (className) { className.split(' ').forEach(cls => line.classList.add(cls)); } terminal.insertBefore(line, terminal.lastElementChild); }
     function drawWelcomeMessage() { const welcomeLines = terminal.querySelectorAll('.welcome-line'); welcomeLines.forEach(line => line.remove()); typeLine(`Attempting to interface with ${config.systemName}... OK`, 'system-msg welcome-line', 20, () => { typeLine(`${config.osName} -- Ready.`, 'system-msg welcome-line', 20, () => { typeLine(`Type 'help' for command list.`, 'welcome-line', 20, () => { printLine('&nbsp;', 'welcome-line'); }); }); }); }
@@ -93,6 +118,14 @@
     }
     
     commandInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') { if (isTyping) return; const cmd = commandInput.value.trim().toLowerCase(); if (cmd) { handleCommand(cmd); } commandInput.value = ''; } });
+    clearButton.onclick = () => { handleCommand('cls'); };
+
+    // --- CLICK-TO-FOCUS LOGIC ---
+    terminal.addEventListener('click', (e) => {
+      if (e.target !== commandInput) {
+        commandInput.focus();
+      }
+    });
 
     // --- Firebase Listeners ---
     database.ref('terminal_config').on('value', (snapshot) => { const newConfig = snapshot.val(); if (newConfig) { config = newConfig; document.body.className = config.theme || 'relic-theme'; drawWelcomeMessage(); } });
@@ -101,23 +134,7 @@
     database.ref('file_system').on('value', (snapshot) => { fileSystem = snapshot.val() || {}; });
     database.ref('access_control').on('value', (snapshot) => { accessPasswords = snapshot.val() || {}; });
     database.ref('cipher_config').on('value', (snapshot) => { if (snapshot.exists()) { decodingChart = Object.fromEntries(Object.entries(snapshot.val()).map(a => a.reverse())); if(isConnected) typeLine('// Cipher matrix re-initialized by source //', 'system-msg'); } });
-    
-    database.ref('glitches').on('value', (snapshot) => {
-        glitches = snapshot.val() || {};
-        const override = glitches.override_state;
-        if (override) {
-            overrideOverlay.textContent = override.message;
-            overrideOverlay.className = override.type;
-            overrideOverlay.style.display = 'flex';
-        } else {
-            overrideOverlay.style.display = 'none';
-        }
-        if (glitches.reset_access_timestamp && isConnected) {
-            clearanceLevel = 1;
-            typeLine('// SECURITY CREDENTIALS INVALIDATED. ACCESS LEVEL RESET BY SOURCE. //', 'error-msg');
-            database.ref('glitches/reset_access_timestamp').remove(); // Reset the flag
-        }
-    });
+    database.ref('glitches').on('value', (snapshot) => { glitches = snapshot.val() || {}; const override = glitches.override_state; if (override) { overrideOverlay.textContent = override.message; overrideOverlay.className = override.type; overrideOverlay.style.display = 'flex'; } else { overrideOverlay.style.display = 'none'; } if (glitches.reset_access_timestamp && isConnected) { clearanceLevel = 1; typeLine('// SECURITY CREDENTIALS INVALIDATED. ACCESS LEVEL RESET BY SOURCE. //', 'error-msg'); database.ref('glitches/reset_access_timestamp').remove(); } });
 
     database.ref('kohd_datastream').on('value', (snapshot) => {
         const data = snapshot.val();
