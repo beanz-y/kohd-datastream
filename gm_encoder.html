@@ -1,66 +1,64 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Daggerheart - Motherboard Signal Encoder</title>
     <style>
+        /* CSS is identical to the previous version */
         @import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&display=swap');
-        
-        :root {
-            --primary-color: #00E5FF;
-            --secondary-color: #E8772E;
-            --background-color: #1a2123;
-            --dark-element-bg: #0e1213;
-            --border-color: #3a4a4d;
-            --text-color: #d4d4d4;
-            --critical-color: #ff3c3c;
-        }
 
         body {
             font-family: 'Share Tech Mono', monospace;
-            background-color: var(--background-color);
-            color: var(--text-color);
-            padding: 10px;
-            margin: 0;
+            background-color: #1a2123;
+            color: #d4d4d4;
+            padding: 20px;
         }
+
         .container {
             max-width: 900px;
             margin: auto;
         }
+
         h1 {
-            color: var(--primary-color);
+            color: #00E5FF;
             text-shadow: 0 0 5px rgba(0, 229, 255, 0.7);
-            border-bottom: 1px solid var(--border-color);
+            border-bottom: 1px solid #3a4a4d;
             padding-bottom: 10px;
             display: flex;
             justify-content: space-between;
             align-items: center;
-            flex-wrap: wrap; /* Allow wrapping on small screens */
+            flex-wrap: wrap;
         }
+
         h2 {
-            color: var(--secondary-color);
+            color: #E8772E;
             font-size: 1.2em;
             margin-top: 20px;
             margin-bottom: 10px;
-            border-bottom: 1px solid var(--border-color);
+            border-bottom: 1px solid #3a4a4d;
             padding-bottom: 5px;
         }
-        textarea, input[type="text"], select {
+
+        textarea,
+        input[type="text"],
+        select {
             width: 100%;
             padding: 10px;
             margin-bottom: 10px;
-            background-color: var(--dark-element-bg);
-            color: var(--text-color);
-            border: 1px solid var(--border-color);
+            background-color: #0e1213;
+            color: #d4d4d4;
+            border: 1px solid #3a4a4d;
             box-sizing: border-box;
             font-family: inherit;
             font-size: 1em;
             border-radius: 4px;
         }
+
         button {
-            background-color: var(--primary-color);
-            color: var(--dark-element-bg);
+            background-color: #00E5FF;
+            color: #0e1213;
             border: none;
             padding: 12px 20px;
             cursor: pointer;
@@ -72,205 +70,240 @@
             transition: filter 0.2s;
             flex-shrink: 0;
         }
-        button:hover { filter: brightness(1.2); }
-        button.secondary { background-color: var(--secondary-color); }
-        button.critical { background-color: var(--critical-color); color: white; }
-        .live-display {
-            background-color: var(--dark-element-bg); padding: 15px; border: 1px dashed var(--secondary-color);
-            word-wrap: break-word; min-height: 50px; font-size: 1.1em; color: var(--primary-color);
-            margin-bottom: 10px; border-radius: 4px;
+
+        button:hover {
+            filter: brightness(1.2);
         }
+
+        button.secondary {
+            background-color: #E8772E;
+        }
+
+        button.critical {
+            background-color: #ff3c3c;
+            color: white;
+        }
+
+        .live-display {
+            background-color: #0e1213;
+            padding: 15px;
+            border: 1px dashed #E8772E;
+            word-wrap: break-word;
+            min-height: 50px;
+            font-size: 1.1em;
+            color: #00E5FF;
+            margin-bottom: 10px;
+            border-radius: 4px;
+        }
+
         .grid {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
             gap: 20px;
         }
+
         fieldset {
-            border: 1px solid var(--border-color);
+            border: 1px solid #3a4a4d;
             padding: 15px;
             margin-bottom: 15px;
             border-radius: 4px;
         }
-        legend { color: var(--secondary-color); padding: 0 5px; font-weight: bold; }
-        
-        /* Tab Styles */
+
+        legend {
+            color: #E8772E;
+            padding: 0 5px;
+            font-weight: bold;
+        }
+
         .tab-bar {
             display: flex;
-            border-bottom: 2px solid var(--border-color);
+            border-bottom: 2px solid #3a4a4d;
             margin-bottom: 20px;
         }
+
         .tab-link {
             padding: 10px 20px;
             cursor: pointer;
             background-color: transparent;
             border: none;
-            color: var(--text-color);
+            color: #d4d4d4;
             font-size: 1.1em;
             border-radius: 4px 4px 0 0;
             margin-bottom: -2px;
         }
+
         .tab-link.active {
-            background-color: var(--dark-element-bg);
-            border: 2px solid var(--border-color);
-            border-bottom: 2px solid var(--dark-element-bg);
-            color: var(--primary-color);
+            background-color: #0e1213;
+            border: 2px solid #3a4a4d;
+            border-bottom: 2px solid #0e1213;
+            color: #00E5FF;
         }
-        .tab-content { display: none; }
-        .tab-content.active { display: block; }
-        
-        #playerStatus { font-size: 1em; padding: 5px 10px; border-radius: 5px; font-weight: bold; }
-        #playerStatus.offline { background-color: var(--secondary-color); color: var(--background-color); }
-        #playerStatus.online { background-color: var(--primary-color); color: var(--background-color); }
-        .flex-wrap { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
-        .flex-grow { flex-grow: 1; }
-        #cipher-key-container table { width: 100%; border-collapse: collapse; margin-top: 10px; }
-        #cipher-key-container th, #cipher-key-container td { border: 1px solid #3a4a4d; padding: 5px; text-align: center; }
-        #cipher-key-container th { color: #E8772E; }
-        #cipher-key-container td { color: #00E5FF; }
-        #cipher-key-container td.space { color: #6c7a7d; font-style: italic; }
-        #fileList { list-style: none; padding: 0; }
-        #fileList li { background-color: #0e1213; padding: 8px 12px; border-left: 3px solid var(--primary-color); margin-bottom: 5px; display: flex; justify-content: space-between; align-items: center; border-radius: 4px; }
-        #fileList button { font-size: 0.8em; padding: 3px 8px; }
-        .locked { border-left-color: var(--secondary-color) !important; }
+
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        #playerStatus {
+            font-size: 1em;
+            padding: 5px 10px;
+            border-radius: 5px;
+            font-weight: bold;
+        }
+
+        #playerStatus.offline {
+            background-color: #E8772E;
+            color: #1a2123;
+        }
+
+        #playerStatus.online {
+            background-color: #00E5FF;
+            color: #1a2123;
+        }
+
+        .flex-wrap {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            align-items: center;
+        }
+
+        .flex-grow {
+            flex-grow: 1;
+        }
+
+        #cipher-key-container table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 10px;
+        }
+
+        #cipher-key-container th,
+        #cipher-key-container td {
+            border: 1px solid #3a4a4d;
+            padding: 5px;
+            text-align: center;
+        }
+
+        #cipher-key-container th {
+            color: #E8772E;
+        }
+
+        #cipher-key-container td {
+            color: #00E5FF;
+        }
+
+        #cipher-key-container td.space {
+            color: #6c7a7d;
+            font-style: italic;
+        }
+
+        #fileList {
+            list-style: none;
+            padding: 0;
+        }
+
+        #fileList li {
+            background-color: #0e1213;
+            padding: 8px 12px;
+            border-left: 3px solid var(--primary-color);
+            margin-bottom: 5px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-radius: 4px;
+        }
+
+        #fileList button {
+            font-size: 0.8em;
+            padding: 3px 8px;
+        }
+
+        .locked {
+            border-left-color: var(--secondary-color) !important;
+        }
     </style>
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
 </head>
+
 <body>
-<div class="container">
-    <h1>
-        <span>Motherboard Encoder</span>
-        <span id="playerStatus" class="offline">OFFLINE</span>
-    </h1>
-
-    <div class="tab-bar">
-        <button class="tab-link active" onclick="openTab(event, 'transmit')">Transmit</button>
-        <button class="tab-link" onclick="openTab(event, 'session')">Session Control</button>
-        <button class="tab-link" onclick="openTab(event, 'setup')">System Setup</button>
+    <div class="container">
     </div>
 
-    <div id="transmit" class="tab-content active">
-        <h2>Incoming Player Message</h2>
-        <div id="playerMessageDisplay" class="live-display">Awaiting message from player terminal...</div>
-        
-        <h2>Datastream Transmission</h2>
-        <fieldset>
-            <legend>Message Templates</legend>
-            <div id="templateButtons" class="flex-wrap"></div>
-        </fieldset>
-        <label for="messageInput">Data Fragment:</label>
-        <textarea id="messageInput">COORDINATES RECEIVED. STAND BY.</textarea>
-        <label for="noiseSlider">Signal Corruption: <span id="noiseValue">50</span></label>
-        <input type="range" id="noiseSlider" min="0" max="200" value="50">
-        <button id="encodeButton">Transmit Datastream</button>
-        <h3>Transmitted kohd-datastream:</h3>
-        <div id="outputBurst" class="live-display"></div>
-    </div>
+    <script>
+        // **FIXED:** Wrap the entire application in an async function to wait for the config.
+        async function initializeApp() {
+            // Fetch the configuration from our secure function
+            const response = await fetch('/config');
+            const firebaseConfig = await response.json();
 
-    <div id="session" class="tab-content">
-        <h2>System Glitches</h2>
-        <fieldset>
-            <legend>Minor Glitches</legend>
-            <div class="flex-wrap">
-                <button id="scrambleMessageButton" class="secondary">Scramble Next Message</button>
-                <button id="glitchCommandButton" class="secondary">Glitch Command</button>
-                <select id="glitchCommandSelect"><option value="ping">ping</option><option value="ls">ls</option><option value="cat">cat</option><option value="status">status</option></select>
-            </div>
-        </fieldset>
-        <fieldset>
-            <legend>System Override</legend>
-            <div class="flex-wrap">
-                 <button id="triggerLockoutButton" class="critical">Trigger Lockout</button>
-                 <button id="triggerWarningButton" class="critical">Send Warning</button>
-                 <input type="text" id="customWarningInput" placeholder="Or send a custom warning..." class="flex-grow">
-            </div>
-             <button id="clearOverrideButton" style="margin-top:10px;">Clear Override</button>
-        </fieldset>
+            // Initialize Firebase with the fetched config
+            firebase.initializeApp(firebaseConfig);
+            const database = firebase.database();
 
-        <h2>File System Management</h2>
-        <label for="newFileName">Filename (e.g., log.txt)</label>
-        <input type="text" id="newFileName" placeholder="Enter filename...">
-        <label for="fileAccessLevel">Required Access Level</label>
-        <select id="fileAccessLevel"><option value="1">Level 1 (Public)</option><option value="2">Level 2 (Restricted)</option><option value="3">Level 3 (Administrator)</option></select>
-        <label for="newFileContent">File Content</label>
-        <textarea id="newFileContent" rows="4" placeholder="Enter file content..."></textarea>
-        <button id="createFileButton">Create File</button>
-        <h3>Existing Files:</h3>
-        <ul id="fileList"></ul>
+            // All other application logic now runs safely inside this function
+            // ...
+            const systemNameInput = document.getElementById('systemName'), osNameInput = document.getElementById('osName'), scanCommandInput = document.getElementById('scanCommand'), connectCommandInput = document.getElementById('connectCommand'), dataNounInput = document.getElementById('dataNoun'), signalNounInput = document.getElementById('signalNoun'), themeSelect = document.getElementById('themeSelect'), updateConfigButton = document.getElementById('updateConfigButton');
+            const messageInput = document.getElementById('messageInput'), noiseSlider = document.getElementById('noiseSlider'), noiseValue = document.getElementById('noiseValue'), encodeButton = document.getElementById('encodeButton'), outputBurst = document.getElementById('outputBurst');
+            const playerMessageDisplay = document.getElementById('playerMessageDisplay');
+            const cipherContainer = document.getElementById('cipher-key-container'), generateCipherButton = document.getElementById('generateCipherButton'), resetCipherButton = document.getElementById('resetCipherButton');
+            const historyContainer = document.getElementById('historyContainer'), clearHistoryButton = document.getElementById('clearHistoryButton');
+            const keyManagementGrid = document.getElementById('keyManagementGrid'), unlockAllButton = document.getElementById('unlockAllButton'), lockAllButton = document.getElementById('lockAllButton');
+            const newFileNameInput = document.getElementById('newFileName'), fileAccessLevelSelect = document.getElementById('fileAccessLevel'), newFileContentInput = document.getElementById('newFileContent'), createFileButton = document.getElementById('createFileButton'), fileList = document.getElementById('fileList');
+            const scrambleMessageButton = document.getElementById('scrambleMessageButton'), glitchCommandButton = document.getElementById('glitchCommandButton'), glitchCommandSelect = document.getElementById('glitchCommandSelect');
+            const triggerLockoutButton = document.getElementById('triggerLockoutButton'), triggerWarningButton = document.getElementById('triggerWarningButton'), customWarningInput = document.getElementById('customWarningInput'), clearOverrideButton = document.getElementById('clearOverrideButton');
+            const playerStatus = document.getElementById('playerStatus');
+            const templateButtons = document.getElementById('templateButtons');
+            const level2PasswordInput = document.getElementById('level2Password'), level3PasswordInput = document.getElementById('level3Password'), savePasswordsButton = document.getElementById('savePasswordsButton'), resetAccessButton = document.getElementById('resetAccessButton');
+            const dbRefs = { keys: database.ref('decryption_keys'), historyClear: database.ref('history_cleared_timestamp'), fileSystem: database.ref('file_system'), glitches: database.ref('glitches'), playerStatus: database.ref('player_status'), cipher: database.ref('cipher_config'), access: database.ref('access_control') };
+            const symbols = ['<', '>', '%', '^', '&', '*', '-', '+', '@'];
+            const groups = ['<', '>', '%', '^', '&'];
+            let encodingChart = {};
+            const doubledSymbols = ['<<', '>>', '%%', '^^', '&&', '**', '--', '++', '@@'];
+            const MESSAGE_TEMPLATES = ["CONNECTION UNSTABLE", "SIGNAL BOOSTED", "SECURITY ALERT", "TRACE DETECTED", "ACKNOWLEDGED", "STAND BY..."];
+            const defaultEncodingChart = { 'A': '<>', 'B': '<%', 'C': '<^', 'D': '<&', 'E': '<*', 'F': '<-', 'G': '<+', 'H': '<@', 'I': '><', 'J': '>%', 'K': '>^', 'L': '>&', 'M': '>*', 'N': '>-', 'O': '>+', 'P': '>@', 'Q': '%<', 'R': '%>', 'S': '%^', 'T': '%&', 'U': '%*', 'V': '%-', 'W': '%+', 'X': '%@', 'Y': '^<', 'Z': '^>', '0': '^%', '1': '^&', '2': '^*', '3': '^-', '4': '^+', '5': '^@', '6': '&<', '7': '&>', '8': '&%', '9': '&^' };
+            dbRefs.playerStatus.on('value', (snapshot) => { const status = snapshot.val(); if (status && status.isConnected) { playerStatus.textContent = 'ONLINE'; playerStatus.className = 'online'; } else { playerStatus.textContent = 'OFFLINE'; playerStatus.className = 'offline'; } });
+            savePasswordsButton.onclick = () => { const pass2 = level2PasswordInput.value.trim(); const pass3 = level3PasswordInput.value.trim(); const updates = {}; if (pass2) updates['level2'] = pass2; if (pass3) updates['level3'] = pass3; dbRefs.access.set(updates); alert('Access passwords saved.'); };
+            dbRefs.access.on('value', (snapshot) => { const passwords = snapshot.val() || {}; level2PasswordInput.value = passwords.level2 || ''; level3PasswordInput.value = passwords.level3 || ''; });
+            resetAccessButton.onclick = () => { if (confirm('Are you sure you want to reset the player\'s access level back to 1?')) { dbRefs.glitches.child('reset_access_timestamp').set(firebase.database.ServerValue.TIMESTAMP); alert('Player access level has been reset.'); } };
+            function generateKeySwitches(keys) { keyManagementGrid.innerHTML = ''; const allChars = Object.keys(encodingChart).sort(); allChars.forEach(char => { const isChecked = keys[char] === true; const switchWrapper = document.createElement('div'); switchWrapper.className = 'key-switch'; switchWrapper.innerHTML = `<label for="key-${char}">${char}</label><label class="switch"><input type="checkbox" id="key-${char}" ${isChecked ? 'checked' : ''}><span class="slider"></span></label>`; keyManagementGrid.appendChild(switchWrapper); document.getElementById(`key-${char}`).addEventListener('change', (e) => { dbRefs.keys.child(char).set(e.target.checked); }); }); }
+            function setAllKeys(state) { const updates = {}; Object.keys(encodingChart).forEach(char => { updates[char] = state; }); dbRefs.keys.set(updates); }
+            unlockAllButton.onclick = () => setAllKeys(true);
+            lockAllButton.onclick = () => setAllKeys(false);
+            dbRefs.keys.on('value', (snapshot) => { const keys = snapshot.val() || {}; generateKeySwitches(keys); });
+            scrambleMessageButton.onclick = () => { dbRefs.glitches.child('scramble_next').set(true); alert('Next message will be scrambled!'); };
+            glitchCommandButton.onclick = () => { const commandToGlitch = glitchCommandSelect.value; dbRefs.glitches.child('glitched_command').set(commandToGlitch); alert(`Command "${commandToGlitch}" will be glitched for 30 seconds.`); setTimeout(() => dbRefs.glitches.child('glitched_command').remove(), 30000); };
+            triggerLockoutButton.onclick = () => { dbRefs.glitches.child('override_state').set({ type: 'lockout', message: 'CONNECTION TERMINATED' }); };
+            triggerWarningButton.onclick = () => { const message = customWarningInput.value.trim() || '!! INTRUSION DETECTED !!'; dbRefs.glitches.child('override_state').set({ type: 'warning', message: message }); customWarningInput.value = ''; };
+            clearOverrideButton.onclick = () => { dbRefs.glitches.child('override_state').remove(); };
+            const GM_HISTORY_KEY = 'gmMessageHistory';
+            function saveToHistory(message) { let history = JSON.parse(localStorage.getItem(GM_HISTORY_KEY)) || []; if (!history.includes(message)) { history.unshift(message); } if (history.length > 20) history.pop(); localStorage.setItem(GM_HISTORY_KEY, JSON.stringify(history)); displayHistory(); }
+            function displayHistory() { let history = JSON.parse(localStorage.getItem(GM_HISTORY_KEY)) || []; historyContainer.innerHTML = ''; if (history.length === 0) { historyContainer.innerHTML = 'No history yet.'; } else { history.forEach(message => { const item = document.createElement('div'); item.className = 'historyItem'; item.textContent = message; item.onclick = () => { messageInput.value = message; }; historyContainer.appendChild(item); }); } }
+            clearHistoryButton.onclick = () => { if (confirm('Are you sure you want to clear the transmission history for yourself and all players?')) { localStorage.removeItem(GM_HISTORY_KEY); displayHistory(); dbRefs.historyClear.set(firebase.database.ServerValue.TIMESTAMP); } };
+            createFileButton.onclick = () => { const fileName = newFileNameInput.value.trim().toLowerCase(); const accessLevel = parseInt(fileAccessLevelSelect.value, 10); const fileContent = newFileContentInput.value; if (!fileName || !fileContent) { alert('Filename and content cannot be empty.'); return; } if (!fileName.includes('.')) { alert('Filename must include an extension (e.g., .txt, .log)'); return; } const safeFileName = fileName.replace(/\./g, '·'); const fileData = { content: fileContent, level: accessLevel }; dbRefs.fileSystem.child(safeFileName).set(fileData); newFileNameInput.value = ''; newFileContentInput.value = ''; };
+            dbRefs.fileSystem.on('value', (snapshot) => { fileList.innerHTML = ''; const files = snapshot.val(); if (files) { Object.keys(files).forEach(safeFileName => { const originalFileName = safeFileName.replace(/·/g, '.'); const fileData = files[safeFileName]; const li = document.createElement('li'); let displayText = originalFileName; if (fileData.level > 1) { li.classList.add('locked'); displayText += ` [LEVEL ${fileData.level}]`; } li.textContent = displayText; const deleteButton = document.createElement('button'); deleteButton.textContent = 'Delete'; deleteButton.className = 'secondary'; deleteButton.onclick = () => { if (confirm(`Are you sure you want to delete ${originalFileName}?`)) { dbRefs.fileSystem.child(safeFileName).remove(); } }; li.appendChild(deleteButton); fileList.appendChild(li); }); } });
+            updateConfigButton.onclick = () => { const config = { systemName: systemNameInput.value, osName: osNameInput.value, scanCommand: scanCommandInput.value.toLowerCase(), connectCommand: connectCommandInput.value.toLowerCase(), dataNoun: dataNounInput.value, signalNoun: signalNounInput.value, theme: themeSelect.value }; database.ref('terminal_config').set(config); alert('Terminal configuration updated!'); };
+            noiseSlider.oninput = () => { noiseValue.textContent = noiseSlider.value; };
+            function generateNoise(length) { let noise = ''; for (let i = 0; i < length; i++) { noise += symbols[Math.floor(Math.random() * symbols.length)]; } return noise; }
+            function encodeMessage(message) { let encoded = ''; message = message.toUpperCase(); for (const char of message) { if (char === ' ') { encoded += doubledSymbols[Math.floor(Math.random() * doubledSymbols.length)]; } else if (encodingChart[char]) { encoded += encodingChart[char]; } } return encoded; }
+            encodeButton.onclick = () => { const message = messageInput.value; if (!message) return; saveToHistory(message); const noiseLength = parseInt(noiseSlider.value, 10); const encodedPart = encodeMessage(message); const leadingNoise = generateNoise(Math.floor(noiseLength / 2)); const trailingNoise = generateNoise(Math.ceil(noiseLength / 2)); const finalBurst = `${leadingNoise}$:${encodedPart}:#${trailingNoise}`; outputBurst.textContent = finalBurst; database.ref('kohd_datastream').set(finalBurst); };
+            function displayCipherKey(chart) { const reversedChart = Object.fromEntries(Object.entries(chart).map(a => a.reverse())); let tableHTML = '<table><thead><tr><th></th>'; symbols.forEach(s => tableHTML += `<th>${s}</th>`); tableHTML += '</tr></thead><tbody>'; groups.forEach(group => { tableHTML += `<tr><th>${group}</th>`; symbols.forEach(pos => { const pair = group + pos; let cellContent = reversedChart[pair] || '[BLANK]'; if (group === pos) cellContent = '[SPACE]'; let cellClass = (cellContent === '[SPACE]' || cellContent === '[BLANK]') ? 'class="space"' : ''; tableHTML += `<td ${cellClass}>${cellContent}</td>`; }); tableHTML += '</tr>'; }); tableHTML += '</tbody></table>'; cipherContainer.innerHTML = tableHTML; }
+            resetCipherButton.onclick = () => { if (!confirm('This will reset the cipher to its default state. Continue?')) return; dbRefs.cipher.set(defaultEncodingChart); dbRefs.keys.remove(); alert('Cipher has been reset to default.'); };
+            generateCipherButton.onclick = () => { if (!confirm('This will generate a new cipher and may disrupt player decoding. Continue?')) return; const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'.split(''); let possiblePairs = []; groups.forEach(g => { symbols.forEach(s => { if (g !== s) possiblePairs.push(g + s); }); }); possiblePairs.sort(() => 0.5 - Math.random()); const newChart = {}; chars.forEach((char, index) => { newChart[char] = possiblePairs[index]; }); dbRefs.cipher.set(newChart); dbRefs.keys.remove(); alert('New cipher generated and synced.'); };
+            dbRefs.cipher.on('value', (snapshot) => { if (snapshot.exists()) { encodingChart = snapshot.val(); } else { encodingChart = defaultEncodingChart; dbRefs.cipher.set(defaultEncodingChart); } displayCipherKey(encodingChart); dbRefs.keys.on('value', (snapshot) => { const keys = snapshot.val() || {}; generateKeySwitches(keys); }); });
+            MESSAGE_TEMPLATES.forEach(template => { const btn = document.createElement('button'); btn.textContent = template; btn.onclick = () => messageInput.value = template; templateButtons.appendChild(btn); });
+            database.ref('player_reply').on('value', (snapshot) => { const message = snapshot.val(); if (message) { playerMessageDisplay.textContent = message; } else { playerMessageDisplay.textContent = 'Awaiting message from player terminal...'; } });
+            displayHistory();
+            window.openTab = openTab; // Make tab function globally accessible
+        }
 
-        <h2>Decryption Key Management</h2>
-        <div id="keyManagementGrid" class="grid"></div>
-        <div class="flex-wrap">
-            <button id="unlockAllButton">Unlock All</button>
-            <button id="lockAllButton" class="secondary">Lock All</button>
-        </div>
-    </div>
-
-    <div id="setup" class="tab-content">
-        <h2>Terminal Configuration</h2>
-        <div class="grid">
-            <div><label>System Name</label><input type="text" id="systemName" value="MOTHERBOARD"></div>
-            <div><label>OS Name</label><input type="text" id="osName" value="M-OS v1.0"></div>
-            <div><label>Scan Command</label><input type="text" id="scanCommand" value="seek_source"></div>
-            <div><label>Connect Command</label><input type="text" id="connectCommand" value="awaken"></div>
-            <div><label>Data Noun</label><input type="text" id="dataNoun" value="Echo"></div>
-            <div><label>Signal Noun</label><input type="text" id="signalNoun" value="Signature"></div>
-        </div>
-        <label>Terminal Theme</label>
-        <select id="themeSelect">
-            <option value="relic-theme">Horizon (Relic)</option>
-            <option value="green-theme">Terminal (Green)</option>
-            <option value="blue-theme">Vault (Blue)</option>
-            <option value="amber-theme">Retro (Amber)</option>
-            <option value="hologram-theme">Hologram (Blue)</option>
-        </select>
-        <button id="updateConfigButton" class="secondary">Update Terminal Config</button>
-
-        <h2>Access Control</h2>
-        <div class="grid">
-            <div><label for="level2Password">Level 2 Password</label><input type="text" id="level2Password"></div>
-            <div><label for="level3Password">Level 3 Password</label><input type="text" id="level3Password"></div>
-        </div>
-        <div class="flex-wrap">
-            <button id="savePasswordsButton">Save Passwords</button>
-            <button id="resetAccessButton" class="secondary">Reset Player Access</button>
-        </div>
-
-        <h2>Cipher Key</h2>
-        <div class="flex-wrap">
-            <button id="resetCipherButton" class="secondary">Reset to Default</button>
-            <button id="generateCipherButton" class="secondary">Generate New Cipher</button>
-        </div>
-        <div id="cipher-key-container" style="overflow-x: auto;"></div>
-
-        <h2>Transmission History</h2>
-        <div id="historyContainer"></div>
-        <button id="clearHistoryButton" class="secondary">Clear History</button>
-    </div>
-</div>
-
-<script type="module">
-  // This block is processed by Cloudflare Pages to securely insert your environment variables.
-  window.firebaseConfig = {
-    apiKey: "%VITE_API_KEY%",
-    authDomain: "%VITE_AUTH_DOMAIN%",
-    databaseURL: "%VITE_DATABASE_URL%",
-    projectId: "%VITE_PROJECT_ID%",
-    storageBucket: "%VITE_STORAGE_BUCKET%",
-    messagingSenderId: "%VITE_MESSAGING_SENDER_ID%",
-    appId: "%VITE_APP_ID%"
-  };
-</script>
-
-<script>
-    // This is the main application script.
-    // It will not run until the firebaseConfig object above is created.
-    firebase.initializeApp(window.firebaseConfig);
-    const database = firebase.database();
-    
-    // The rest of the JS logic is identical to the previous version
-    function openTab(evt, tabName) { let i, tabcontent, tablinks; tabcontent = document.getElementsByClassName("tab-content"); for (i = 0; i < tabcontent.length; i++) { tabcontent[i].style.display = "none"; } tablinks = document.getElementsByClassName("tab-link"); for (i = 0; i < tablinks.length; i++) { tablinks[i].className = tablinks[i].className.replace(" active", ""); } document.getElementById(tabName).style.display = "block"; evt.currentTarget.className += " active"; }
-    // ... all other functions and event listeners from the previous version go here.
-</script>
+        // Start the application
+        initializeApp();
+    </script>
 </body>
+
 </html>

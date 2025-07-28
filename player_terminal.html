@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -7,145 +8,401 @@
     <style>
         /* CSS is identical to the previous version */
         @import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=VT323&family=Orbitron&display=swap');
-        html, body { height: 100%; margin: 0; }
-        body { display: flex; flex-direction: column; transition: background-color 0.3s, color 0.3s; }
-        #terminal { flex-grow: 1; overflow-y: auto; padding: 10px; cursor: text; position: relative; }
-        .line { white-space: pre-wrap; word-wrap: break-word; line-height: 1.4; }
-        .prompt { display: flex; }
-        .prompt-text { flex-shrink: 0; }
-        #commandInput { background-color: transparent; border: none; font-family: inherit; font-size: inherit; flex-grow: 1; padding: 0; margin: 0; color: inherit; }
-        #commandInput:focus { outline: none; }
-        body.relic-theme { background-color: #1a2123; color: #d4d4d4; font-family: 'Share Tech Mono', monospace; font-size: 18px; }
-        .relic-theme .prompt-text, .relic-theme .error-msg, .relic-theme .data-msg-header, .relic-theme .file-locked { color: #E8772E; }
-        .relic-theme .system-msg, .relic-theme .data-msg-body { color: #00E5FF; }
-        .relic-theme #qol-buttons button { background-color: rgba(232, 119, 46, 0.2); border: 1px solid rgba(232, 119, 46, 0.5); color: rgba(232, 119, 46, 0.8); }
-        body.green-theme { background-color: #0a0a0a; color: #3f3; font-family: 'VT323', monospace; font-size: 24px; }
-        .green-theme #terminal { text-shadow: 0 0 4px #3f3; }
-        .green-theme .prompt-text, .green-theme .error-msg, .green-theme .data-msg-header, .green-theme .system-msg, .green-theme .data-msg-body, .green-theme .file-locked { color: #3f3; }
-        .green-theme #qol-buttons button { background-color: rgba(51, 255, 51, 0.1); border: 1px solid rgba(51, 255, 51, 0.4); color: rgba(51, 255, 51, 0.7); }
-        .green-theme #terminal::after { content: " "; display: block; position: absolute; top: 0; left: 0; bottom: 0; right: 0; background: linear-gradient(to bottom, rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%); background-size: 100% 6px; z-index: 2; pointer-events: none; animation: flicker 0.15s infinite; }
-        body.blue-theme { background-color: #0b112a; color: #74f6ff; font-family: 'Share Tech Mono', monospace; font-size: 18px; }
-        .blue-theme #terminal { text-shadow: 0 0 3px #74f6ff; }
-        .blue-theme .prompt-text, .blue-theme .error-msg, .blue-theme .data-msg-header, .blue-theme .file-locked { color: #51a6ff; }
-        .blue-theme .system-msg, .blue-theme .data-msg-body { color: #74f6ff; }
-        .blue-theme #qol-buttons button { background-color: rgba(81, 166, 255, 0.2); border: 1px solid rgba(81, 166, 255, 0.5); color: rgba(81, 166, 255, 0.8); }
-        body.amber-theme { background-color: #1a1000; color: #ffb000; font-family: 'Share Tech Mono', monospace; font-size: 19px; }
-        .amber-theme #terminal { text-shadow: 0 0 4px #ffb000; }
-        .amber-theme .prompt-text, .amber-theme .error-msg, .amber-theme .data-msg-header, .amber-theme .system-msg, .amber-theme .data-msg-body, .amber-theme .file-locked { color: #ffb000; }
-        .amber-theme #qol-buttons button { background-color: rgba(255, 176, 0, 0.15); border: 1px solid rgba(255, 176, 0, 0.4); color: rgba(255, 176, 0, 0.8); }
-        body.hologram-theme { background-color: #030409; background-image: url('https://cdn.pixabay.com/photo/2018/08/10/12/11/binary-3596575_1280.jpg'); background-size: cover; background-position: center; color: #00dfff; font-family: 'Orbitron', sans-serif; font-size: 20px; }
-        .hologram-theme #terminal { background: radial-gradient(ellipse at center, rgba(10, 20, 40, 0.8) 0%, rgba(10, 20, 40, 0.4) 70%, transparent 100%); animation: holo-flicker 8s infinite linear; }
-        .hologram-theme .line { text-shadow: 0 0 2px #00dfff, 0 0 5px #00dfff, 0 0 10px #00dfff, 0 0 20px #257a8a; }
-        .hologram-theme .prompt-text, .hologram-theme .error-msg, .hologram-theme .data-msg-header, .hologram-theme .file-locked { color: #8effff; }
-        .hologram-theme .system-msg, .hologram-theme .data-msg-body { color: #00dfff; }
-        .hologram-theme #qol-buttons button { background-color: rgba(0, 223, 255, 0.1); border: 1px solid rgba(0, 223, 255, 0.4); color: rgba(0, 223, 255, 0.7); }
-        @keyframes holo-flicker { 0%, 100% { opacity: 0.95; } 50% { opacity: 1; } }
-        @keyframes flicker { 0% { opacity: 0.27; } 20% { opacity: 0.5; } 40% { opacity: 0.3; } 60% { opacity: 0.7; } 80% { opacity: 0.4; } 100% { opacity: 0.6; } }
-        #system-override-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0, 0, 0, 0.9); color: #ff4136; z-index: 10000; justify-content: center; align-items: center; text-align: center; font-size: 2.5em; text-transform: uppercase; }
-        #system-override-overlay.warning { color: #FFDC00; }
-        #qol-buttons { position: fixed; bottom: 10px; right: 10px; z-index: 5000; }
-        #qol-buttons button { font-family: inherit; padding: 5px 10px; cursor: pointer; border-radius: 4px; font-size: 16px; }
+
+        html,
+        body {
+            height: 100%;
+            margin: 0;
+        }
+
+        body {
+            display: flex;
+            flex-direction: column;
+            transition: background-color 0.3s, color 0.3s;
+        }
+
+        #terminal {
+            flex-grow: 1;
+            overflow-y: auto;
+            padding: 10px;
+            cursor: text;
+            position: relative;
+        }
+
+        .line {
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            line-height: 1.4;
+        }
+
+        .prompt {
+            display: flex;
+        }
+
+        .prompt-text {
+            flex-shrink: 0;
+        }
+
+        #commandInput {
+            background-color: transparent;
+            border: none;
+            font-family: inherit;
+            font-size: inherit;
+            flex-grow: 1;
+            padding: 0;
+            margin: 0;
+            color: inherit;
+        }
+
+        #commandInput:focus {
+            outline: none;
+        }
+
+        body.relic-theme {
+            background-color: #1a2123;
+            color: #d4d4d4;
+            font-family: 'Share Tech Mono', monospace;
+            font-size: 18px;
+        }
+
+        .relic-theme .prompt-text,
+        .relic-theme .error-msg,
+        .relic-theme .data-msg-header,
+        .relic-theme .file-locked {
+            color: #E8772E;
+        }
+
+        .relic-theme .system-msg,
+        .relic-theme .data-msg-body {
+            color: #00E5FF;
+        }
+
+        .relic-theme #qol-buttons button {
+            background-color: rgba(232, 119, 46, 0.2);
+            border: 1px solid rgba(232, 119, 46, 0.5);
+            color: rgba(232, 119, 46, 0.8);
+        }
+
+        body.green-theme {
+            background-color: #0a0a0a;
+            color: #3f3;
+            font-family: 'VT323', monospace;
+            font-size: 24px;
+        }
+
+        .green-theme #terminal {
+            text-shadow: 0 0 4px #3f3;
+        }
+
+        .green-theme .prompt-text,
+        .green-theme .error-msg,
+        .green-theme .data-msg-header,
+        .green-theme .system-msg,
+        .green-theme .data-msg-body,
+        .green-theme .file-locked {
+            color: #3f3;
+        }
+
+        .green-theme #qol-buttons button {
+            background-color: rgba(51, 255, 51, 0.1);
+            border: 1px solid rgba(51, 255, 51, 0.4);
+            color: rgba(51, 255, 51, 0.7);
+        }
+
+        .green-theme #terminal::after {
+            content: " ";
+            display: block;
+            position: absolute;
+            top: 0;
+            left: 0;
+            bottom: 0;
+            right: 0;
+            background: linear-gradient(to bottom, rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%);
+            background-size: 100% 6px;
+            z-index: 2;
+            pointer-events: none;
+            animation: flicker 0.15s infinite;
+        }
+
+        body.blue-theme {
+            background-color: #0b112a;
+            color: #74f6ff;
+            font-family: 'Share Tech Mono', monospace;
+            font-size: 18px;
+        }
+
+        .blue-theme #terminal {
+            text-shadow: 0 0 3px #74f6ff;
+        }
+
+        .blue-theme .prompt-text,
+        .blue-theme .error-msg,
+        .blue-theme .data-msg-header,
+        .blue-theme .file-locked {
+            color: #51a6ff;
+        }
+
+        .blue-theme .system-msg,
+        .blue-theme .data-msg-body {
+            color: #74f6ff;
+        }
+
+        .blue-theme #qol-buttons button {
+            background-color: rgba(81, 166, 255, 0.2);
+            border: 1px solid rgba(81, 166, 255, 0.5);
+            color: rgba(81, 166, 255, 0.8);
+        }
+
+        body.amber-theme {
+            background-color: #1a1000;
+            color: #ffb000;
+            font-family: 'Share Tech Mono', monospace;
+            font-size: 19px;
+        }
+
+        .amber-theme #terminal {
+            text-shadow: 0 0 4px #ffb000;
+        }
+
+        .amber-theme .prompt-text,
+        .amber-theme .error-msg,
+        .amber-theme .data-msg-header,
+        .amber-theme .system-msg,
+        .amber-theme .data-msg-body,
+        .amber-theme .file-locked {
+            color: #ffb000;
+        }
+
+        .amber-theme #qol-buttons button {
+            background-color: rgba(255, 176, 0, 0.15);
+            border: 1px solid rgba(255, 176, 0, 0.4);
+            color: rgba(255, 176, 0, 0.8);
+        }
+
+        body.hologram-theme {
+            background-color: #030409;
+            background-image: url('https://cdn.pixabay.com/photo/2018/08/10/12/11/binary-3596575_1280.jpg');
+            background-size: cover;
+            background-position: center;
+            color: #00dfff;
+            font-family: 'Orbitron', sans-serif;
+            font-size: 20px;
+        }
+
+        .hologram-theme #terminal {
+            background: radial-gradient(ellipse at center, rgba(10, 20, 40, 0.8) 0%, rgba(10, 20, 40, 0.4) 70%, transparent 100%);
+            animation: holo-flicker 8s infinite linear;
+        }
+
+        .hologram-theme .line {
+            text-shadow: 0 0 2px #00dfff, 0 0 5px #00dfff, 0 0 10px #00dfff, 0 0 20px #257a8a;
+        }
+
+        .hologram-theme .prompt-text,
+        .hologram-theme .error-msg,
+        .hologram-theme .data-msg-header,
+        .hologram-theme .file-locked {
+            color: #8effff;
+        }
+
+        .hologram-theme .system-msg,
+        .hologram-theme .data-msg-body {
+            color: #00dfff;
+        }
+
+        .hologram-theme #qol-buttons button {
+            background-color: rgba(0, 223, 255, 0.1);
+            border: 1px solid rgba(0, 223, 255, 0.4);
+            color: rgba(0, 223, 255, 0.7);
+        }
+
+        @keyframes holo-flicker {
+
+            0%,
+            100% {
+                opacity: 0.95;
+            }
+
+            50% {
+                opacity: 1;
+            }
+        }
+
+        @keyframes flicker {
+            0% {
+                opacity: 0.27;
+            }
+
+            20% {
+                opacity: 0.5;
+            }
+
+            40% {
+                opacity: 0.3;
+            }
+
+            60% {
+                opacity: 0.7;
+            }
+
+            80% {
+                opacity: 0.4;
+            }
+
+            100% {
+                opacity: 0.6;
+            }
+        }
+
+        #system-override-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.9);
+            color: #ff4136;
+            z-index: 10000;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+            font-size: 2.5em;
+            text-transform: uppercase;
+        }
+
+        #system-override-overlay.warning {
+            color: #FFDC00;
+        }
+
+        #qol-buttons {
+            position: fixed;
+            bottom: 10px;
+            right: 10px;
+            z-index: 5000;
+        }
+
+        #qol-buttons button {
+            font-family: inherit;
+            padding: 5px 10px;
+            cursor: pointer;
+            border-radius: 4px;
+            font-size: 16px;
+        }
     </style>
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
 </head>
+
 <body class="relic-theme">
     <div id="system-override-overlay"></div>
     <div id="terminal">
-        <div class="prompt"><span class="prompt-text">>&nbsp;</span><input type="text" id="commandInput" autofocus></div>
+        <div class="prompt"><span class="prompt-text">>&nbsp;</span><input type="text" id="commandInput" autofocus>
+        </div>
     </div>
     <div id="qol-buttons">
         <button id="clear-button">[ CLS ]</button>
     </div>
 
-<script>
-    // **FIXED:** Configuration and initialization are now in one script block.
-    const firebaseConfig = {
-      apiKey: "%VITE_API_KEY%",
-      authDomain: "%VITE_AUTH_DOMAIN%",
-      databaseURL: "%VITE_DATABASE_URL%",
-      projectId: "%VITE_PROJECT_ID%",
-      storageBucket: "%VITE_STORAGE_BUCKET%",
-      messagingSenderId: "%VITE_MESSAGING_SENDER_ID%",
-      appId: "%VITE_APP_ID%"
-    };
+    <script>
+        // **FIXED:** Configuration and initialization are now in one script block.
+        async function initializeApp() {
+            // Fetch the configuration from our secure function
+            const response = await fetch('/config');
+            const firebaseConfig = await response.json();
 
-    firebase.initializeApp(firebaseConfig);
-    const database = firebase.database();
+            // Initialize Firebase with the fetched config
+            firebase.initializeApp(firebaseConfig);
+            const database = firebase.database();
 
-    // The rest of the JS logic is identical to the previous version
-    // ...
-    const terminal = document.getElementById('terminal');
-    const commandInput = document.getElementById('commandInput');
-    const overrideOverlay = document.getElementById('system-override-overlay');
-    const clearButton = document.getElementById('clear-button');
-    let isConnected = false, isScanning = false, isTyping = false;
-    let config = { theme: 'relic-theme', systemName: "SYSTEM", osName: "OS", scanCommand: "scan", connectCommand: "connect", dataNoun: "Data", signalNoun: "Signal" };
-    let unlockedKeys = {}, fileSystem = {}, glitches = {}, accessPasswords = {};
-    let clearanceLevel = 1;
-    let decodingChart = {};
-    const defaultEncodingChart = {'A': '<>', 'B': '<%', 'C': '<^', 'D': '<&', 'E': '<*', 'F': '<-', 'G': '<+', 'H': '<@','I': '><', 'J': '>%', 'K': '>^', 'L': '>&', 'M': '>*', 'N': '>-', 'O': '>+', 'P': '>@','Q': '%<', 'R': '%>', 'S': '%^', 'T': '%&', 'U': '%*', 'V': '%-', 'W': '%+', 'X': '%@','Y': '^<', 'Z': '^>', '0': '^%', '1': '^&', '2': '^*', '3': '^-', '4': '^+', '5': '^@','6': '&<', '7': '&>', '8': '&%', '9': '&^'};
-    decodingChart = Object.fromEntries(Object.entries(defaultEncodingChart).map(a => a.reverse()));
-    const doubledSymbols = ['<<', '>>', '%%', '^^', '&&', '**', '--', '++', '@@'];
-    const allSymbols = [ ...doubledSymbols, '$',':','#','<','>','%','^','&','*','-','+','@'];
-    const RECEIVED_HISTORY_KEY = 'receivedMessageHistory';
-    function saveMessageToHistory(message) { let history = JSON.parse(localStorage.getItem(RECEIVED_HISTORY_KEY)) || []; if (!history.length || history[0] !== message) { history.unshift(message); if (history.length > 20) history.pop(); localStorage.setItem(RECEIVED_HISTORY_KEY, JSON.stringify(history)); } }
-    function partiallyDecode(fullStream) { if (Object.keys(decodingChart).length === 0) return fullStream; const parts = fullStream.match(/(.*?)\$:(.*):#(.*)/); if (!parts) return fullStream; const leadingNoise = parts[1], encodedPart = parts[2], trailingNoise = parts[3]; let decodedContent = ''; for (let i = 0; i < encodedPart.length; i += 2) { const pair = encodedPart.substring(i, i + 2); const char = decodingChart[pair]; if (char && unlockedKeys[char]) { decodedContent += char; } else { decodedContent += pair; } } return `${leadingNoise}$:${decodedContent}:#${trailingNoise}`; }
-    function typeLine(text, className = '', speed = 15, callback = () => {}) { isTyping = true; const line = document.createElement('div'); line.className = 'line'; if (className) { className.split(' ').forEach(cls => line.classList.add(cls)); } terminal.insertBefore(line, terminal.lastElementChild); let i = 0; const interval = setInterval(() => { if (i < text.length) { line.innerHTML += text.charAt(i); i++; window.scrollTo(0, document.body.scrollHeight); } else { clearInterval(interval); isTyping = false; callback(); } }, speed); }
-    function printLine(text, className = '') { const line = document.createElement('div'); line.innerHTML = text; line.className = 'line'; if (className) { className.split(' ').forEach(cls => line.classList.add(cls)); } terminal.insertBefore(line, terminal.lastElementChild); }
-    function drawWelcomeMessage() { const welcomeLines = terminal.querySelectorAll('.welcome-line'); welcomeLines.forEach(line => line.remove()); typeLine(`Attempting to interface with ${config.systemName}... OK`, 'system-msg welcome-line', 20, () => { typeLine(`${config.osName} -- Ready.`, 'system-msg welcome-line', 20, () => { typeLine(`Type 'help' for command list.`, 'welcome-line', 20, () => { printLine('&nbsp;', 'welcome-line'); }); }); }); }
-    function handleCommand(fullCmd) {
-        if (glitches.glitched_command && fullCmd.startsWith(glitches.glitched_command)) { printLine(`> ${fullCmd}`, 'prompt-text'); typeLine(`//_COMMAND MALFUNCTION: [${glitches.glitched_command.toUpperCase()}] OFFLINE_//`, 'error-msg'); return; }
-        printLine(`> ${fullCmd}`, 'prompt-text');
-        const [cmd, ...args] = fullCmd.split(' ');
-        const argString = args.join(' ');
-        if (cmd === 'help') { typeLine(`${config.systemName} Command List:`, 'system-msg'); typeLine(`  help          - Displays this list`); typeLine(`  elevate <pass>  - Elevate security clearance`); typeLine(`  ls            - Lists files in the current directory`); typeLine(`  cat <file>    - Displays the content of a file`); typeLine(`  ${config.scanCommand.padEnd(13, ' ')} - Scan for active data ${config.signalNoun.toLowerCase()}s`); typeLine(`  ${config.connectCommand.padEnd(13, ' ')} - Connect to a detected ${config.signalNoun.toLowerCase()}`); typeLine(`  reply <msg>   - Sends a message back to source`); typeLine(`  ping          - Checks connection to the source`); typeLine(`  status        - Displays current system status`); typeLine(`  history       - Shows received message history`); typeLine(`  cls           - Clears the display`);
-        } else if (cmd === 'elevate') {
-            const pass = argString.trim();
-            if (!pass) { typeLine('ERROR: Missing password. Usage: elevate <password>', 'error-msg'); return; }
-            if (pass === accessPasswords.level3 && clearanceLevel < 3) {
-                clearanceLevel = 3;
-                typeLine(`// ACCESS GRANTED. SECURITY CLEARANCE ELEVATED TO LEVEL 3 //`, 'system-msg');
-            } else if (pass === accessPasswords.level2 && clearanceLevel < 2) {
-                clearanceLevel = 2;
-                typeLine(`// ACCESS GRANTED. SECURITY CLEARANCE ELEVATED TO LEVEL 2 //`, 'system-msg');
-            } else {
-                typeLine('Authentication failed: Invalid credentials.', 'error-msg');
+            // All other application logic now runs safely inside this function
+            // ...
+            const terminal = document.getElementById('terminal');
+            const commandInput = document.getElementById('commandInput');
+            const overrideOverlay = document.getElementById('system-override-overlay');
+            const clearButton = document.getElementById('clear-button');
+            let isConnected = false, isScanning = false, isTyping = false;
+            let config = { theme: 'relic-theme', systemName: "SYSTEM", osName: "OS", scanCommand: "scan", connectCommand: "connect", dataNoun: "Data", signalNoun: "Signal" };
+            let unlockedKeys = {}, fileSystem = {}, glitches = {}, accessPasswords = {};
+            let clearanceLevel = 1;
+            let decodingChart = {};
+            const defaultEncodingChart = { 'A': '<>', 'B': '<%', 'C': '<^', 'D': '<&', 'E': '<*', 'F': '<-', 'G': '<+', 'H': '<@', 'I': '><', 'J': '>%', 'K': '>^', 'L': '>&', 'M': '>*', 'N': '>-', 'O': '>+', 'P': '>@', 'Q': '%<', 'R': '%>', 'S': '%^', 'T': '%&', 'U': '%*', 'V': '%-', 'W': '%+', 'X': '%@', 'Y': '^<', 'Z': '^>', '0': '^%', '1': '^&', '2': '^*', '3': '^-', '4': '^+', '5': '^@', '6': '&<', '7': '&>', '8': '&%', '9': '&^' };
+            decodingChart = Object.fromEntries(Object.entries(defaultEncodingChart).map(a => a.reverse()));
+            const doubledSymbols = ['<<', '>>', '%%', '^^', '&&', '**', '--', '++', '@@'];
+            const allSymbols = [...doubledSymbols, '$', ':', '#', '<', '>', '%', '^', '&', '*', '-', '+', '@'];
+            const RECEIVED_HISTORY_KEY = 'receivedMessageHistory';
+            function saveMessageToHistory(message) { let history = JSON.parse(localStorage.getItem(RECEIVED_HISTORY_KEY)) || []; if (!history.length || history[0] !== message) { history.unshift(message); if (history.length > 20) history.pop(); localStorage.setItem(RECEIVED_HISTORY_KEY, JSON.stringify(history)); } }
+            function partiallyDecode(fullStream) { if (Object.keys(decodingChart).length === 0) return fullStream; const parts = fullStream.match(/(.*?)\$:(.*):#(.*)/); if (!parts) return fullStream; const leadingNoise = parts[1], encodedPart = parts[2], trailingNoise = parts[3]; let decodedContent = ''; for (let i = 0; i < encodedPart.length; i += 2) { const pair = encodedPart.substring(i, i + 2); const char = decodingChart[pair]; if (char && unlockedKeys[char]) { decodedContent += char; } else { decodedContent += pair; } } return `${leadingNoise}$:${decodedContent}:#${trailingNoise}`; }
+            function typeLine(text, className = '', speed = 15, callback = () => { }) { isTyping = true; const line = document.createElement('div'); line.className = 'line'; if (className) { className.split(' ').forEach(cls => line.classList.add(cls)); } terminal.insertBefore(line, terminal.lastElementChild); let i = 0; const interval = setInterval(() => { if (i < text.length) { line.innerHTML += text.charAt(i); i++; window.scrollTo(0, document.body.scrollHeight); } else { clearInterval(interval); isTyping = false; callback(); } }, speed); }
+            function printLine(text, className = '') { const line = document.createElement('div'); line.innerHTML = text; line.className = 'line'; if (className) { className.split(' ').forEach(cls => line.classList.add(cls)); } terminal.insertBefore(line, terminal.lastElementChild); }
+            function drawWelcomeMessage() { const welcomeLines = terminal.querySelectorAll('.welcome-line'); welcomeLines.forEach(line => line.remove()); typeLine(`Attempting to interface with ${config.systemName}... OK`, 'system-msg welcome-line', 20, () => { typeLine(`${config.osName} -- Ready.`, 'system-msg welcome-line', 20, () => { typeLine(`Type 'help' for command list.`, 'welcome-line', 20, () => { printLine('&nbsp;', 'welcome-line'); }); }); }); }
+            function handleCommand(fullCmd) {
+                if (glitches.glitched_command && fullCmd.startsWith(glitches.glitched_command)) { printLine(`> ${fullCmd}`, 'prompt-text'); typeLine(`//_COMMAND MALFUNCTION: [${glitches.glitched_command.toUpperCase()}] OFFLINE_//`, 'error-msg'); return; }
+                printLine(`> ${fullCmd}`, 'prompt-text');
+                const [cmd, ...args] = fullCmd.split(' ');
+                const argString = args.join(' ');
+                if (cmd === 'help') {
+                    typeLine(`${config.systemName} Command List:`, 'system-msg'); typeLine(`  help          - Displays this list`); typeLine(`  elevate <pass>  - Elevate security clearance`); typeLine(`  ls            - Lists files in the current directory`); typeLine(`  cat <file>    - Displays the content of a file`); typeLine(`  ${config.scanCommand.padEnd(13, ' ')} - Scan for active data ${config.signalNoun.toLowerCase()}s`); typeLine(`  ${config.connectCommand.padEnd(13, ' ')} - Connect to a detected ${config.signalNoun.toLowerCase()}`); typeLine(`  reply <msg>   - Sends a message back to source`); typeLine(`  ping          - Checks connection to the source`); typeLine(`  status        - Displays current system status`); typeLine(`  history       - Shows received message history`); typeLine(`  cls           - Clears the display`);
+                } else if (cmd === 'elevate') {
+                    const pass = argString.trim();
+                    if (!pass) { typeLine('ERROR: Missing password. Usage: elevate <password>', 'error-msg'); return; }
+                    if (pass === accessPasswords.level3 && clearanceLevel < 3) {
+                        clearanceLevel = 3;
+                        typeLine(`// ACCESS GRANTED. SECURITY CLEARANCE ELEVATED TO LEVEL 3 //`, 'system-msg');
+                    } else if (pass === accessPasswords.level2 && clearanceLevel < 2) {
+                        clearanceLevel = 2;
+                        typeLine(`// ACCESS GRANTED. SECURITY CLEARANCE ELEVATED TO LEVEL 2 //`, 'system-msg');
+                    } else {
+                        typeLine('Authentication failed: Invalid credentials.', 'error-msg');
+                    }
+                } else if (cmd === 'ls') {
+                    if (!isConnected) { typeLine('ERROR: Not connected to a system.', 'error-msg'); return; } const fileNames = Object.keys(fileSystem); if (fileNames.length > 0) { let output = ''; fileNames.forEach(safeFileName => { const originalFileName = safeFileName.replace(/·/g, '.'); const fileData = fileSystem[safeFileName]; if (fileData.level > clearanceLevel) { output += `<span class="file-locked">${originalFileName} [LEVEL ${fileData.level}]</span>   `; } else { output += `${originalFileName}   `; } }); printLine(output, 'data-msg-body'); } else { typeLine('Directory is empty.'); }
+                } else if (cmd === 'cat') {
+                    if (!isConnected) { typeLine('ERROR: Not connected to a system.', 'error-msg'); return; } const fileName = argString.trim(); const safeFileName = fileName.replace(/\./g, '·'); if (!fileName) { typeLine('ERROR: Missing filename. Usage: cat <filename>', 'error-msg'); } else if (!fileSystem[safeFileName]) { typeLine(`ERROR: File not found: ${fileName}`, 'error-msg'); } else if (fileSystem[safeFileName].level > clearanceLevel) { typeLine(`ERROR: INSUFFICIENT CLEARANCE. ACCESS LEVEL ${fileSystem[safeFileName].level} REQUIRED.`, 'error-msg'); } else { typeLine(`--- BEGIN FILE: ${fileName} ---`, 'data-msg-header'); printLine(fileSystem[safeFileName].content, 'data-msg-body'); typeLine(`--- END FILE: ${fileName} ---`, 'data-msg-header'); }
+                } else if (cmd === config.scanCommand) {
+                    typeLine(`Scanning for kohd-datastream ${config.signalNoun.toLowerCase()}s from ${config.systemName}...`, '', 30, () => { setTimeout(() => { typeLine(`...Faint ${config.signalNoun} detected. Source confirmed: ${config.systemName}.`, 'system-msg'); }, 1500); }); isScanning = true;
+                } else if (cmd === config.connectCommand) {
+                    if (isScanning) { typeLine(`Attempting to synchronize with ${config.systemName}...`, '', 30, () => { isConnected = true; database.ref('player_status').set({ isConnected: true }); typeLine(`Synchronization complete. Interface active. Awaiting ${config.dataNoun}...`, 'system-msg'); }); } else { typeLine(`ERROR: No ${config.signalNoun} detected. Run ${config.scanCommand.toUpperCase()} first.`, 'error-msg'); }
+                } else if (cmd === 'cls') {
+                    const lines = terminal.querySelectorAll('.line:not(.welcome-line)'); lines.forEach(line => line.remove());
+                } else if (cmd === 'ping') {
+                    if (isConnected) { const latency = Math.floor(Math.random() * (150 - 40 + 1)) + 40; typeLine(`PONG! Received reply from ${config.systemName} in ${latency}ms.`, 'system-msg'); } else { typeLine('ERROR: Not connected. Cannot ping target.', 'error-msg'); }
+                } else if (cmd === 'status') {
+                    typeLine(`SYSTEM STATUS:`, 'system-msg'); typeLine(`  Connection:  ${isConnected ? `CONNECTED to ${config.systemName}` : 'OFFLINE'}`); typeLine(`  Clearance:   LEVEL ${clearanceLevel}`); typeLine(`  Data Noun:   ${config.dataNoun}`); typeLine(`  Signal Noun: ${config.signalNoun}`);
+                } else if (cmd === 'reply') {
+                    if (isConnected) { if (argString) { database.ref('player_reply').set(argString); typeLine(`Message sent: "${argString}"`, 'system-msg'); } else { typeLine('ERROR: Cannot send an empty message. Usage: reply <message>', 'error-msg'); } } else { typeLine('ERROR: Must be connected to send a reply.', 'error-msg'); }
+                } else if (cmd === 'history') {
+                    const history = JSON.parse(localStorage.getItem(RECEIVED_HISTORY_KEY)) || []; if (history.length > 0) { typeLine(`Received ${config.dataNoun} History:`, 'system-msg', 20, () => { history.forEach((msg, i) => { const decoded = partiallyDecode(msg); printLine(`${(i + 1).toString().padStart(2, ' ')}: ${decoded}`, 'data-msg-body'); }); }); } else { typeLine(`No message history found.`); }
+                } else { typeLine('//_UNAUTHORIZED COMMAND. LOGGING ATTEMPT..._//', 'error-msg'); }
             }
-        } else if (cmd === 'ls') { if (!isConnected) { typeLine('ERROR: Not connected to a system.', 'error-msg'); return; } const fileNames = Object.keys(fileSystem); if (fileNames.length > 0) { let output = ''; fileNames.forEach(safeFileName => { const originalFileName = safeFileName.replace(/·/g, '.'); const fileData = fileSystem[safeFileName]; if (fileData.level > clearanceLevel) { output += `<span class="file-locked">${originalFileName} [LEVEL ${fileData.level}]</span>   `; } else { output += `${originalFileName}   `; } }); printLine(output, 'data-msg-body'); } else { typeLine('Directory is empty.'); }
-        } else if (cmd === 'cat') { if (!isConnected) { typeLine('ERROR: Not connected to a system.', 'error-msg'); return; } const fileName = argString.trim(); const safeFileName = fileName.replace(/\./g, '·'); if (!fileName) { typeLine('ERROR: Missing filename. Usage: cat <filename>', 'error-msg'); } else if (!fileSystem[safeFileName]) { typeLine(`ERROR: File not found: ${fileName}`, 'error-msg'); } else if (fileSystem[safeFileName].level > clearanceLevel) { typeLine(`ERROR: INSUFFICIENT CLEARANCE. ACCESS LEVEL ${fileSystem[safeFileName].level} REQUIRED.`, 'error-msg'); } else { typeLine(`--- BEGIN FILE: ${fileName} ---`, 'data-msg-header'); printLine(fileSystem[safeFileName].content, 'data-msg-body'); typeLine(`--- END FILE: ${fileName} ---`, 'data-msg-header'); }
-        } else if (cmd === config.scanCommand) { typeLine(`Scanning for kohd-datastream ${config.signalNoun.toLowerCase()}s from ${config.systemName}...`, '', 30, () => { setTimeout(() => { typeLine(`...Faint ${config.signalNoun} detected. Source confirmed: ${config.systemName}.`, 'system-msg'); }, 1500); }); isScanning = true;
-        } else if (cmd === config.connectCommand) { if (isScanning) { typeLine(`Attempting to synchronize with ${config.systemName}...`, '', 30, () => { isConnected = true; database.ref('player_status').set({ isConnected: true }); typeLine(`Synchronization complete. Interface active. Awaiting ${config.dataNoun}...`, 'system-msg'); }); } else { typeLine(`ERROR: No ${config.signalNoun} detected. Run ${config.scanCommand.toUpperCase()} first.`, 'error-msg'); }
-        } else if (cmd === 'cls') { const lines = terminal.querySelectorAll('.line:not(.welcome-line)'); lines.forEach(line => line.remove());
-        } else if (cmd === 'ping') { if (isConnected) { const latency = Math.floor(Math.random() * (150 - 40 + 1)) + 40; typeLine(`PONG! Received reply from ${config.systemName} in ${latency}ms.`, 'system-msg'); } else { typeLine('ERROR: Not connected. Cannot ping target.', 'error-msg'); }
-        } else if (cmd === 'status') { typeLine(`SYSTEM STATUS:`, 'system-msg'); typeLine(`  Connection:  ${isConnected ? `CONNECTED to ${config.systemName}` : 'OFFLINE'}`); typeLine(`  Clearance:   LEVEL ${clearanceLevel}`); typeLine(`  Data Noun:   ${config.dataNoun}`); typeLine(`  Signal Noun: ${config.signalNoun}`);
-        } else if (cmd === 'reply') { if (isConnected) { if (argString) { database.ref('player_reply').set(argString); typeLine(`Message sent: "${argString}"`, 'system-msg'); } else { typeLine('ERROR: Cannot send an empty message. Usage: reply <message>', 'error-msg'); } } else { typeLine('ERROR: Must be connected to send a reply.', 'error-msg'); }
-        } else if (cmd === 'history') { const history = JSON.parse(localStorage.getItem(RECEIVED_HISTORY_KEY)) || []; if (history.length > 0) { typeLine(`Received ${config.dataNoun} History:`, 'system-msg', 20, () => { history.forEach((msg, i) => { const decoded = partiallyDecode(msg); printLine(`${(i + 1).toString().padStart(2, ' ')}: ${decoded}`, 'data-msg-body'); }); }); } else { typeLine(`No message history found.`); }
-        } else { typeLine('//_UNAUTHORIZED COMMAND. LOGGING ATTEMPT..._//', 'error-msg'); }
-    }
-    commandInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') { if (isTyping) return; const cmd = commandInput.value.trim().toLowerCase(); if (cmd) { handleCommand(cmd); } commandInput.value = ''; } });
-    clearButton.onclick = () => { handleCommand('cls'); };
-    terminal.addEventListener('click', (e) => { if (e.target !== commandInput) { commandInput.focus(); } });
-    database.ref('terminal_config').on('value', (snapshot) => { const newConfig = snapshot.val(); if (newConfig) { config = newConfig; document.body.className = config.theme || 'relic-theme'; } else { document.body.className = 'relic-theme'; } drawWelcomeMessage(); });
-    database.ref('decryption_keys').on('value', (snapshot) => { unlockedKeys = snapshot.val() || {}; });
-    database.ref('history_cleared_timestamp').on('value', (snapshot) => { if (snapshot.exists() && isConnected) { localStorage.removeItem(RECEIVED_HISTORY_KEY); typeLine('// REMOTE LOGS PURGED BY SOURCE //', 'system-msg'); } });
-    database.ref('file_system').on('value', (snapshot) => { fileSystem = snapshot.val() || {}; });
-    database.ref('access_control').on('value', (snapshot) => { accessPasswords = snapshot.val() || {}; });
-    database.ref('cipher_config').on('value', (snapshot) => { if (snapshot.exists()) { decodingChart = Object.fromEntries(Object.entries(snapshot.val()).map(a => a.reverse())); if(isConnected) typeLine('// Cipher matrix re-initialized by source //', 'system-msg'); } });
-    database.ref('glitches').on('value', (snapshot) => { glitches = snapshot.val() || {}; const override = glitches.override_state; if (override) { overrideOverlay.textContent = override.message; overrideOverlay.className = override.type; overrideOverlay.style.display = 'flex'; } else { overrideOverlay.style.display = 'none'; } if (glitches.reset_access_timestamp && isConnected) { clearanceLevel = 1; typeLine('// SECURITY CREDENTIALS INVALIDATED. ACCESS LEVEL RESET BY SOURCE. //', 'error-msg'); database.ref('glitches/reset_access_timestamp').remove(); } });
-    database.ref('kohd_datastream').on('value', (snapshot) => {
-        const data = snapshot.val();
-        if (isConnected && data) {
-            if (glitches.scramble_next) { let scrambled = ''; for(let i = 0; i < data.length; i++) { scrambled += allSymbols[Math.floor(Math.random() * allSymbols.length)]; } printLine(`\n>>> INCOMING ${config.dataNoun.toUpperCase()} FROM ${config.systemName} <<<`, 'data-msg-header'); printLine(scrambled, 'data-msg-body'); printLine(`>>> ${config.signalNoun.toUpperCase()} CORRUPTED <<<`, 'data-msg-header'); database.ref('glitches/scramble_next').remove(); return; }
-            const partiallyDecodedMessage = partiallyDecode(data);
-            typeLine(`\n>>> INCOMING ${config.dataNoun.toUpperCase()} FROM ${config.systemName} <<<`, 'data-msg-header', 20, () => {
-                printLine(partiallyDecodedMessage, 'data-msg-body');
-                typeLine(`>>> END OF ${config.dataNoun.toUpperCase()} <<<`, 'data-msg-header');
+            commandInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') { if (isTyping) return; const cmd = commandInput.value.trim().toLowerCase(); if (cmd) { handleCommand(cmd); } commandInput.value = ''; } });
+            clearButton.onclick = () => { handleCommand('cls'); };
+            terminal.addEventListener('click', (e) => { if (e.target !== commandInput) { commandInput.focus(); } });
+            database.ref('terminal_config').on('value', (snapshot) => { const newConfig = snapshot.val(); if (newConfig) { config = newConfig; document.body.className = config.theme || 'relic-theme'; } else { document.body.className = 'relic-theme'; } drawWelcomeMessage(); });
+            database.ref('decryption_keys').on('value', (snapshot) => { unlockedKeys = snapshot.val() || {}; });
+            database.ref('history_cleared_timestamp').on('value', (snapshot) => { if (snapshot.exists() && isConnected) { localStorage.removeItem(RECEIVED_HISTORY_KEY); typeLine('// REMOTE LOGS PURGED BY SOURCE //', 'system-msg'); } });
+            database.ref('file_system').on('value', (snapshot) => { fileSystem = snapshot.val() || {}; });
+            database.ref('access_control').on('value', (snapshot) => { accessPasswords = snapshot.val() || {}; });
+            database.ref('cipher_config').on('value', (snapshot) => { if (snapshot.exists()) { decodingChart = Object.fromEntries(Object.entries(snapshot.val()).map(a => a.reverse())); if (isConnected) typeLine('// Cipher matrix re-initialized by source //', 'system-msg'); } });
+            database.ref('glitches').on('value', (snapshot) => { glitches = snapshot.val() || {}; const override = glitches.override_state; if (override) { overrideOverlay.textContent = override.message; overrideOverlay.className = override.type; overrideOverlay.style.display = 'flex'; } else { overrideOverlay.style.display = 'none'; } if (glitches.reset_access_timestamp && isConnected) { clearanceLevel = 1; typeLine('// SECURITY CREDENTIALS INVALIDATED. ACCESS LEVEL RESET BY SOURCE. //', 'error-msg'); database.ref('glitches/reset_access_timestamp').remove(); } });
+            database.ref('kohd_datastream').on('value', (snapshot) => {
+                const data = snapshot.val();
+                if (isConnected && data) {
+                    if (glitches.scramble_next) { let scrambled = ''; for (let i = 0; i < data.length; i++) { scrambled += allSymbols[Math.floor(Math.random() * allSymbols.length)]; } printLine(`\n>>> INCOMING ${config.dataNoun.toUpperCase()} FROM ${config.systemName} <<<`, 'data-msg-header'); printLine(scrambled, 'data-msg-body'); printLine(`>>> ${config.signalNoun.toUpperCase()} CORRUPTED <<<`, 'data-msg-header'); database.ref('glitches/scramble_next').remove(); return; }
+                    const partiallyDecodedMessage = partiallyDecode(data);
+                    typeLine(`\n>>> INCOMING ${config.dataNoun.toUpperCase()} FROM ${config.systemName} <<<`, 'data-msg-header', 20, () => {
+                        printLine(partiallyDecodedMessage, 'data-msg-body');
+                        typeLine(`>>> END OF ${config.dataNoun.toUpperCase()} <<<`, 'data-msg-header');
+                    });
+                    saveMessageToHistory(data);
+                }
             });
-            saveMessageToHistory(data);
+            window.addEventListener('beforeunload', () => { database.ref('player_status').set({ isConnected: false }); });
         }
-    });
-    window.addEventListener('beforeunload', () => { database.ref('player_status').set({ isConnected: false }); });
-</script>
+
+        // Start the application
+        initializeApp();
+    </script>
 </body>
+
 </html>
