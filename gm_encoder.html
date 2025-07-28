@@ -43,6 +43,10 @@
         .glitch-controls { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
         fieldset { border: 1px solid #3a4a4d; padding: 15px; margin-bottom: 10px; }
         legend { color: #E8772E; padding: 0 5px; font-weight: bold; }
+        #playerStatus { font-size: 1.2em; padding: 5px 10px; border-radius: 5px; }
+        #playerStatus.offline { background-color: #E8772E; color: #1a2123; }
+        #playerStatus.online { background-color: #00E5FF; color: #1a2123; }
+        #templateButtons { display: flex; flex-wrap: wrap; gap: 10px; }
     </style>
     <script src="firebase-config.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
@@ -50,7 +54,10 @@
 </head>
 <body>
 <div class="container">
-    <h1>Motherboard Signal Encoder</h1>
+    <div class="section-header">
+      <h1>Motherboard Signal Encoder</h1>
+      <span id="playerStatus" class="offline">OFFLINE</span>
+    </div>
     <h2>Terminal Configuration</h2>
     <div class="config-grid">
         <div><label for="systemName">System Name</label><input type="text" id="systemName" value="MOTHERBOARD"></div>
@@ -105,6 +112,10 @@
     <ul id="fileList"></ul>
 
     <h2>Datastream Transmission</h2>
+    <fieldset>
+        <legend>Message Templates</legend>
+        <div id="templateButtons"></div>
+    </fieldset>
     <label for="messageInput">Data Fragment:</label><textarea id="messageInput">COORDINATES RECEIVED. STAND BY.</textarea>
     <label for="noiseSlider">Signal Corruption: <span id="noiseValue">50</span></label><input type="range" id="noiseSlider" min="0" max="200" value="50" style="width: 100%;">
     <button id="encodeButton">Transmit Datastream</button>
@@ -118,8 +129,11 @@
 
     <h2>Incoming Player Message</h2>
     <div id="playerMessageDisplay">Awaiting message from player terminal...</div>
-
-    <h2>Cipher Key</h2>
+    
+    <div class="section-header">
+      <h2>Cipher Key</h2>
+      <button id="generateCipherButton" class="secondary" style="font-size: 12px; padding: 5px 10px;">Generate New Cipher</button>
+    </div>
     <div id="cipher-key-container"></div>
 </div>
 
@@ -131,67 +145,86 @@
     const systemNameInput = document.getElementById('systemName'), osNameInput = document.getElementById('osName'), scanCommandInput = document.getElementById('scanCommand'), connectCommandInput = document.getElementById('connectCommand'), dataNounInput = document.getElementById('dataNoun'), signalNounInput = document.getElementById('signalNoun'), themeSelect = document.getElementById('themeSelect'), updateConfigButton = document.getElementById('updateConfigButton');
     const messageInput = document.getElementById('messageInput'), noiseSlider = document.getElementById('noiseSlider'), noiseValue = document.getElementById('noiseValue'), encodeButton = document.getElementById('encodeButton'), outputBurst = document.getElementById('outputBurst');
     const playerMessageDisplay = document.getElementById('playerMessageDisplay');
-    const cipherContainer = document.getElementById('cipher-key-container');
+    const cipherContainer = document.getElementById('cipher-key-container'), generateCipherButton = document.getElementById('generateCipherButton');
     const historyContainer = document.getElementById('historyContainer'), clearHistoryButton = document.getElementById('clearHistoryButton');
     const keyManagementGrid = document.getElementById('keyManagementGrid'), unlockAllButton = document.getElementById('unlockAllButton'), lockAllButton = document.getElementById('lockAllButton');
     const newFileNameInput = document.getElementById('newFileName'), newFilePasswordInput = document.getElementById('newFilePassword'), newFileContentInput = document.getElementById('newFileContent'), createFileButton = document.getElementById('createFileButton'), fileList = document.getElementById('fileList');
     const scrambleMessageButton = document.getElementById('scrambleMessageButton'), glitchCommandButton = document.getElementById('glitchCommandButton'), glitchCommandSelect = document.getElementById('glitchCommandSelect');
-    // System Override Selectors
-    const triggerLockoutButton = document.getElementById('triggerLockoutButton');
-    const triggerWarningButton = document.getElementById('triggerWarningButton');
-    const customWarningInput = document.getElementById('customWarningInput');
-    const clearOverrideButton = document.getElementById('clearOverrideButton');
-
+    const triggerLockoutButton = document.getElementById('triggerLockoutButton'), triggerWarningButton = document.getElementById('triggerWarningButton'), customWarningInput = document.getElementById('customWarningInput'), clearOverrideButton = document.getElementById('clearOverrideButton');
+    const playerStatus = document.getElementById('playerStatus');
+    const templateButtons = document.getElementById('templateButtons');
 
     // --- DB References ---
-    const dbKeysRef = database.ref('decryption_keys');
-    const dbHistoryClearRef = database.ref('history_cleared_timestamp');
-    const dbFileSystemRef = database.ref('file_system');
-    const dbGlitchesRef = database.ref('glitches');
+    const dbRefs = {
+        keys: database.ref('decryption_keys'),
+        historyClear: database.ref('history_cleared_timestamp'),
+        fileSystem: database.ref('file_system'),
+        glitches: database.ref('glitches'),
+        playerStatus: database.ref('player_status'),
+        cipher: database.ref('cipher_config')
+    };
 
-    // --- Key Management & Glitch Logic ---
-    function generateKeySwitches(keys) { keyManagementGrid.innerHTML = ''; const allChars = Object.keys(encodingChart).sort(); allChars.forEach(char => { const isChecked = keys[char] === true; const switchWrapper = document.createElement('div'); switchWrapper.className = 'key-switch'; switchWrapper.innerHTML = `<label for="key-${char}">${char}</label><label class="switch"><input type="checkbox" id="key-${char}" ${isChecked ? 'checked' : ''}><span class="slider"></span></label>`; keyManagementGrid.appendChild(switchWrapper); document.getElementById(`key-${char}`).addEventListener('change', (e) => { dbKeysRef.child(char).set(e.target.checked); }); }); }
-    function setAllKeys(state) { const updates = {}; Object.keys(encodingChart).forEach(char => { updates[char] = state; }); dbKeysRef.set(updates); }
+    // --- Data ---
+    const symbols = ['<', '>', '%', '^', '&', '*', '-', '+', '@'];
+    const groups = ['<', '>', '%', '^', '&'];
+    let encodingChart = {};
+    const doubledSymbols = ['<<', '>>', '%%', '^^', '&&', '**', '--', '++', '@@'];
+    const MESSAGE_TEMPLATES = [ "CONNECTION UNSTABLE", "SIGNAL BOOSTED", "SECURITY ALERT", "TRACE DETECTED", "ACKNOWLEDGED", "STAND BY..." ];
+    // **FIXED:** Define a stable default cipher
+    const defaultEncodingChart = {'A': '<>', 'B': '<%', 'C': '<^', 'D': '<&', 'E': '<*', 'F': '<-', 'G': '<+', 'H': '<@','I': '><', 'J': '>%', 'K': '>^', 'L': '>&', 'M': '>*', 'N': '>-', 'O': '>+', 'P': '>@','Q': '%<', 'R': '%>', 'S': '%^', 'T': '%&', 'U': '%*', 'V': '%-', 'W': '%+', 'X': '%@','Y': '^<', 'Z': '^>', '0': '^%', '1': '^&', '2': '^*', '3': '^-', '4': '^+', '5': '^@','6': '&<', '7': '&>', '8': '&%', '9': '&^'};
+
+    // --- Player Status Logic (unchanged) ---
+    dbRefs.playerStatus.on('value', (snapshot) => { const status = snapshot.val(); if (status && status.isConnected) { playerStatus.textContent = 'ONLINE'; playerStatus.className = 'online'; } else { playerStatus.textContent = 'OFFLINE'; playerStatus.className = 'offline'; } });
+
+    // --- Key Management & Glitch Logic (unchanged) ---
+    function generateKeySwitches(keys) { keyManagementGrid.innerHTML = ''; const allChars = Object.keys(encodingChart).sort(); allChars.forEach(char => { const isChecked = keys[char] === true; const switchWrapper = document.createElement('div'); switchWrapper.className = 'key-switch'; switchWrapper.innerHTML = `<label for="key-${char}">${char}</label><label class="switch"><input type="checkbox" id="key-${char}" ${isChecked ? 'checked' : ''}><span class="slider"></span></label>`; keyManagementGrid.appendChild(switchWrapper); document.getElementById(`key-${char}`).addEventListener('change', (e) => { dbRefs.keys.child(char).set(e.target.checked); }); }); }
+    function setAllKeys(state) { const updates = {}; Object.keys(encodingChart).forEach(char => { updates[char] = state; }); dbRefs.keys.set(updates); }
     unlockAllButton.onclick = () => setAllKeys(true);
     lockAllButton.onclick = () => setAllKeys(false);
-    dbKeysRef.on('value', (snapshot) => { const keys = snapshot.val() || {}; generateKeySwitches(keys); });
+    dbRefs.keys.on('value', (snapshot) => { const keys = snapshot.val() || {}; generateKeySwitches(keys); });
+    scrambleMessageButton.onclick = () => { dbRefs.glitches.child('scramble_next').set(true); alert('Next message will be scrambled!'); };
+    glitchCommandButton.onclick = () => { const commandToGlitch = glitchCommandSelect.value; dbRefs.glitches.child('glitched_command').set(commandToGlitch); alert(`Command "${commandToGlitch}" will be glitched for 30 seconds.`); setTimeout(() => dbRefs.glitches.child('glitched_command').remove(), 30000); };
+    triggerLockoutButton.onclick = () => { dbRefs.glitches.child('override_state').set({ type: 'lockout', message: 'CONNECTION TERMINATED' }); };
+    triggerWarningButton.onclick = () => { const message = customWarningInput.value.trim() || '!! INTRUSION DETECTED !!'; dbRefs.glitches.child('override_state').set({ type: 'warning', message: message }); customWarningInput.value = ''; };
+    clearOverrideButton.onclick = () => { dbRefs.glitches.child('override_state').remove(); };
     
-    scrambleMessageButton.onclick = () => { dbGlitchesRef.child('scramble_next').set(true); alert('Next message will be scrambled!'); };
-    glitchCommandButton.onclick = () => { const commandToGlitch = glitchCommandSelect.value; dbGlitchesRef.child('glitched_command').set(commandToGlitch); alert(`Command "${commandToGlitch}" will be glitched for 30 seconds.`); setTimeout(() => dbGlitchesRef.child('glitched_command').remove(), 30000); };
-    
-    // System Override Logic
-    triggerLockoutButton.onclick = () => { dbGlitchesRef.child('override_state').set({ type: 'lockout', message: 'CONNECTION TERMINATED' }); };
-    triggerWarningButton.onclick = () => {
-        const message = customWarningInput.value.trim() || '!! INTRUSION DETECTED !!';
-        dbGlitchesRef.child('override_state').set({ type: 'warning', message: message });
-        customWarningInput.value = '';
-    };
-    clearOverrideButton.onclick = () => { dbGlitchesRef.child('override_state').remove(); };
-
-
     // --- History Logic (unchanged) ---
     const GM_HISTORY_KEY = 'gmMessageHistory';
     function saveToHistory(message) { let history = JSON.parse(localStorage.getItem(GM_HISTORY_KEY)) || []; if (!history.includes(message)) { history.unshift(message); } if (history.length > 20) history.pop(); localStorage.setItem(GM_HISTORY_KEY, JSON.stringify(history)); displayHistory(); }
     function displayHistory() { let history = JSON.parse(localStorage.getItem(GM_HISTORY_KEY)) || []; historyContainer.innerHTML = ''; if (history.length === 0) { historyContainer.innerHTML = '<div class="historyItem" style="cursor:default; color:#6c7a7d;">No history yet.</div>'; } else { history.forEach(message => { const item = document.createElement('div'); item.className = 'historyItem'; item.textContent = message; item.onclick = () => { messageInput.value = message; }; historyContainer.appendChild(item); }); } }
-    clearHistoryButton.onclick = () => { if (confirm('Are you sure you want to clear the transmission history for yourself and all players?')) { localStorage.removeItem(GM_HISTORY_KEY); displayHistory(); dbHistoryClearRef.set(firebase.database.ServerValue.TIMESTAMP); } };
+    clearHistoryButton.onclick = () => { if (confirm('Are you sure you want to clear the transmission history for yourself and all players?')) { localStorage.removeItem(GM_HISTORY_KEY); displayHistory(); dbRefs.historyClear.set(firebase.database.ServerValue.TIMESTAMP); } };
 
     // --- File System Logic (unchanged) ---
-    createFileButton.onclick = () => { const fileName = newFileNameInput.value.trim().toLowerCase(); const filePassword = newFilePasswordInput.value.trim(); const fileContent = newFileContentInput.value; if (!fileName || !fileContent) { alert('Filename and content cannot be empty.'); return; } if (!fileName.includes('.')) { alert('Filename must include an extension (e.g., .txt, .log)'); return; } const safeFileName = fileName.replace(/\./g, '·'); const fileData = { content: fileContent }; if (filePassword) { fileData.password = filePassword; } dbFileSystemRef.child(safeFileName).set(fileData); newFileNameInput.value = ''; newFileContentInput.value = ''; newFilePasswordInput.value = ''; };
-    dbFileSystemRef.on('value', (snapshot) => { fileList.innerHTML = ''; const files = snapshot.val(); if (files) { Object.keys(files).forEach(safeFileName => { const originalFileName = safeFileName.replace(/·/g, '.'); const fileData = files[safeFileName]; const li = document.createElement('li'); if (fileData.password) { li.classList.add('locked'); li.textContent = `${originalFileName} [LOCKED]`; } else { li.textContent = originalFileName; } const deleteButton = document.createElement('button'); deleteButton.textContent = 'Delete'; deleteButton.className = 'secondary'; deleteButton.onclick = () => { if (confirm(`Are you sure you want to delete ${originalFileName}?`)) { dbFileSystemRef.child(safeFileName).remove(); } }; li.appendChild(deleteButton); fileList.appendChild(li); }); } });
+    createFileButton.onclick = () => { const fileName = newFileNameInput.value.trim().toLowerCase(); const filePassword = newFilePasswordInput.value.trim(); const fileContent = newFileContentInput.value; if (!fileName || !fileContent) { alert('Filename and content cannot be empty.'); return; } if (!fileName.includes('.')) { alert('Filename must include an extension (e.g., .txt, .log)'); return; } const safeFileName = fileName.replace(/\./g, '·'); const fileData = { content: fileContent }; if (filePassword) { fileData.password = filePassword; } dbRefs.fileSystem.child(safeFileName).set(fileData); newFileNameInput.value = ''; newFileContentInput.value = ''; newFilePasswordInput.value = ''; };
+    dbRefs.fileSystem.on('value', (snapshot) => { fileList.innerHTML = ''; const files = snapshot.val(); if (files) { Object.keys(files).forEach(safeFileName => { const originalFileName = safeFileName.replace(/·/g, '.'); const fileData = files[safeFileName]; const li = document.createElement('li'); if (fileData.password) { li.classList.add('locked'); li.textContent = `${originalFileName} [LOCKED]`; } else { li.textContent = originalFileName; } const deleteButton = document.createElement('button'); deleteButton.textContent = 'Delete'; deleteButton.className = 'secondary'; deleteButton.onclick = () => { if (confirm(`Are you sure you want to delete ${originalFileName}?`)) { dbRefs.fileSystem.child(safeFileName).remove(); } }; li.appendChild(deleteButton); fileList.appendChild(li); }); } });
     
     // --- Other Logic (unchanged) ---
-    const symbols = ['<', '>', '%', '^', '&', '*', '-', '+', '@'];
-    const groups = ['<', '>', '%', '^', '&'];
-    const encodingChart = {'A': '<>', 'B': '<%', 'C': '<^', 'D': '<&', 'E': '<*', 'F': '<-', 'G': '<+', 'H': '<@','I': '><', 'J': '>%', 'K': '>^', 'L': '>&', 'M': '>*', 'N': '>-', 'O': '>+', 'P': '>@','Q': '%<', 'R': '%>', 'S': '%^', 'T': '%&', 'U': '%*', 'V': '%-', 'W': '%+', 'X': '%@','Y': '^<', 'Z': '^>', '0': '^%', '1': '^&', '2': '^*', '3': '^-', '4': '^+', '5': '^@','6': '&<', '7': '&>', '8': '&%', '9': '&^'};
-    const doubledSymbols = ['<<', '>>', '%%', '^^', '&&', '**', '--', '++', '@@'];
     updateConfigButton.onclick = () => { const config = { systemName: systemNameInput.value, osName: osNameInput.value, scanCommand: scanCommandInput.value.toLowerCase(), connectCommand: connectCommandInput.value.toLowerCase(), dataNoun: dataNounInput.value, signalNoun: signalNounInput.value, theme: themeSelect.value }; database.ref('terminal_config').set(config); alert('Terminal configuration updated!'); };
-    function displayCipherKey() { const reversedChart = Object.fromEntries(Object.entries(encodingChart).map(a => a.reverse())); let tableHTML = '<table><thead><tr><th></th>'; symbols.forEach(s => tableHTML += `<th>${s}</th>`); tableHTML += '</tr></thead><tbody>'; groups.forEach(group => { tableHTML += `<tr><th>${group}</th>`; symbols.forEach(pos => { const pair = group + pos; let cellContent = reversedChart[pair] || '[BLANK]'; if (group === pos) cellContent = '[SPACE]'; let cellClass = (cellContent === '[SPACE]' || cellContent === '[BLANK]') ? 'class="space"' : ''; tableHTML += `<td ${cellClass}>${cellContent}</td>`; }); tableHTML += '</tr>'; }); tableHTML += '</tbody></table>'; cipherContainer.innerHTML = tableHTML; }
     noiseSlider.oninput = () => { noiseValue.textContent = noiseSlider.value; };
     function generateNoise(length) { let noise = ''; for (let i = 0; i < length; i++) { noise += symbols[Math.floor(Math.random() * symbols.length)]; } return noise; }
     function encodeMessage(message) { let encoded = ''; message = message.toUpperCase(); for (const char of message) { if (char === ' ') { encoded += doubledSymbols[Math.floor(Math.random() * doubledSymbols.length)]; } else if (encodingChart[char]) { encoded += encodingChart[char]; } } return encoded; }
     encodeButton.onclick = () => { const message = messageInput.value; if (!message) return; saveToHistory(message); const noiseLength = parseInt(noiseSlider.value, 10); const encodedPart = encodeMessage(message); const leadingNoise = generateNoise(Math.floor(noiseLength / 2)); const trailingNoise = generateNoise(Math.ceil(noiseLength / 2)); const finalBurst = `${leadingNoise}$:${encodedPart}:#${trailingNoise}`; outputBurst.textContent = finalBurst; database.ref('kohd_datastream').set(finalBurst); };
+    
+    // --- Cipher Logic ---
+    function displayCipherKey(chart) { const reversedChart = Object.fromEntries(Object.entries(chart).map(a => a.reverse())); let tableHTML = '<table><thead><tr><th></th>'; symbols.forEach(s => tableHTML += `<th>${s}</th>`); tableHTML += '</tr></thead><tbody>'; groups.forEach(group => { tableHTML += `<tr><th>${group}</th>`; symbols.forEach(pos => { const pair = group + pos; let cellContent = reversedChart[pair] || '[BLANK]'; if (group === pos) cellContent = '[SPACE]'; let cellClass = (cellContent === '[SPACE]' || cellContent === '[BLANK]') ? 'class="space"' : ''; tableHTML += `<td ${cellClass}>${cellContent}</td>`; }); tableHTML += '</tr>'; }); tableHTML += '</tbody></table>'; cipherContainer.innerHTML = tableHTML; }
+    generateCipherButton.onclick = () => { if (!confirm('This will generate a new cipher and may disrupt player decoding. Continue?')) return; const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'.split(''); const shuffledSymbols = [...symbols].sort(() => 0.5 - Math.random()); const newChart = {}; for(let i = 0; i < chars.length; i++) { const group = groups[Math.floor(i / shuffledSymbols.length)]; const symbol = shuffledSymbols[i % shuffledSymbols.length]; if(group !== symbol) { newChart[chars[i]] = group + symbol; } else { newChart[chars[i]] = shuffledSymbols[0] + shuffledSymbols[1]; } } dbRefs.cipher.set(newChart); dbRefs.keys.remove(); alert('New cipher generated and synced.'); };
+    
+    // **FIXED:** Cipher loading logic
+    dbRefs.cipher.on('value', (snapshot) => {
+        if (snapshot.exists()) {
+            encodingChart = snapshot.val();
+        } else {
+            // If no cipher exists in DB, set it to the default one.
+            encodingChart = defaultEncodingChart;
+            dbRefs.cipher.set(defaultEncodingChart);
+        }
+        displayCipherKey(encodingChart);
+        dbRefs.keys.on('value', (snapshot) => { const keys = snapshot.val() || {}; generateKeySwitches(keys); });
+    });
+    
+    // --- Initial calls ---
+    MESSAGE_TEMPLATES.forEach(template => { const btn = document.createElement('button'); btn.textContent = template; btn.onclick = () => messageInput.value = template; templateButtons.appendChild(btn); });
     database.ref('player_reply').on('value', (snapshot) => { const message = snapshot.val(); if (message) { playerMessageDisplay.textContent = message; } else { playerMessageDisplay.textContent = 'Awaiting message from player terminal...'; } });
-    displayCipherKey();
     displayHistory();
 </script>
 </body>
