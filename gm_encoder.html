@@ -5,48 +5,129 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Daggerheart - Motherboard Signal Encoder</title>
     <style>
-        /* ... existing styles ... */
         @import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&display=swap');
-        body { font-family: 'Share Tech Mono', monospace; background-color: #1a2123; color: #d4d4d4; padding: 20px; }
-        .container { max-width: 800px; margin: auto; }
-        h1 { color: #00E5FF; text-shadow: 0 0 5px rgba(0, 229, 255, 0.7); border-bottom: 1px solid #3a4a4d; padding-bottom: 10px;}
-        h2 { color: #E8772E; font-size: 1.2em; margin-top: 30px; border-bottom: 1px solid #3a4a4d; padding-bottom: 5px; }
-        label { display: block; margin: 10px 0 5px; }
-        textarea, input[type="text"], select { width: 100%; padding: 8px; margin-bottom: 10px; background-color: #0e1213; color: #d4d4d4; border: 1px solid #3a4a4d; box-sizing: border-box; font-family: 'Share Tech Mono', monospace; font-size: 1em; }
-        button { background-color: #00E5FF; color: #0e1213; border: none; padding: 10px 20px; cursor: pointer; font-size: 16px; font-family: 'Share Tech Mono', monospace; font-weight: 700; margin-right: 10px; }
-        button.secondary { background-color: #E8772E; }
-        button.critical { background-color: #ff3c3c; color: white; }
+        
+        :root {
+            --primary-color: #00E5FF;
+            --secondary-color: #E8772E;
+            --background-color: #1a2123;
+            --dark-element-bg: #0e1213;
+            --border-color: #3a4a4d;
+            --text-color: #d4d4d4;
+            --critical-color: #ff3c3c;
+        }
+
+        body {
+            font-family: 'Share Tech Mono', monospace;
+            background-color: var(--background-color);
+            color: var(--text-color);
+            padding: 10px;
+            margin: 0;
+        }
+        .container {
+            max-width: 900px;
+            margin: auto;
+        }
+        h1 {
+            color: var(--primary-color);
+            text-shadow: 0 0 5px rgba(0, 229, 255, 0.7);
+            border-bottom: 1px solid var(--border-color);
+            padding-bottom: 10px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        h2 {
+            color: var(--secondary-color);
+            font-size: 1.2em;
+            margin-top: 0;
+            border-bottom: 1px solid var(--border-color);
+            padding-bottom: 5px;
+        }
+        textarea, input[type="text"], select {
+            width: 100%;
+            padding: 10px;
+            margin-bottom: 10px;
+            background-color: var(--dark-element-bg);
+            color: var(--text-color);
+            border: 1px solid var(--border-color);
+            box-sizing: border-box;
+            font-family: inherit;
+            font-size: 1em;
+            border-radius: 4px;
+        }
+        button {
+            background-color: var(--primary-color);
+            color: var(--dark-element-bg);
+            border: none;
+            padding: 10px 20px;
+            cursor: pointer;
+            font-size: 1em;
+            font-family: inherit;
+            font-weight: 700;
+            margin: 5px 0;
+            border-radius: 4px;
+            transition: filter 0.2s;
+        }
         button:hover { filter: brightness(1.2); }
-        #outputBurst, #playerMessageDisplay { background-color: #0e1213; padding: 15px; border: 1px dashed #E8772E; word-wrap: break-word; min-height: 50px; font-size: 1.1em; color: #00E5FF; }
-        .config-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 20px; }
-        #cipher-key-container table { width: 100%; border-collapse: collapse; margin-top: 10px; }
-        #cipher-key-container th, #cipher-key-container td { border: 1px solid #3a4a4d; padding: 5px; text-align: center; }
-        #cipher-key-container th { color: #E8772E; }
-        #cipher-key-container td { color: #00E5FF; }
-        #cipher-key-container td.space { color: #6c7a7d; font-style: italic; }
-        #historyContainer { max-height: 150px; overflow-y: auto; background-color: #0e1213; border: 1px solid #3a4a4d; padding: 10px; }
-        .historyItem { padding: 5px; cursor: pointer; border-bottom: 1px solid #1a2123; }
-        .historyItem:hover { background-color: #E8772E; color: #0e1213; }
-        #keyManagementGrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(80px, 1fr)); gap: 10px; background-color: #0e1213; border: 1px solid #3a4a4d; padding: 15px; margin-bottom: 10px; }
-        .key-switch { display: flex; align-items: center; justify-content: space-between; }
-        .key-switch label { margin: 0; font-weight: bold; color: #00E5FF; }
-        .key-switch input { height: 0; width: 0; visibility: hidden; }
-        .key-switch .slider { cursor: pointer; width: 34px; height: 18px; background-color: #555; display: inline-block; border-radius: 18px; position: relative; }
-        .key-switch .slider:before { position: absolute; content: ""; height: 12px; width: 12px; left: 3px; bottom: 3px; background-color: white; border-radius: 50%; transition: .2s; }
-        .key-switch input:checked + .slider { background-color: #E8772E; }
-        .key-switch input:checked + .slider:before { transform: translateX(16px); }
-        .section-header { display: flex; align-items: center; justify-content: space-between; }
+        button.secondary { background-color: var(--secondary-color); }
+        button.critical { background-color: var(--critical-color); color: white; }
+
+        .live-display {
+            background-color: var(--dark-element-bg);
+            padding: 15px;
+            border: 1px dashed var(--secondary-color);
+            word-wrap: break-word;
+            min-height: 50px;
+            font-size: 1.1em;
+            color: var(--primary-color);
+            margin-bottom: 10px;
+            border-radius: 4px;
+        }
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+        }
+        details {
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            margin-bottom: 15px;
+        }
+        summary {
+            background-color: var(--dark-element-bg);
+            padding: 15px;
+            cursor: pointer;
+            font-size: 1.2em;
+            color: var(--secondary-color);
+            font-weight: bold;
+        }
+        .details-content {
+            padding: 15px;
+        }
+        #playerStatus {
+            font-size: 1em;
+            padding: 5px 10px;
+            border-radius: 5px;
+            font-weight: bold;
+        }
+        #playerStatus.offline { background-color: var(--secondary-color); color: var(--background-color); }
+        #playerStatus.online { background-color: var(--primary-color); color: var(--background-color); }
+        
         #fileList { list-style: none; padding: 0; }
-        #fileList li { background-color: #0e1213; padding: 8px; border-left: 3px solid #00E5FF; margin-bottom: 5px; display: flex; justify-content: space-between; align-items: center; }
-        #fileList button { font-size: 12px; padding: 3px 8px; }
-        .locked { border-left-color: #E8772E !important; }
-        .glitch-controls { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
-        fieldset { border: 1px solid #3a4a4d; padding: 15px; margin-bottom: 10px; }
-        legend { color: #E8772E; padding: 0 5px; font-weight: bold; }
-        #playerStatus { font-size: 1.2em; padding: 5px 10px; border-radius: 5px; }
-        #playerStatus.offline { background-color: #E8772E; color: #1a2123; }
-        #playerStatus.online { background-color: #00E5FF; color: #1a2123; }
-        #templateButtons { display: flex; flex-wrap: wrap; gap: 10px; }
+        #fileList li { background-color: #0e1213; padding: 8px 12px; border-left: 3px solid var(--primary-color); margin-bottom: 5px; display: flex; justify-content: space-between; align-items: center; border-radius: 4px; }
+        #fileList button { font-size: 0.8em; padding: 3px 8px; }
+        .locked { border-left-color: var(--secondary-color) !important; }
+
+        .flex-wrap {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            align-items: center;
+        }
+        .flex-grow {
+            flex-grow: 1;
+        }
     </style>
     <script src="firebase-config.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
@@ -54,109 +135,119 @@
 </head>
 <body>
 <div class="container">
-    <div class="section-header">
-      <h1>Motherboard Signal Encoder</h1>
-      <span id="playerStatus" class="offline">OFFLINE</span>
-    </div>
-    
-    <h2>Terminal Configuration</h2>
-    <div class="config-grid">
-        <div><label for="systemName">System Name</label><input type="text" id="systemName" value="MOTHERBOARD"></div>
-        <div><label for="osName">OS Name</label><input type="text" id="osName" value="M-OS v1.0"></div>
-        <div><label for="scanCommand">Scan Command</label><input type="text" id="scanCommand" value="seek_source"></div>
-        <div><label for="connectCommand">Connect Command</label><input type="text" id="connectCommand" value="awaken"></div>
-        <div><label for="dataNoun">Data Noun (e.g., Echo)</label><input type="text" id="dataNoun" value="Echo"></div>
-        <div><label for="signalNoun">Signal Noun (e.g., Signature)</label><input type="text" id="signalNoun" value="Signature"></div>
-    </div>
-    <div><label for="themeSelect">Terminal Theme</label><select id="themeSelect"><option value="relic-theme">Relic (Horizon)</option><option value="terminal-theme">Terminal (Classic Green)</option></select></div>
-    <button id="updateConfigButton" class="secondary">Update Terminal Config</button>
+    <h1>
+        <span>Motherboard Signal Encoder</span>
+        <span id="playerStatus" class="offline">OFFLINE</span>
+    </h1>
 
-    <h2>Access Control</h2>
-    <div class="config-grid">
-        <div><label for="level2Password">Level 2 Password</label><input type="text" id="level2Password"></div>
-        <div><label for="level3Password">Level 3 Password</label><input type="text" id="level3Password"></div>
-    </div>
-    <button id="savePasswordsButton">Save Passwords</button>
-    <button id="resetAccessButton" class="secondary">Reset Player Access</button>
-
-    <h2>Decryption Key Management</h2>
-    <div id="keyManagementGrid"></div>
-    <button id="unlockAllButton">Unlock All</button>
-    <button id="lockAllButton" class="secondary">Lock All</button>
-
-    <h2>System Glitches</h2>
-    <fieldset>
-        <legend>Minor Glitches</legend>
-        <div class="glitch-controls">
-            <button id="scrambleMessageButton" class="secondary">Scramble Next Message</button>
-            <button id="glitchCommandButton" class="secondary">Glitch Command</button>
-            <select id="glitchCommandSelect">
-                <option value="ping">ping</option>
-                <option value="ls">ls</option>
-                <option value="cat">cat</option>
-                <option value="status">status</option>
-            </select>
+    <details open>
+        <summary>Live Status & Transmission</summary>
+        <div class="details-content">
+            <h2>Incoming Player Message</h2>
+            <div id="playerMessageDisplay" class="live-display">Awaiting message from player terminal...</div>
+            
+            <h2>Datastream Transmission</h2>
+            <fieldset>
+                <legend>Message Templates</legend>
+                <div id="templateButtons" class="flex-wrap"></div>
+            </fieldset>
+            <label for="messageInput">Data Fragment:</label>
+            <textarea id="messageInput">COORDINATES RECEIVED. STAND BY.</textarea>
+            <label for="noiseSlider">Signal Corruption: <span id="noiseValue">50</span></label>
+            <input type="range" id="noiseSlider" min="0" max="200" value="50">
+            <button id="encodeButton">Transmit Datastream</button>
+            <h3>Transmitted kohd-datastream:</h3>
+            <div id="outputBurst" class="live-display"></div>
         </div>
-    </fieldset>
+    </details>
 
-    <fieldset>
-        <legend>System Override</legend>
-        <div class="glitch-controls">
-             <button id="triggerLockoutButton" class="critical">Trigger Lockout</button>
-             <button id="triggerWarningButton" class="critical">Send Warning</button>
-             <input type="text" id="customWarningInput" placeholder="Or send a custom warning..." style="flex-grow:1;">
+    <details>
+        <summary>Session Management</summary>
+        <div class="details-content">
+            <h2>System Glitches</h2>
+            <fieldset>
+                <legend>Minor Glitches</legend>
+                <div class="flex-wrap">
+                    <button id="scrambleMessageButton" class="secondary">Scramble Next Message</button>
+                    <button id="glitchCommandButton" class="secondary">Glitch Command</button>
+                    <select id="glitchCommandSelect"><option value="ping">ping</option><option value="ls">ls</option><option value="cat">cat</option><option value="status">status</option></select>
+                </div>
+            </fieldset>
+            <fieldset>
+                <legend>System Override</legend>
+                <div class="flex-wrap">
+                     <button id="triggerLockoutButton" class="critical">Trigger Lockout</button>
+                     <button id="triggerWarningButton" class="critical">Send Warning</button>
+                     <input type="text" id="customWarningInput" placeholder="Or send a custom warning..." class="flex-grow">
+                </div>
+                 <button id="clearOverrideButton" style="margin-top:10px;">Clear Override</button>
+            </fieldset>
+
+            <h2>File System Management</h2>
+            <label for="newFileName">Filename (e.g., log.txt)</label>
+            <input type="text" id="newFileName" placeholder="Enter filename...">
+            <label for="fileAccessLevel">Required Access Level</label>
+            <select id="fileAccessLevel"><option value="1">Level 1 (Public)</option><option value="2">Level 2 (Restricted)</option><option value="3">Level 3 (Administrator)</option></select>
+            <label for="newFileContent">File Content</label>
+            <textarea id="newFileContent" rows="4" placeholder="Enter file content..."></textarea>
+            <button id="createFileButton">Create File</button>
+            <h3>Existing Files:</h3>
+            <ul id="fileList"></ul>
+
+            <h2>Decryption Key Management</h2>
+            <div id="keyManagementGrid" class="grid"></div>
+            <div class="flex-wrap">
+                <button id="unlockAllButton">Unlock All</button>
+                <button id="lockAllButton" class="secondary">Lock All</button>
+            </div>
         </div>
-         <button id="clearOverrideButton" style="margin-top:10px;">Clear Override</button>
-    </fieldset>
+    </details>
 
-    <h2>File System Management</h2>
-    <label for="newFileName">Filename (e.g., log.txt)</label>
-    <input type="text" id="newFileName" placeholder="Enter filename...">
-    <label for="fileAccessLevel">Required Access Level</label>
-    <select id="fileAccessLevel">
-        <option value="1">Level 1 (Public)</option>
-        <option value="2">Level 2 (Restricted)</option>
-        <option value="3">Level 3 (Administrator)</option>
-    </select>
-    <label for="newFileContent">File Content</label>
-    <textarea id="newFileContent" rows="4" placeholder="Enter file content..."></textarea>
-    <button id="createFileButton">Create File</button>
-    <h3>Existing Files:</h3>
-    <ul id="fileList"></ul>
+    <details>
+        <summary>System Setup</summary>
+        <div class="details-content">
+            <h2>Terminal Configuration</h2>
+            <div class="grid">
+                <div><label>System Name</label><input type="text" id="systemName" value="MOTHERBOARD"></div>
+                <div><label>OS Name</label><input type="text" id="osName" value="M-OS v1.0"></div>
+                <div><label>Scan Command</label><input type="text" id="scanCommand" value="seek_source"></div>
+                <div><label>Connect Command</label><input type="text" id="connectCommand" value="awaken"></div>
+                <div><label>Data Noun</label><input type="text" id="dataNoun" value="Echo"></div>
+                <div><label>Signal Noun</label><input type="text" id="signalNoun" value="Signature"></div>
+            </div>
+            <label>Terminal Theme</label><select id="themeSelect"><option value="relic-theme">Relic (Horizon)</option><option value="terminal-theme">Terminal (Classic Green)</option></select>
+            <button id="updateConfigButton" class="secondary">Update Terminal Config</button>
 
-    <h2>Datastream Transmission</h2>
-    <fieldset>
-        <legend>Message Templates</legend>
-        <div id="templateButtons"></div>
-    </fieldset>
-    <label for="messageInput">Data Fragment:</label><textarea id="messageInput">COORDINATES RECEIVED. STAND BY.</textarea>
-    <label for="noiseSlider">Signal Corruption: <span id="noiseValue">50</span></label><input type="range" id="noiseSlider" min="0" max="200" value="50" style="width: 100%;">
-    <button id="encodeButton">Transmit Datastream</button>
-    <h3>Transmitted kohd-datastream:</h3><div id="outputBurst"></div>
+            <h2>Access Control</h2>
+            <div class="grid">
+                <div><label for="level2Password">Level 2 Password</label><input type="text" id="level2Password"></div>
+                <div><label for="level3Password">Level 3 Password</label><input type="text" id="level3Password"></div>
+            </div>
+            <div class="flex-wrap">
+                <button id="savePasswordsButton">Save Passwords</button>
+                <button id="resetAccessButton" class="secondary">Reset Player Access</button>
+            </div>
 
-    <div class="section-header">
-      <h2>Transmission History</h2>
-      <button id="clearHistoryButton" class="secondary" style="font-size: 12px; padding: 5px 10px;">Clear History</button>
-    </div>
-    <div id="historyContainer"></div>
+            <h2>Cipher Key</h2>
+            <div class="flex-wrap">
+                <button id="resetCipherButton" class="secondary">Reset to Default</button>
+                <button id="generateCipherButton" class="secondary">Generate New Cipher</button>
+            </div>
+            <div id="cipher-key-container" style="overflow-x: auto;"></div>
 
-    <h2>Incoming Player Message</h2>
-    <div id="playerMessageDisplay">Awaiting message from player terminal...</div>
-    
-    <div class="section-header">
-      <h2>Cipher Key</h2>
-      <div>
-          <button id="resetCipherButton" class="secondary" style="font-size: 12px; padding: 5px 10px;">Reset to Default</button>
-          <button id="generateCipherButton" class="secondary" style="font-size: 12px; padding: 5px 10px;">Generate New Cipher</button>
-      </div>
-    </div>
-    <div id="cipher-key-container"></div>
+            <h2>Transmission History</h2>
+            <div id="historyContainer"></div>
+            <button id="clearHistoryButton" class="secondary">Clear History</button>
+        </div>
+    </details>
 </div>
 
 <script>
     firebase.initializeApp(firebaseConfig);
     const database = firebase.database();
-
+    
+    // Selectors and other JS logic remain the same
+    // ...
     // --- Element Selectors ---
     const systemNameInput = document.getElementById('systemName'), osNameInput = document.getElementById('osName'), scanCommandInput = document.getElementById('scanCommand'), connectCommandInput = document.getElementById('connectCommand'), dataNounInput = document.getElementById('dataNoun'), signalNounInput = document.getElementById('signalNoun'), themeSelect = document.getElementById('themeSelect'), updateConfigButton = document.getElementById('updateConfigButton');
     const messageInput = document.getElementById('messageInput'), noiseSlider = document.getElementById('noiseSlider'), noiseValue = document.getElementById('noiseValue'), encodeButton = document.getElementById('encodeButton'), outputBurst = document.getElementById('outputBurst');
@@ -219,33 +310,8 @@
     
     // --- Cipher Logic ---
     function displayCipherKey(chart) { const reversedChart = Object.fromEntries(Object.entries(chart).map(a => a.reverse())); let tableHTML = '<table><thead><tr><th></th>'; symbols.forEach(s => tableHTML += `<th>${s}</th>`); tableHTML += '</tr></thead><tbody>'; groups.forEach(group => { tableHTML += `<tr><th>${group}</th>`; symbols.forEach(pos => { const pair = group + pos; let cellContent = reversedChart[pair] || '[BLANK]'; if (group === pos) cellContent = '[SPACE]'; let cellClass = (cellContent === '[SPACE]' || cellContent === '[BLANK]') ? 'class="space"' : ''; tableHTML += `<td ${cellClass}>${cellContent}</td>`; }); tableHTML += '</tr>'; }); tableHTML += '</tbody></table>'; cipherContainer.innerHTML = tableHTML; }
-    
-    resetCipherButton.onclick = () => {
-        if (!confirm('This will reset the cipher to its default state. Continue?')) return;
-        dbRefs.cipher.set(defaultEncodingChart);
-        dbRefs.keys.remove();
-        alert('Cipher has been reset to default.');
-    };
-
-    generateCipherButton.onclick = () => {
-        if (!confirm('This will generate a new cipher and may disrupt player decoding. Continue?')) return;
-        const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'.split('');
-        let possiblePairs = [];
-        groups.forEach(g => {
-            symbols.forEach(s => {
-                if (g !== s) possiblePairs.push(g + s);
-            });
-        });
-        possiblePairs.sort(() => 0.5 - Math.random()); // Shuffle the array
-        const newChart = {};
-        chars.forEach((char, index) => {
-            newChart[char] = possiblePairs[index];
-        });
-        dbRefs.cipher.set(newChart);
-        dbRefs.keys.remove();
-        alert('New cipher generated and synced.');
-    };
-    
+    resetCipherButton.onclick = () => { if (!confirm('This will reset the cipher to its default state. Continue?')) return; dbRefs.cipher.set(defaultEncodingChart); dbRefs.keys.remove(); alert('Cipher has been reset to default.'); };
+    generateCipherButton.onclick = () => { if (!confirm('This will generate a new cipher and may disrupt player decoding. Continue?')) return; const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'.split(''); let possiblePairs = []; groups.forEach(g => { symbols.forEach(s => { if (g !== s) possiblePairs.push(g + s); }); }); possiblePairs.sort(() => 0.5 - Math.random()); const newChart = {}; chars.forEach((char, index) => { newChart[char] = possiblePairs[index]; }); dbRefs.cipher.set(newChart); dbRefs.keys.remove(); alert('New cipher generated and synced.'); };
     dbRefs.cipher.on('value', (snapshot) => { if (snapshot.exists()) { encodingChart = snapshot.val(); } else { encodingChart = defaultEncodingChart; dbRefs.cipher.set(defaultEncodingChart); } displayCipherKey(encodingChart); dbRefs.keys.on('value', (snapshot) => { const keys = snapshot.val() || {}; generateKeySwitches(keys); }); });
     
     // --- Initial calls ---
