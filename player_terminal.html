@@ -21,7 +21,7 @@
         .terminal-theme::after { content: " "; display: block; position: absolute; top: 0; left: 0; bottom: 0; right: 0; background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%), linear-gradient(90deg, rgba(255, 0, 0, 0.06), rgba(0, 255, 0, 0.02), rgba(0, 0, 255, 0.06)); z-index: 2; background-size: 100% 4px, 3px 100%; pointer-events: none; animation: flicker 0.15s infinite; }
         @keyframes flicker { 0% { opacity: 0.2; } 20% { opacity: 0.6; } 40% { opacity: 0.3; } 60% { opacity: 0.7; } 80% { opacity: 0.4; } 100% { opacity: 0.6; } }
     </style>
-    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+    <script src="firebase-config.js"></script> <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
 </head>
 <body class="relic-theme"> <div id="terminal">
@@ -29,11 +29,7 @@
     </div>
 
 <script>
-    // ####################################################################
-    // ## PASTE THE SAME FIREBASE CONFIGURATION OBJECT HERE              ##
-    // ####################################################################
-    const firebaseConfig = { /* PASTE CONFIG HERE */ };
-    // ####################################################################
+    // Firebase is initialized using the 'firebaseConfig' object from firebase-config.js
     firebase.initializeApp(firebaseConfig);
     const database = firebase.database();
 
@@ -82,12 +78,7 @@
             if (isScanning) {
                 printLine(`Attempting to synchronize with ${config.systemName}...`);
                 isConnected = true;
-                
-                // ####################################################################
-                // ## BUGFIX: This line now correctly uses the 'dataNoun' variable   ##
-                // ####################################################################
                 printLine(`Synchronization complete. Interface active. Awaiting ${config.dataNoun}...`, 'system-msg');
-                
             } else {
                 printLine(`ERROR: No ${config.signalNoun} detected. Run ${config.scanCommand.toUpperCase()} first.`, 'error-msg');
             }

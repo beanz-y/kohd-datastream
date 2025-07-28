@@ -23,7 +23,7 @@
         #cipher-key-container td { color: #00E5FF; }
         #cipher-key-container td.space { color: #6c7a7d; font-style: italic; }
     </style>
-    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+    <script src="firebase-config.js"></script> <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
 </head>
 <body>
@@ -53,11 +53,7 @@
 </div>
 
 <script>
-    // ####################################################################
-    // ## PASTE YOUR FIREBASE CONFIGURATION OBJECT HERE                  ##
-    // ####################################################################
-    const firebaseConfig = { /* PASTE CONFIG HERE */ };
-    // ####################################################################
+    // Firebase is initialized using the 'firebaseConfig' object from firebase-config.js
     firebase.initializeApp(firebaseConfig);
     const database = firebase.database();
 
