@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Motherboard Interface</title>
     <style>
-        /* All CSS from the previous version is identical */
+        /* CSS is identical to the previous version */
         @import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=VT323&family=Orbitron&display=swap');
         html, body { height: 100%; margin: 0; }
         body { display: flex; flex-direction: column; transition: background-color 0.3s, color 0.3s; }
@@ -58,25 +58,21 @@
         <button id="clear-button">[ CLS ]</button>
     </div>
 
-<script type="module">
-  // This block is processed by Cloudflare Pages to securely insert your environment variables.
-  window.firebaseConfig = {
-    apiKey: "%VITE_API_KEY%",
-    authDomain: "%VITE_AUTH_DOMAIN%",
-    databaseURL: "%VITE_DATABASE_URL%",
-    projectId: "%VITE_PROJECT_ID%",
-    storageBucket: "%VITE_STORAGE_BUCKET%",
-    messagingSenderId: "%VITE_MESSAGING_SENDER_ID%",
-    appId: "%VITE_APP_ID%"
-  };
-</script>
-
 <script>
-    // This is the main application script.
-    // It will not run until the firebaseConfig object above is created.
-    firebase.initializeApp(window.firebaseConfig);
+    // **FIXED:** Configuration and initialization are now in one script block.
+    const firebaseConfig = {
+      apiKey: "%VITE_API_KEY%",
+      authDomain: "%VITE_AUTH_DOMAIN%",
+      databaseURL: "%VITE_DATABASE_URL%",
+      projectId: "%VITE_PROJECT_ID%",
+      storageBucket: "%VITE_STORAGE_BUCKET%",
+      messagingSenderId: "%VITE_MESSAGING_SENDER_ID%",
+      appId: "%VITE_APP_ID%"
+    };
+
+    firebase.initializeApp(firebaseConfig);
     const database = firebase.database();
-    
+
     // The rest of the JS logic is identical to the previous version
     // ...
     const terminal = document.getElementById('terminal');
