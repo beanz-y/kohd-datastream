@@ -15,6 +15,7 @@
         textarea, input[type="text"], select { width: 100%; padding: 8px; margin-bottom: 10px; background-color: #0e1213; color: #d4d4d4; border: 1px solid #3a4a4d; box-sizing: border-box; font-family: 'Share Tech Mono', monospace; font-size: 1em; }
         button { background-color: #00E5FF; color: #0e1213; border: none; padding: 10px 20px; cursor: pointer; font-size: 16px; font-family: 'Share Tech Mono', monospace; font-weight: 700; margin-right: 10px; }
         button.secondary { background-color: #E8772E; }
+        button.critical { background-color: #ff3c3c; color: white; }
         button:hover { filter: brightness(1.2); }
         #outputBurst, #playerMessageDisplay { background-color: #0e1213; padding: 15px; border: 1px dashed #E8772E; word-wrap: break-word; min-height: 50px; font-size: 1.1em; color: #00E5FF; }
         .config-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 20px; }
@@ -35,10 +36,13 @@
         .key-switch input:checked + .slider { background-color: #E8772E; }
         .key-switch input:checked + .slider:before { transform: translateX(16px); }
         .section-header { display: flex; align-items: center; justify-content: space-between; }
-        /* Phase 2 Styles */
         #fileList { list-style: none; padding: 0; }
         #fileList li { background-color: #0e1213; padding: 8px; border-left: 3px solid #00E5FF; margin-bottom: 5px; display: flex; justify-content: space-between; align-items: center; }
         #fileList button { font-size: 12px; padding: 3px 8px; }
+        .locked { border-left-color: #E8772E !important; }
+        .glitch-controls { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+        fieldset { border: 1px solid #3a4a4d; padding: 15px; margin-bottom: 10px; }
+        legend { color: #E8772E; padding: 0 5px; font-weight: bold; }
     </style>
     <script src="firebase-config.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
@@ -64,9 +68,36 @@
     <button id="unlockAllButton">Unlock All</button>
     <button id="lockAllButton" class="secondary">Lock All</button>
 
+    <h2>System Glitches</h2>
+    <fieldset>
+        <legend>Minor Glitches</legend>
+        <div class="glitch-controls">
+            <button id="scrambleMessageButton" class="secondary">Scramble Next Message</button>
+            <button id="glitchCommandButton" class="secondary">Glitch Command</button>
+            <select id="glitchCommandSelect">
+                <option value="ping">ping</option>
+                <option value="ls">ls</option>
+                <option value="cat">cat</option>
+                <option value="status">status</option>
+            </select>
+        </div>
+    </fieldset>
+
+    <fieldset>
+        <legend>System Override</legend>
+        <div class="glitch-controls">
+             <button id="triggerLockoutButton" class="critical">Trigger Lockout</button>
+             <button id="triggerWarningButton" class="critical">Send Warning</button>
+             <input type="text" id="customWarningInput" placeholder="Or send a custom warning..." style="flex-grow:1;">
+        </div>
+         <button id="clearOverrideButton" style="margin-top:10px;">Clear Override</button>
+    </fieldset>
+
     <h2>File System Management</h2>
     <label for="newFileName">Filename (e.g., log.txt)</label>
     <input type="text" id="newFileName" placeholder="Enter filename...">
+    <label for="newFilePassword">Password (optional)</label>
+    <input type="text" id="newFilePassword" placeholder="Enter password to lock file...">
     <label for="newFileContent">File Content</label>
     <textarea id="newFileContent" rows="4" placeholder="Enter file content..."></textarea>
     <button id="createFileButton">Create File</button>
@@ -103,29 +134,40 @@
     const cipherContainer = document.getElementById('cipher-key-container');
     const historyContainer = document.getElementById('historyContainer'), clearHistoryButton = document.getElementById('clearHistoryButton');
     const keyManagementGrid = document.getElementById('keyManagementGrid'), unlockAllButton = document.getElementById('unlockAllButton'), lockAllButton = document.getElementById('lockAllButton');
-    // PHASE 2: File system selectors
-    const newFileNameInput = document.getElementById('newFileName');
-    const newFileContentInput = document.getElementById('newFileContent');
-    const createFileButton = document.getElementById('createFileButton');
-    const fileList = document.getElementById('fileList');
+    const newFileNameInput = document.getElementById('newFileName'), newFilePasswordInput = document.getElementById('newFilePassword'), newFileContentInput = document.getElementById('newFileContent'), createFileButton = document.getElementById('createFileButton'), fileList = document.getElementById('fileList');
+    const scrambleMessageButton = document.getElementById('scrambleMessageButton'), glitchCommandButton = document.getElementById('glitchCommandButton'), glitchCommandSelect = document.getElementById('glitchCommandSelect');
+    // System Override Selectors
+    const triggerLockoutButton = document.getElementById('triggerLockoutButton');
+    const triggerWarningButton = document.getElementById('triggerWarningButton');
+    const customWarningInput = document.getElementById('customWarningInput');
+    const clearOverrideButton = document.getElementById('clearOverrideButton');
 
 
-    // --- Datastream & Cipher Data ---
-    const symbols = ['<', '>', '%', '^', '&', '*', '-', '+', '@'];
-    const groups = ['<', '>', '%', '^', '&'];
-    const encodingChart = {'A': '<>', 'B': '<%', 'C': '<^', 'D': '<&', 'E': '<*', 'F': '<-', 'G': '<+', 'H': '<@','I': '><', 'J': '>%', 'K': '>^', 'L': '>&', 'M': '>*', 'N': '>-', 'O': '>+', 'P': '>@','Q': '%<', 'R': '%>', 'S': '%^', 'T': '%&', 'U': '%*', 'V': '%-', 'W': '%+', 'X': '%@','Y': '^<', 'Z': '^>', '0': '^%', '1': '^&', '2': '^*', '3': '^-', '4': '^+', '5': '^@','6': '&<', '7': '&>', '8': '&%', '9': '&^'};
-    const doubledSymbols = ['<<', '>>', '%%', '^^', '&&', '**', '--', '++', '@@'];
+    // --- DB References ---
     const dbKeysRef = database.ref('decryption_keys');
     const dbHistoryClearRef = database.ref('history_cleared_timestamp');
-    const dbFileSystemRef = database.ref('file_system'); // PHASE 2: DB reference
-    let localKeys = {};
+    const dbFileSystemRef = database.ref('file_system');
+    const dbGlitchesRef = database.ref('glitches');
 
-    // --- Key Management Logic (unchanged) ---
+    // --- Key Management & Glitch Logic ---
     function generateKeySwitches(keys) { keyManagementGrid.innerHTML = ''; const allChars = Object.keys(encodingChart).sort(); allChars.forEach(char => { const isChecked = keys[char] === true; const switchWrapper = document.createElement('div'); switchWrapper.className = 'key-switch'; switchWrapper.innerHTML = `<label for="key-${char}">${char}</label><label class="switch"><input type="checkbox" id="key-${char}" ${isChecked ? 'checked' : ''}><span class="slider"></span></label>`; keyManagementGrid.appendChild(switchWrapper); document.getElementById(`key-${char}`).addEventListener('change', (e) => { dbKeysRef.child(char).set(e.target.checked); }); }); }
     function setAllKeys(state) { const updates = {}; Object.keys(encodingChart).forEach(char => { updates[char] = state; }); dbKeysRef.set(updates); }
     unlockAllButton.onclick = () => setAllKeys(true);
     lockAllButton.onclick = () => setAllKeys(false);
-    dbKeysRef.on('value', (snapshot) => { const keys = snapshot.val() || {}; localKeys = keys; generateKeySwitches(keys); });
+    dbKeysRef.on('value', (snapshot) => { const keys = snapshot.val() || {}; generateKeySwitches(keys); });
+    
+    scrambleMessageButton.onclick = () => { dbGlitchesRef.child('scramble_next').set(true); alert('Next message will be scrambled!'); };
+    glitchCommandButton.onclick = () => { const commandToGlitch = glitchCommandSelect.value; dbGlitchesRef.child('glitched_command').set(commandToGlitch); alert(`Command "${commandToGlitch}" will be glitched for 30 seconds.`); setTimeout(() => dbGlitchesRef.child('glitched_command').remove(), 30000); };
+    
+    // System Override Logic
+    triggerLockoutButton.onclick = () => { dbGlitchesRef.child('override_state').set({ type: 'lockout', message: 'CONNECTION TERMINATED' }); };
+    triggerWarningButton.onclick = () => {
+        const message = customWarningInput.value.trim() || '!! INTRUSION DETECTED !!';
+        dbGlitchesRef.child('override_state').set({ type: 'warning', message: message });
+        customWarningInput.value = '';
+    };
+    clearOverrideButton.onclick = () => { dbGlitchesRef.child('override_state').remove(); };
+
 
     // --- History Logic (unchanged) ---
     const GM_HISTORY_KEY = 'gmMessageHistory';
@@ -133,48 +175,15 @@
     function displayHistory() { let history = JSON.parse(localStorage.getItem(GM_HISTORY_KEY)) || []; historyContainer.innerHTML = ''; if (history.length === 0) { historyContainer.innerHTML = '<div class="historyItem" style="cursor:default; color:#6c7a7d;">No history yet.</div>'; } else { history.forEach(message => { const item = document.createElement('div'); item.className = 'historyItem'; item.textContent = message; item.onclick = () => { messageInput.value = message; }; historyContainer.appendChild(item); }); } }
     clearHistoryButton.onclick = () => { if (confirm('Are you sure you want to clear the transmission history for yourself and all players?')) { localStorage.removeItem(GM_HISTORY_KEY); displayHistory(); dbHistoryClearRef.set(firebase.database.ServerValue.TIMESTAMP); } };
 
-    // --- PHASE 2: File System Logic ---
-    createFileButton.onclick = () => {
-        const fileName = newFileNameInput.value.trim().toLowerCase();
-        const fileContent = newFileContentInput.value;
-        if (!fileName || !fileContent) {
-            alert('Filename and content cannot be empty.');
-            return;
-        }
-        if (fileName.includes('.') === false) {
-             alert('Filename must include an extension (e.g., .txt, .log)');
-             return;
-        }
-        // Firebase disallows . # $ [ ] / in keys, so we replace '.' with a unicode character
-        const safeFileName = fileName.replace(/\./g, '·');
-        dbFileSystemRef.child(safeFileName).set(fileContent);
-        newFileNameInput.value = '';
-        newFileContentInput.value = '';
-    };
-
-    dbFileSystemRef.on('value', (snapshot) => {
-        fileList.innerHTML = '';
-        const files = snapshot.val();
-        if (files) {
-            Object.keys(files).forEach(safeFileName => {
-                const originalFileName = safeFileName.replace(/·/g, '.');
-                const li = document.createElement('li');
-                li.textContent = originalFileName;
-                const deleteButton = document.createElement('button');
-                deleteButton.textContent = 'Delete';
-                deleteButton.className = 'secondary';
-                deleteButton.onclick = () => {
-                    if (confirm(`Are you sure you want to delete ${originalFileName}?`)) {
-                        dbFileSystemRef.child(safeFileName).remove();
-                    }
-                };
-                li.appendChild(deleteButton);
-                fileList.appendChild(li);
-            });
-        }
-    });
-
+    // --- File System Logic (unchanged) ---
+    createFileButton.onclick = () => { const fileName = newFileNameInput.value.trim().toLowerCase(); const filePassword = newFilePasswordInput.value.trim(); const fileContent = newFileContentInput.value; if (!fileName || !fileContent) { alert('Filename and content cannot be empty.'); return; } if (!fileName.includes('.')) { alert('Filename must include an extension (e.g., .txt, .log)'); return; } const safeFileName = fileName.replace(/\./g, '·'); const fileData = { content: fileContent }; if (filePassword) { fileData.password = filePassword; } dbFileSystemRef.child(safeFileName).set(fileData); newFileNameInput.value = ''; newFileContentInput.value = ''; newFilePasswordInput.value = ''; };
+    dbFileSystemRef.on('value', (snapshot) => { fileList.innerHTML = ''; const files = snapshot.val(); if (files) { Object.keys(files).forEach(safeFileName => { const originalFileName = safeFileName.replace(/·/g, '.'); const fileData = files[safeFileName]; const li = document.createElement('li'); if (fileData.password) { li.classList.add('locked'); li.textContent = `${originalFileName} [LOCKED]`; } else { li.textContent = originalFileName; } const deleteButton = document.createElement('button'); deleteButton.textContent = 'Delete'; deleteButton.className = 'secondary'; deleteButton.onclick = () => { if (confirm(`Are you sure you want to delete ${originalFileName}?`)) { dbFileSystemRef.child(safeFileName).remove(); } }; li.appendChild(deleteButton); fileList.appendChild(li); }); } });
+    
     // --- Other Logic (unchanged) ---
+    const symbols = ['<', '>', '%', '^', '&', '*', '-', '+', '@'];
+    const groups = ['<', '>', '%', '^', '&'];
+    const encodingChart = {'A': '<>', 'B': '<%', 'C': '<^', 'D': '<&', 'E': '<*', 'F': '<-', 'G': '<+', 'H': '<@','I': '><', 'J': '>%', 'K': '>^', 'L': '>&', 'M': '>*', 'N': '>-', 'O': '>+', 'P': '>@','Q': '%<', 'R': '%>', 'S': '%^', 'T': '%&', 'U': '%*', 'V': '%-', 'W': '%+', 'X': '%@','Y': '^<', 'Z': '^>', '0': '^%', '1': '^&', '2': '^*', '3': '^-', '4': '^+', '5': '^@','6': '&<', '7': '&>', '8': '&%', '9': '&^'};
+    const doubledSymbols = ['<<', '>>', '%%', '^^', '&&', '**', '--', '++', '@@'];
     updateConfigButton.onclick = () => { const config = { systemName: systemNameInput.value, osName: osNameInput.value, scanCommand: scanCommandInput.value.toLowerCase(), connectCommand: connectCommandInput.value.toLowerCase(), dataNoun: dataNounInput.value, signalNoun: signalNounInput.value, theme: themeSelect.value }; database.ref('terminal_config').set(config); alert('Terminal configuration updated!'); };
     function displayCipherKey() { const reversedChart = Object.fromEntries(Object.entries(encodingChart).map(a => a.reverse())); let tableHTML = '<table><thead><tr><th></th>'; symbols.forEach(s => tableHTML += `<th>${s}</th>`); tableHTML += '</tr></thead><tbody>'; groups.forEach(group => { tableHTML += `<tr><th>${group}</th>`; symbols.forEach(pos => { const pair = group + pos; let cellContent = reversedChart[pair] || '[BLANK]'; if (group === pos) cellContent = '[SPACE]'; let cellClass = (cellContent === '[SPACE]' || cellContent === '[BLANK]') ? 'class="space"' : ''; tableHTML += `<td ${cellClass}>${cellContent}</td>`; }); tableHTML += '</tr>'; }); tableHTML += '</tbody></table>'; cipherContainer.innerHTML = tableHTML; }
     noiseSlider.oninput = () => { noiseValue.textContent = noiseSlider.value; };
