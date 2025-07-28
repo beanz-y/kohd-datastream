@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Daggerheart - Motherboard Signal Encoder</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&display=swap');
+        body { font-family: 'Share Tech Mono', monospace; background-color: #1a2123; color: #d4d4d4; padding: 20px; }
+        .container { max-width: 800px; margin: auto; }
+        h1 { color: #00E5FF; text-shadow: 0 0 5px rgba(0, 229, 255, 0.7); border-bottom: 1px solid #3a4a4d; padding-bottom: 10px;}
+        h2 { color: #E8772E; font-size: 1.2em; margin-top: 30px; border-bottom: 1px solid #3a4a4d; padding-bottom: 5px; }
+        label { display: block; margin: 10px 0 5px; }
+        textarea, input[type="text"], select { width: 100%; padding: 8px; margin-bottom: 10px; background-color: #0e1213; color: #d4d4d4; border: 1px solid #3a4a4d; box-sizing: border-box; font-family: 'Share Tech Mono', monospace; font-size: 1em; }
+        button { background-color: #00E5FF; color: #0e1213; border: none; padding: 10px 20px; cursor: pointer; font-size: 16px; font-family: 'Share Tech Mono', monospace; font-weight: 700; margin-right: 10px; }
+        button.secondary { background-color: #E8772E; }
+        button:hover { filter: brightness(1.2); }
+        #outputBurst { background-color: #0e1213; padding: 15px; border: 1px dashed #E8772E; word-wrap: break-word; min-height: 50px; font-size: 1.1em; color: #00E5FF; }
+        .config-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 20px; }
+        #cipher-key-container table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+        #cipher-key-container th, #cipher-key-container td { border: 1px solid #3a4a4d; padding: 5px; text-align: center; }
+        #cipher-key-container th { color: #E8772E; }
+        #cipher-key-container td { color: #00E5FF; }
+        #cipher-key-container td.space { color: #6c7a7d; font-style: italic; }
+    </style>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
+</head>
+<body>
+<div class="container">
+    <h1>Motherboard Signal Encoder</h1>
+
+    <h2>Terminal Configuration</h2>
+    <div class="config-grid">
+        <div><label for="systemName">System Name</label><input type="text" id="systemName" value="MOTHERBOARD"></div>
+        <div><label for="osName">OS Name</label><input type="text" id="osName" value="M-OS v1.0"></div>
+        <div><label for="scanCommand">Scan Command</label><input type="text" id="scanCommand" value="seek_source"></div>
+        <div><label for="connectCommand">Connect Command</label><input type="text" id="connectCommand" value="awaken"></div>
+        <div><label for="dataNoun">Data Noun (e.g., Echo)</label><input type="text" id="dataNoun" value="Echo"></div>
+        <div><label for="signalNoun">Signal Noun (e.g., Signature)</label><input type="text" id="signalNoun" value="Signature"></div>
+    </div>
+    <div><label for="themeSelect">Terminal Theme</label><select id="themeSelect"><option value="relic-theme">Relic (Horizon)</option><option value="terminal-theme">Terminal (Classic Green)</option></select></div>
+    <button id="updateConfigButton" class="secondary">Update Terminal Config</button>
+
+    <h2>Datastream Transmission</h2>
+    <label for="messageInput">Data Fragment:</label><textarea id="messageInput">COORDINATES RECEIVED. STAND BY.</textarea>
+    <label for="noiseSlider">Signal Corruption: <span id="noiseValue">50</span></label><input type="range" id="noiseSlider" min="0" max="200" value="50" style="width: 100%;">
+    <button id="encodeButton">Transmit Datastream</button>
+    <h3>Transmitted kohd-datastream:</h3><div id="outputBurst"></div>
+
+    <h2>Cipher Key</h2>
+    <div id="cipher-key-container"></div>
+</div>
+
+<script>
+    // ####################################################################
+    // ## PASTE YOUR FIREBASE CONFIGURATION OBJECT HERE                  ##
+    // ####################################################################
+    const firebaseConfig = { /* PASTE CONFIG HERE */ };
+    // ####################################################################
+    firebase.initializeApp(firebaseConfig);
+    const database = firebase.database();
+
+    // --- Element Selectors ---
+    const systemNameInput = document.getElementById('systemName'), osNameInput = document.getElementById('osName'), scanCommandInput = document.getElementById('scanCommand'), connectCommandInput = document.getElementById('connectCommand'), dataNounInput = document.getElementById('dataNoun'), signalNounInput = document.getElementById('signalNoun'), themeSelect = document.getElementById('themeSelect'), updateConfigButton = document.getElementById('updateConfigButton');
+    const messageInput = document.getElementById('messageInput'), noiseSlider = document.getElementById('noiseSlider'), noiseValue = document.getElementById('noiseValue'), encodeButton = document.getElementById('encodeButton'), outputBurst = document.getElementById('outputBurst');
+    const cipherContainer = document.getElementById('cipher-key-container');
+
+    // --- Config Logic ---
+    updateConfigButton.onclick = () => {
+        const config = {
+            systemName: systemNameInput.value, osName: osNameInput.value,
+            scanCommand: scanCommandInput.value.toLowerCase(), connectCommand: connectCommandInput.value.toLowerCase(),
+            dataNoun: dataNounInput.value, signalNoun: signalNounInput.value,
+            theme: themeSelect.value
+        };
+        database.ref('terminal_config').set(config);
+        alert('Terminal configuration updated!');
+    };
+
+    // --- Datastream & Cipher Data ---
+    const symbols = ['<', '>', '%', '^', '&', '*', '-', '+', '@'];
+    const groups = ['<', '>', '%', '^', '&'];
+    const encodingChart = {'A': '<>', 'B': '<%', 'C': '<^', 'D': '<&', 'E': '<*', 'F': '<-', 'G': '<+', 'H': '<@','I': '><', 'J': '>%', 'K': '>^', 'L': '>&', 'M': '>*', 'N': '>-', 'O': '>+', 'P': '>@','Q': '%<', 'R': '%>', 'S': '%^', 'T': '%&', 'U': '%*', 'V': '%-', 'W': '%+', 'X': '%@','Y': '^<', 'Z': '^>', '0': '^%', '1': '^&', '2': '^*', '3': '^-', '4': '^+', '5': '^@','6': '&<', '7': '&>', '8': '&%', '9': '&^'};
+    const doubledSymbols = ['<<', '>>', '%%', '^^', '&&', '**', '--', '++', '@@'];
+
+    // --- Cipher Key Display Logic ---
+    function displayCipherKey() {
+        const reversedChart = Object.fromEntries(Object.entries(encodingChart).map(a => a.reverse()));
+        let tableHTML = '<table><thead><tr><th></th>';
+        symbols.forEach(s => tableHTML += `<th>${s}</th>`);
+        tableHTML += '</tr></thead><tbody>';
+        groups.forEach(group => {
+            tableHTML += `<tr><th>${group}</th>`;
+            symbols.forEach(pos => {
+                const pair = group + pos;
+                let cellContent = reversedChart[pair] || '[BLANK]';
+                if (group === pos) cellContent = '[SPACE]';
+                let cellClass = (cellContent === '[SPACE]' || cellContent === '[BLANK]') ? 'class="space"' : '';
+                tableHTML += `<td ${cellClass}>${cellContent}</td>`;
+            });
+            tableHTML += '</tr>';
+        });
+        tableHTML += '</tbody></table>';
+        cipherContainer.innerHTML = tableHTML;
+    }
+
+    // --- Datastream Transmission Logic ---
+    noiseSlider.oninput = () => { noiseValue.textContent = noiseSlider.value; };
+    function generateNoise(length) { let noise = ''; for (let i = 0; i < length; i++) { noise += symbols[Math.floor(Math.random() * symbols.length)]; } return noise; }
+    function encodeMessage(message) { let encoded = ''; message = message.toUpperCase(); for (const char of message) { if (char === ' ') { encoded += doubledSymbols[Math.floor(Math.random() * doubledSymbols.length)]; } else if (encodingChart[char]) { encoded += encodingChart[char]; } } return encoded; }
+    encodeButton.onclick = () => { const message = messageInput.value; const noiseLength = parseInt(noiseSlider.value, 10); const encodedPart = encodeMessage(message); const leadingNoise = generateNoise(Math.floor(noiseLength / 2)); const trailingNoise = generateNoise(Math.ceil(noiseLength / 2)); const finalBurst = `${leadingNoise}$:${encodedPart}:#${trailingNoise}`; outputBurst.textContent = finalBurst; database.ref('kohd_datastream').set(finalBurst); };
+
+    // Initial call to draw the cipher table on page load
+    displayCipherKey();
+</script>
+</body>
+</html>
