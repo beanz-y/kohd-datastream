@@ -15,13 +15,17 @@
         button { background-color: #00E5FF; color: #0e1213; border: none; padding: 10px 20px; cursor: pointer; font-size: 16px; font-family: 'Share Tech Mono', monospace; font-weight: 700; margin-right: 10px; }
         button.secondary { background-color: #E8772E; }
         button:hover { filter: brightness(1.2); }
-        #outputBurst { background-color: #0e1213; padding: 15px; border: 1px dashed #E8772E; word-wrap: break-word; min-height: 50px; font-size: 1.1em; color: #00E5FF; }
+        #outputBurst, #playerMessageDisplay { background-color: #0e1213; padding: 15px; border: 1px dashed #E8772E; word-wrap: break-word; min-height: 50px; font-size: 1.1em; color: #00E5FF; }
         .config-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 20px; }
         #cipher-key-container table { width: 100%; border-collapse: collapse; margin-top: 10px; }
         #cipher-key-container th, #cipher-key-container td { border: 1px solid #3a4a4d; padding: 5px; text-align: center; }
         #cipher-key-container th { color: #E8772E; }
         #cipher-key-container td { color: #00E5FF; }
         #cipher-key-container td.space { color: #6c7a7d; font-style: italic; }
+        /* New History Styles */
+        #historyContainer { max-height: 150px; overflow-y: auto; background-color: #0e1213; border: 1px solid #3a4a4d; padding: 10px; }
+        .historyItem { padding: 5px; cursor: pointer; border-bottom: 1px solid #1a2123; }
+        .historyItem:hover { background-color: #E8772E; color: #0e1213; }
     </style>
     <script src="firebase-config.js"></script> <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
@@ -48,6 +52,12 @@
     <button id="encodeButton">Transmit Datastream</button>
     <h3>Transmitted kohd-datastream:</h3><div id="outputBurst"></div>
 
+    <h2>Transmission History</h2>
+    <div id="historyContainer"></div>
+
+    <h2>Incoming Player Message</h2>
+    <div id="playerMessageDisplay">Awaiting message from player terminal...</div>
+
     <h2>Cipher Key</h2>
     <div id="cipher-key-container"></div>
 </div>
@@ -60,7 +70,39 @@
     // --- Element Selectors ---
     const systemNameInput = document.getElementById('systemName'), osNameInput = document.getElementById('osName'), scanCommandInput = document.getElementById('scanCommand'), connectCommandInput = document.getElementById('connectCommand'), dataNounInput = document.getElementById('dataNoun'), signalNounInput = document.getElementById('signalNoun'), themeSelect = document.getElementById('themeSelect'), updateConfigButton = document.getElementById('updateConfigButton');
     const messageInput = document.getElementById('messageInput'), noiseSlider = document.getElementById('noiseSlider'), noiseValue = document.getElementById('noiseValue'), encodeButton = document.getElementById('encodeButton'), outputBurst = document.getElementById('outputBurst');
+    const playerMessageDisplay = document.getElementById('playerMessageDisplay');
     const cipherContainer = document.getElementById('cipher-key-container');
+    const historyContainer = document.getElementById('historyContainer');
+
+    // --- History Logic ---
+    const GM_HISTORY_KEY = 'gmMessageHistory';
+    function saveToHistory(message) {
+        let history = JSON.parse(localStorage.getItem(GM_HISTORY_KEY)) || [];
+        if (!history.includes(message)) { // Avoid duplicates
+            history.unshift(message); // Add to the beginning
+        }
+        if (history.length > 20) history.pop(); // Keep history to a reasonable size
+        localStorage.setItem(GM_HISTORY_KEY, JSON.stringify(history));
+        displayHistory();
+    }
+
+    function displayHistory() {
+        let history = JSON.parse(localStorage.getItem(GM_HISTORY_KEY)) || [];
+        historyContainer.innerHTML = '';
+        if (history.length === 0) {
+            historyContainer.innerHTML = '<div class="historyItem" style="cursor:default; color:#6c7a7d;">No history yet.</div>';
+        } else {
+            history.forEach(message => {
+                const item = document.createElement('div');
+                item.className = 'historyItem';
+                item.textContent = message;
+                item.onclick = () => {
+                    messageInput.value = message;
+                };
+                historyContainer.appendChild(item);
+            });
+        }
+    }
 
     // --- Config Logic ---
     updateConfigButton.onclick = () => {
@@ -105,10 +147,32 @@
     noiseSlider.oninput = () => { noiseValue.textContent = noiseSlider.value; };
     function generateNoise(length) { let noise = ''; for (let i = 0; i < length; i++) { noise += symbols[Math.floor(Math.random() * symbols.length)]; } return noise; }
     function encodeMessage(message) { let encoded = ''; message = message.toUpperCase(); for (const char of message) { if (char === ' ') { encoded += doubledSymbols[Math.floor(Math.random() * doubledSymbols.length)]; } else if (encodingChart[char]) { encoded += encodingChart[char]; } } return encoded; }
-    encodeButton.onclick = () => { const message = messageInput.value; const noiseLength = parseInt(noiseSlider.value, 10); const encodedPart = encodeMessage(message); const leadingNoise = generateNoise(Math.floor(noiseLength / 2)); const trailingNoise = generateNoise(Math.ceil(noiseLength / 2)); const finalBurst = `${leadingNoise}$:${encodedPart}:#${trailingNoise}`; outputBurst.textContent = finalBurst; database.ref('kohd_datastream').set(finalBurst); };
+    encodeButton.onclick = () => {
+        const message = messageInput.value;
+        if (!message) return; // Don't send empty messages
+        saveToHistory(message); // Save to history
+        const noiseLength = parseInt(noiseSlider.value, 10);
+        const encodedPart = encodeMessage(message);
+        const leadingNoise = generateNoise(Math.floor(noiseLength / 2));
+        const trailingNoise = generateNoise(Math.ceil(noiseLength / 2));
+        const finalBurst = `${leadingNoise}$:${encodedPart}:#${trailingNoise}`;
+        outputBurst.textContent = finalBurst;
+        database.ref('kohd_datastream').set(finalBurst);
+    };
 
-    // Initial call to draw the cipher table on page load
+    // --- Firebase Listener for Player Replies ---
+    database.ref('player_reply').on('value', (snapshot) => {
+        const message = snapshot.val();
+        if (message) {
+            playerMessageDisplay.textContent = message;
+        } else {
+            playerMessageDisplay.textContent = 'Awaiting message from player terminal...';
+        }
+    });
+
+    // --- Initial calls on page load ---
     displayCipherKey();
+    displayHistory();
 </script>
 </body>
 </html>
