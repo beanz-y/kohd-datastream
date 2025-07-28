@@ -44,16 +44,15 @@
     
     let isConnected = false, isScanning = false, isTyping = false;
     let config = { theme: 'relic-theme', systemName: "SYSTEM", osName: "OS", scanCommand: "scan", connectCommand: "connect", dataNoun: "Data", signalNoun: "Signal" };
-    let unlockedKeys = {}, fileSystem = {}, glitches = {};
-    let unlockedFiles = new Set();
-    let decodingChart = {};
+    let unlockedKeys = {}, fileSystem = {}, glitches = {}, accessPasswords = {};
+    let clearanceLevel = 1;
 
-    const doubledSymbols = ['<<', '>>', '%%', '^^', '&&', '**', '--', '++', '@@'];
-    const allSymbols = [ ...doubledSymbols, '$',':','#','<','>','%','^','&','*','-','+','@'];
-    // **FIXED:** Define a stable default cipher to ensure sync on first load
+    let decodingChart = {};
     const defaultEncodingChart = {'A': '<>', 'B': '<%', 'C': '<^', 'D': '<&', 'E': '<*', 'F': '<-', 'G': '<+', 'H': '<@','I': '><', 'J': '>%', 'K': '>^', 'L': '>&', 'M': '>*', 'N': '>-', 'O': '>+', 'P': '>@','Q': '%<', 'R': '%>', 'S': '%^', 'T': '%&', 'U': '%*', 'V': '%-', 'W': '%+', 'X': '%@','Y': '^<', 'Z': '^>', '0': '^%', '1': '^&', '2': '^*', '3': '^-', '4': '^+', '5': '^@','6': '&<', '7': '&>', '8': '&%', '9': '&^'};
     decodingChart = Object.fromEntries(Object.entries(defaultEncodingChart).map(a => a.reverse()));
-
+    
+    const doubledSymbols = ['<<', '>>', '%%', '^^', '&&', '**', '--', '++', '@@'];
+    const allSymbols = [ ...doubledSymbols, '$',':','#','<','>','%','^','&','*','-','+','@'];
 
     const RECEIVED_HISTORY_KEY = 'receivedMessageHistory';
     function saveMessageToHistory(message) { let history = JSON.parse(localStorage.getItem(RECEIVED_HISTORY_KEY)) || []; if (!history.length || history[0] !== message) { history.unshift(message); if (history.length > 20) history.pop(); localStorage.setItem(RECEIVED_HISTORY_KEY, JSON.stringify(history)); } }
@@ -68,15 +67,26 @@
         printLine(`> ${fullCmd}`, 'prompt-text');
         const [cmd, ...args] = fullCmd.split(' ');
         const argString = args.join(' ');
-        if (cmd === 'help') { typeLine(`${config.systemName} Command List:`, 'system-msg'); typeLine(`  help          - Displays this list`); typeLine(`  login <pass>  - Authenticate to access locked files`); typeLine(`  ls            - Lists files in the current directory`); typeLine(`  cat <file>    - Displays the content of a file`); typeLine(`  ${config.scanCommand.padEnd(13, ' ')} - Scan for active data ${config.signalNoun.toLowerCase()}s`); typeLine(`  ${config.connectCommand.padEnd(13, ' ')} - Connect to a detected ${config.signalNoun.toLowerCase()}`); typeLine(`  reply <msg>   - Sends a message back to source`); typeLine(`  ping          - Checks connection to the source`); typeLine(`  status        - Displays current system status`); typeLine(`  history       - Shows received message history`); typeLine(`  cls           - Clears the display`);
-        } else if (cmd === 'login') { const pass = argString.trim(); let unlockedCount = 0; if (!pass) { typeLine('ERROR: Missing password. Usage: login <password>', 'error-msg'); return; } Object.keys(fileSystem).forEach(safeFileName => { if (fileSystem[safeFileName].password === pass) { unlockedFiles.add(safeFileName); unlockedCount++; } }); if (unlockedCount > 0) { typeLine(`Authentication successful. ${unlockedCount} file(s) unlocked.`, 'system-msg'); } else { typeLine('Authentication failed: Invalid password.', 'error-msg'); }
-        } else if (cmd === 'ls') { if (!isConnected) { typeLine('ERROR: Not connected to a system.', 'error-msg'); return; } const fileNames = Object.keys(fileSystem); if (fileNames.length > 0) { let output = ''; fileNames.forEach(safeFileName => { const originalFileName = safeFileName.replace(/·/g, '.'); if (fileSystem[safeFileName].password && !unlockedFiles.has(safeFileName)) { output += `<span class="file-locked">${originalFileName} [LOCKED]</span>   `; } else { output += `${originalFileName}   `; } }); printLine(output, 'data-msg-body'); } else { typeLine('Directory is empty.'); }
-        } else if (cmd === 'cat') { if (!isConnected) { typeLine('ERROR: Not connected to a system.', 'error-msg'); return; } const fileName = argString.trim(); const safeFileName = fileName.replace(/\./g, '·'); if (!fileName) { typeLine('ERROR: Missing filename. Usage: cat <filename>', 'error-msg'); } else if (!fileSystem[safeFileName]) { typeLine(`ERROR: File not found: ${fileName}`, 'error-msg'); } else if (fileSystem[safeFileName].password && !unlockedFiles.has(safeFileName)) { typeLine(`ERROR: Access denied. Use 'login <password>' to unlock ${fileName}.`, 'error-msg'); } else { typeLine(`--- BEGIN FILE: ${fileName} ---`, 'data-msg-header'); printLine(fileSystem[safeFileName].content, 'data-msg-body'); typeLine(`--- END FILE: ${fileName} ---`, 'data-msg-header'); }
+        if (cmd === 'help') { typeLine(`${config.systemName} Command List:`, 'system-msg'); typeLine(`  help          - Displays this list`); typeLine(`  elevate <pass>  - Elevate security clearance`); typeLine(`  ls            - Lists files in the current directory`); typeLine(`  cat <file>    - Displays the content of a file`); typeLine(`  ${config.scanCommand.padEnd(13, ' ')} - Scan for active data ${config.signalNoun.toLowerCase()}s`); typeLine(`  ${config.connectCommand.padEnd(13, ' ')} - Connect to a detected ${config.signalNoun.toLowerCase()}`); typeLine(`  reply <msg>   - Sends a message back to source`); typeLine(`  ping          - Checks connection to the source`); typeLine(`  status        - Displays current system status`); typeLine(`  history       - Shows received message history`); typeLine(`  cls           - Clears the display`);
+        } else if (cmd === 'elevate') {
+            const pass = argString.trim();
+            if (!pass) { typeLine('ERROR: Missing password. Usage: elevate <password>', 'error-msg'); return; }
+            if (pass === accessPasswords.level3 && clearanceLevel < 3) {
+                clearanceLevel = 3;
+                typeLine(`// ACCESS GRANTED. SECURITY CLEARANCE ELEVATED TO LEVEL 3 //`, 'system-msg');
+            } else if (pass === accessPasswords.level2 && clearanceLevel < 2) {
+                clearanceLevel = 2;
+                typeLine(`// ACCESS GRANTED. SECURITY CLEARANCE ELEVATED TO LEVEL 2 //`, 'system-msg');
+            } else {
+                typeLine('Authentication failed: Invalid credentials.', 'error-msg');
+            }
+        } else if (cmd === 'ls') { if (!isConnected) { typeLine('ERROR: Not connected to a system.', 'error-msg'); return; } const fileNames = Object.keys(fileSystem); if (fileNames.length > 0) { let output = ''; fileNames.forEach(safeFileName => { const originalFileName = safeFileName.replace(/·/g, '.'); const fileData = fileSystem[safeFileName]; if (fileData.level > clearanceLevel) { output += `<span class="file-locked">${originalFileName} [LEVEL ${fileData.level}]</span>   `; } else { output += `${originalFileName}   `; } }); printLine(output, 'data-msg-body'); } else { typeLine('Directory is empty.'); }
+        } else if (cmd === 'cat') { if (!isConnected) { typeLine('ERROR: Not connected to a system.', 'error-msg'); return; } const fileName = argString.trim(); const safeFileName = fileName.replace(/\./g, '·'); if (!fileName) { typeLine('ERROR: Missing filename. Usage: cat <filename>', 'error-msg'); } else if (!fileSystem[safeFileName]) { typeLine(`ERROR: File not found: ${fileName}`, 'error-msg'); } else if (fileSystem[safeFileName].level > clearanceLevel) { typeLine(`ERROR: INSUFFICIENT CLEARANCE. ACCESS LEVEL ${fileSystem[safeFileName].level} REQUIRED.`, 'error-msg'); } else { typeLine(`--- BEGIN FILE: ${fileName} ---`, 'data-msg-header'); printLine(fileSystem[safeFileName].content, 'data-msg-body'); typeLine(`--- END FILE: ${fileName} ---`, 'data-msg-header'); }
         } else if (cmd === config.scanCommand) { typeLine(`Scanning for kohd-datastream ${config.signalNoun.toLowerCase()}s from ${config.systemName}...`, '', 30, () => { setTimeout(() => { typeLine(`...Faint ${config.signalNoun} detected. Source confirmed: ${config.systemName}.`, 'system-msg'); }, 1500); }); isScanning = true;
         } else if (cmd === config.connectCommand) { if (isScanning) { typeLine(`Attempting to synchronize with ${config.systemName}...`, '', 30, () => { isConnected = true; database.ref('player_status').set({ isConnected: true }); typeLine(`Synchronization complete. Interface active. Awaiting ${config.dataNoun}...`, 'system-msg'); }); } else { typeLine(`ERROR: No ${config.signalNoun} detected. Run ${config.scanCommand.toUpperCase()} first.`, 'error-msg'); }
         } else if (cmd === 'cls') { const lines = terminal.querySelectorAll('.line:not(.welcome-line)'); lines.forEach(line => line.remove());
         } else if (cmd === 'ping') { if (isConnected) { const latency = Math.floor(Math.random() * (150 - 40 + 1)) + 40; typeLine(`PONG! Received reply from ${config.systemName} in ${latency}ms.`, 'system-msg'); } else { typeLine('ERROR: Not connected. Cannot ping target.', 'error-msg'); }
-        } else if (cmd === 'status') { typeLine(`SYSTEM STATUS:`, 'system-msg'); typeLine(`  Connection:  ${isConnected ? `CONNECTED to ${config.systemName}` : 'OFFLINE'}`); typeLine(`  Data Noun:   ${config.dataNoun}`); typeLine(`  Signal Noun: ${config.signalNoun}`);
+        } else if (cmd === 'status') { typeLine(`SYSTEM STATUS:`, 'system-msg'); typeLine(`  Connection:  ${isConnected ? `CONNECTED to ${config.systemName}` : 'OFFLINE'}`); typeLine(`  Clearance:   LEVEL ${clearanceLevel}`); typeLine(`  Data Noun:   ${config.dataNoun}`); typeLine(`  Signal Noun: ${config.signalNoun}`);
         } else if (cmd === 'reply') { if (isConnected) { if (argString) { database.ref('player_reply').set(argString); typeLine(`Message sent: "${argString}"`, 'system-msg'); } else { typeLine('ERROR: Cannot send an empty message. Usage: reply <message>', 'error-msg'); } } else { typeLine('ERROR: Must be connected to send a reply.', 'error-msg'); }
         } else if (cmd === 'history') { const history = JSON.parse(localStorage.getItem(RECEIVED_HISTORY_KEY)) || []; if (history.length > 0) { typeLine(`Received ${config.dataNoun} History:`, 'system-msg', 20, () => { history.forEach((msg, i) => { const decoded = partiallyDecode(msg); printLine(`${(i + 1).toString().padStart(2, ' ')}: ${decoded}`, 'data-msg-body'); }); }); } else { typeLine(`No message history found.`); }
         } else { typeLine('//_UNAUTHORIZED COMMAND. LOGGING ATTEMPT..._//', 'error-msg'); }
@@ -89,13 +99,9 @@
     database.ref('decryption_keys').on('value', (snapshot) => { unlockedKeys = snapshot.val() || {}; });
     database.ref('history_cleared_timestamp').on('value', (snapshot) => { if (snapshot.exists() && isConnected) { localStorage.removeItem(RECEIVED_HISTORY_KEY); typeLine('// REMOTE LOGS PURGED BY SOURCE //', 'system-msg'); } });
     database.ref('file_system').on('value', (snapshot) => { fileSystem = snapshot.val() || {}; });
-    database.ref('cipher_config').on('value', (snapshot) => {
-        if (snapshot.exists()) {
-            decodingChart = Object.fromEntries(Object.entries(snapshot.val()).map(a => a.reverse()));
-            if(isConnected) typeLine('// Cipher matrix re-initialized by source //', 'system-msg');
-        }
-    });
-
+    database.ref('access_control').on('value', (snapshot) => { accessPasswords = snapshot.val() || {}; });
+    database.ref('cipher_config').on('value', (snapshot) => { if (snapshot.exists()) { decodingChart = Object.fromEntries(Object.entries(snapshot.val()).map(a => a.reverse())); if(isConnected) typeLine('// Cipher matrix re-initialized by source //', 'system-msg'); } });
+    
     database.ref('glitches').on('value', (snapshot) => {
         glitches = snapshot.val() || {};
         const override = glitches.override_state;
@@ -105,6 +111,11 @@
             overrideOverlay.style.display = 'flex';
         } else {
             overrideOverlay.style.display = 'none';
+        }
+        if (glitches.reset_access_timestamp && isConnected) {
+            clearanceLevel = 1;
+            typeLine('// SECURITY CREDENTIALS INVALIDATED. ACCESS LEVEL RESET BY SOURCE. //', 'error-msg');
+            database.ref('glitches/reset_access_timestamp').remove(); // Reset the flag
         }
     });
 
@@ -120,7 +131,7 @@
             saveMessageToHistory(data);
         }
     });
-
+    
     // Report offline status when the window is closed
     window.addEventListener('beforeunload', () => {
         database.ref('player_status').set({ isConnected: false });

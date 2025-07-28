@@ -58,6 +58,7 @@
       <h1>Motherboard Signal Encoder</h1>
       <span id="playerStatus" class="offline">OFFLINE</span>
     </div>
+    
     <h2>Terminal Configuration</h2>
     <div class="config-grid">
         <div><label for="systemName">System Name</label><input type="text" id="systemName" value="MOTHERBOARD"></div>
@@ -69,6 +70,14 @@
     </div>
     <div><label for="themeSelect">Terminal Theme</label><select id="themeSelect"><option value="relic-theme">Relic (Horizon)</option><option value="terminal-theme">Terminal (Classic Green)</option></select></div>
     <button id="updateConfigButton" class="secondary">Update Terminal Config</button>
+
+    <h2>Access Control</h2>
+    <div class="config-grid">
+        <div><label for="level2Password">Level 2 Password</label><input type="text" id="level2Password"></div>
+        <div><label for="level3Password">Level 3 Password</label><input type="text" id="level3Password"></div>
+    </div>
+    <button id="savePasswordsButton">Save Passwords</button>
+    <button id="resetAccessButton" class="secondary">Reset Player Access</button>
 
     <h2>Decryption Key Management</h2>
     <div id="keyManagementGrid"></div>
@@ -103,8 +112,12 @@
     <h2>File System Management</h2>
     <label for="newFileName">Filename (e.g., log.txt)</label>
     <input type="text" id="newFileName" placeholder="Enter filename...">
-    <label for="newFilePassword">Password (optional)</label>
-    <input type="text" id="newFilePassword" placeholder="Enter password to lock file...">
+    <label for="fileAccessLevel">Required Access Level</label>
+    <select id="fileAccessLevel">
+        <option value="1">Level 1 (Public)</option>
+        <option value="2">Level 2 (Restricted)</option>
+        <option value="3">Level 3 (Administrator)</option>
+    </select>
     <label for="newFileContent">File Content</label>
     <textarea id="newFileContent" rows="4" placeholder="Enter file content..."></textarea>
     <button id="createFileButton">Create File</button>
@@ -132,7 +145,10 @@
     
     <div class="section-header">
       <h2>Cipher Key</h2>
-      <button id="generateCipherButton" class="secondary" style="font-size: 12px; padding: 5px 10px;">Generate New Cipher</button>
+      <div>
+          <button id="resetCipherButton" class="secondary" style="font-size: 12px; padding: 5px 10px;">Reset to Default</button>
+          <button id="generateCipherButton" class="secondary" style="font-size: 12px; padding: 5px 10px;">Generate New Cipher</button>
+      </div>
     </div>
     <div id="cipher-key-container"></div>
 </div>
@@ -145,24 +161,18 @@
     const systemNameInput = document.getElementById('systemName'), osNameInput = document.getElementById('osName'), scanCommandInput = document.getElementById('scanCommand'), connectCommandInput = document.getElementById('connectCommand'), dataNounInput = document.getElementById('dataNoun'), signalNounInput = document.getElementById('signalNoun'), themeSelect = document.getElementById('themeSelect'), updateConfigButton = document.getElementById('updateConfigButton');
     const messageInput = document.getElementById('messageInput'), noiseSlider = document.getElementById('noiseSlider'), noiseValue = document.getElementById('noiseValue'), encodeButton = document.getElementById('encodeButton'), outputBurst = document.getElementById('outputBurst');
     const playerMessageDisplay = document.getElementById('playerMessageDisplay');
-    const cipherContainer = document.getElementById('cipher-key-container'), generateCipherButton = document.getElementById('generateCipherButton');
+    const cipherContainer = document.getElementById('cipher-key-container'), generateCipherButton = document.getElementById('generateCipherButton'), resetCipherButton = document.getElementById('resetCipherButton');
     const historyContainer = document.getElementById('historyContainer'), clearHistoryButton = document.getElementById('clearHistoryButton');
     const keyManagementGrid = document.getElementById('keyManagementGrid'), unlockAllButton = document.getElementById('unlockAllButton'), lockAllButton = document.getElementById('lockAllButton');
-    const newFileNameInput = document.getElementById('newFileName'), newFilePasswordInput = document.getElementById('newFilePassword'), newFileContentInput = document.getElementById('newFileContent'), createFileButton = document.getElementById('createFileButton'), fileList = document.getElementById('fileList');
+    const newFileNameInput = document.getElementById('newFileName'), fileAccessLevelSelect = document.getElementById('fileAccessLevel'), newFileContentInput = document.getElementById('newFileContent'), createFileButton = document.getElementById('createFileButton'), fileList = document.getElementById('fileList');
     const scrambleMessageButton = document.getElementById('scrambleMessageButton'), glitchCommandButton = document.getElementById('glitchCommandButton'), glitchCommandSelect = document.getElementById('glitchCommandSelect');
     const triggerLockoutButton = document.getElementById('triggerLockoutButton'), triggerWarningButton = document.getElementById('triggerWarningButton'), customWarningInput = document.getElementById('customWarningInput'), clearOverrideButton = document.getElementById('clearOverrideButton');
     const playerStatus = document.getElementById('playerStatus');
     const templateButtons = document.getElementById('templateButtons');
+    const level2PasswordInput = document.getElementById('level2Password'), level3PasswordInput = document.getElementById('level3Password'), savePasswordsButton = document.getElementById('savePasswordsButton'), resetAccessButton = document.getElementById('resetAccessButton');
 
     // --- DB References ---
-    const dbRefs = {
-        keys: database.ref('decryption_keys'),
-        historyClear: database.ref('history_cleared_timestamp'),
-        fileSystem: database.ref('file_system'),
-        glitches: database.ref('glitches'),
-        playerStatus: database.ref('player_status'),
-        cipher: database.ref('cipher_config')
-    };
+    const dbRefs = { keys: database.ref('decryption_keys'), historyClear: database.ref('history_cleared_timestamp'), fileSystem: database.ref('file_system'), glitches: database.ref('glitches'), playerStatus: database.ref('player_status'), cipher: database.ref('cipher_config'), access: database.ref('access_control') };
 
     // --- Data ---
     const symbols = ['<', '>', '%', '^', '&', '*', '-', '+', '@'];
@@ -170,11 +180,13 @@
     let encodingChart = {};
     const doubledSymbols = ['<<', '>>', '%%', '^^', '&&', '**', '--', '++', '@@'];
     const MESSAGE_TEMPLATES = [ "CONNECTION UNSTABLE", "SIGNAL BOOSTED", "SECURITY ALERT", "TRACE DETECTED", "ACKNOWLEDGED", "STAND BY..." ];
-    // **FIXED:** Define a stable default cipher
     const defaultEncodingChart = {'A': '<>', 'B': '<%', 'C': '<^', 'D': '<&', 'E': '<*', 'F': '<-', 'G': '<+', 'H': '<@','I': '><', 'J': '>%', 'K': '>^', 'L': '>&', 'M': '>*', 'N': '>-', 'O': '>+', 'P': '>@','Q': '%<', 'R': '%>', 'S': '%^', 'T': '%&', 'U': '%*', 'V': '%-', 'W': '%+', 'X': '%@','Y': '^<', 'Z': '^>', '0': '^%', '1': '^&', '2': '^*', '3': '^-', '4': '^+', '5': '^@','6': '&<', '7': '&>', '8': '&%', '9': '&^'};
 
-    // --- Player Status Logic (unchanged) ---
+    // --- Player Status & Access Control ---
     dbRefs.playerStatus.on('value', (snapshot) => { const status = snapshot.val(); if (status && status.isConnected) { playerStatus.textContent = 'ONLINE'; playerStatus.className = 'online'; } else { playerStatus.textContent = 'OFFLINE'; playerStatus.className = 'offline'; } });
+    savePasswordsButton.onclick = () => { const pass2 = level2PasswordInput.value.trim(); const pass3 = level3PasswordInput.value.trim(); const updates = {}; if (pass2) updates['level2'] = pass2; if (pass3) updates['level3'] = pass3; dbRefs.access.set(updates); alert('Access passwords saved.'); };
+    dbRefs.access.on('value', (snapshot) => { const passwords = snapshot.val() || {}; level2PasswordInput.value = passwords.level2 || ''; level3PasswordInput.value = passwords.level3 || ''; });
+    resetAccessButton.onclick = () => { if(confirm('Are you sure you want to reset the player\'s access level back to 1?')) { dbRefs.glitches.child('reset_access_timestamp').set(firebase.database.ServerValue.TIMESTAMP); alert('Player access level has been reset.'); } };
 
     // --- Key Management & Glitch Logic (unchanged) ---
     function generateKeySwitches(keys) { keyManagementGrid.innerHTML = ''; const allChars = Object.keys(encodingChart).sort(); allChars.forEach(char => { const isChecked = keys[char] === true; const switchWrapper = document.createElement('div'); switchWrapper.className = 'key-switch'; switchWrapper.innerHTML = `<label for="key-${char}">${char}</label><label class="switch"><input type="checkbox" id="key-${char}" ${isChecked ? 'checked' : ''}><span class="slider"></span></label>`; keyManagementGrid.appendChild(switchWrapper); document.getElementById(`key-${char}`).addEventListener('change', (e) => { dbRefs.keys.child(char).set(e.target.checked); }); }); }
@@ -195,8 +207,8 @@
     clearHistoryButton.onclick = () => { if (confirm('Are you sure you want to clear the transmission history for yourself and all players?')) { localStorage.removeItem(GM_HISTORY_KEY); displayHistory(); dbRefs.historyClear.set(firebase.database.ServerValue.TIMESTAMP); } };
 
     // --- File System Logic (unchanged) ---
-    createFileButton.onclick = () => { const fileName = newFileNameInput.value.trim().toLowerCase(); const filePassword = newFilePasswordInput.value.trim(); const fileContent = newFileContentInput.value; if (!fileName || !fileContent) { alert('Filename and content cannot be empty.'); return; } if (!fileName.includes('.')) { alert('Filename must include an extension (e.g., .txt, .log)'); return; } const safeFileName = fileName.replace(/\./g, '·'); const fileData = { content: fileContent }; if (filePassword) { fileData.password = filePassword; } dbRefs.fileSystem.child(safeFileName).set(fileData); newFileNameInput.value = ''; newFileContentInput.value = ''; newFilePasswordInput.value = ''; };
-    dbRefs.fileSystem.on('value', (snapshot) => { fileList.innerHTML = ''; const files = snapshot.val(); if (files) { Object.keys(files).forEach(safeFileName => { const originalFileName = safeFileName.replace(/·/g, '.'); const fileData = files[safeFileName]; const li = document.createElement('li'); if (fileData.password) { li.classList.add('locked'); li.textContent = `${originalFileName} [LOCKED]`; } else { li.textContent = originalFileName; } const deleteButton = document.createElement('button'); deleteButton.textContent = 'Delete'; deleteButton.className = 'secondary'; deleteButton.onclick = () => { if (confirm(`Are you sure you want to delete ${originalFileName}?`)) { dbRefs.fileSystem.child(safeFileName).remove(); } }; li.appendChild(deleteButton); fileList.appendChild(li); }); } });
+    createFileButton.onclick = () => { const fileName = newFileNameInput.value.trim().toLowerCase(); const accessLevel = parseInt(fileAccessLevelSelect.value, 10); const fileContent = newFileContentInput.value; if (!fileName || !fileContent) { alert('Filename and content cannot be empty.'); return; } if (!fileName.includes('.')) { alert('Filename must include an extension (e.g., .txt, .log)'); return; } const safeFileName = fileName.replace(/\./g, '·'); const fileData = { content: fileContent, level: accessLevel }; dbRefs.fileSystem.child(safeFileName).set(fileData); newFileNameInput.value = ''; newFileContentInput.value = ''; };
+    dbRefs.fileSystem.on('value', (snapshot) => { fileList.innerHTML = ''; const files = snapshot.val(); if (files) { Object.keys(files).forEach(safeFileName => { const originalFileName = safeFileName.replace(/·/g, '.'); const fileData = files[safeFileName]; const li = document.createElement('li'); let displayText = originalFileName; if (fileData.level > 1) { li.classList.add('locked'); displayText += ` [LEVEL ${fileData.level}]`; } li.textContent = displayText; const deleteButton = document.createElement('button'); deleteButton.textContent = 'Delete'; deleteButton.className = 'secondary'; deleteButton.onclick = () => { if (confirm(`Are you sure you want to delete ${originalFileName}?`)) { dbRefs.fileSystem.child(safeFileName).remove(); } }; li.appendChild(deleteButton); fileList.appendChild(li); }); } });
     
     // --- Other Logic (unchanged) ---
     updateConfigButton.onclick = () => { const config = { systemName: systemNameInput.value, osName: osNameInput.value, scanCommand: scanCommandInput.value.toLowerCase(), connectCommand: connectCommandInput.value.toLowerCase(), dataNoun: dataNounInput.value, signalNoun: signalNounInput.value, theme: themeSelect.value }; database.ref('terminal_config').set(config); alert('Terminal configuration updated!'); };
@@ -207,20 +219,34 @@
     
     // --- Cipher Logic ---
     function displayCipherKey(chart) { const reversedChart = Object.fromEntries(Object.entries(chart).map(a => a.reverse())); let tableHTML = '<table><thead><tr><th></th>'; symbols.forEach(s => tableHTML += `<th>${s}</th>`); tableHTML += '</tr></thead><tbody>'; groups.forEach(group => { tableHTML += `<tr><th>${group}</th>`; symbols.forEach(pos => { const pair = group + pos; let cellContent = reversedChart[pair] || '[BLANK]'; if (group === pos) cellContent = '[SPACE]'; let cellClass = (cellContent === '[SPACE]' || cellContent === '[BLANK]') ? 'class="space"' : ''; tableHTML += `<td ${cellClass}>${cellContent}</td>`; }); tableHTML += '</tr>'; }); tableHTML += '</tbody></table>'; cipherContainer.innerHTML = tableHTML; }
-    generateCipherButton.onclick = () => { if (!confirm('This will generate a new cipher and may disrupt player decoding. Continue?')) return; const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'.split(''); const shuffledSymbols = [...symbols].sort(() => 0.5 - Math.random()); const newChart = {}; for(let i = 0; i < chars.length; i++) { const group = groups[Math.floor(i / shuffledSymbols.length)]; const symbol = shuffledSymbols[i % shuffledSymbols.length]; if(group !== symbol) { newChart[chars[i]] = group + symbol; } else { newChart[chars[i]] = shuffledSymbols[0] + shuffledSymbols[1]; } } dbRefs.cipher.set(newChart); dbRefs.keys.remove(); alert('New cipher generated and synced.'); };
     
-    // **FIXED:** Cipher loading logic
-    dbRefs.cipher.on('value', (snapshot) => {
-        if (snapshot.exists()) {
-            encodingChart = snapshot.val();
-        } else {
-            // If no cipher exists in DB, set it to the default one.
-            encodingChart = defaultEncodingChart;
-            dbRefs.cipher.set(defaultEncodingChart);
-        }
-        displayCipherKey(encodingChart);
-        dbRefs.keys.on('value', (snapshot) => { const keys = snapshot.val() || {}; generateKeySwitches(keys); });
-    });
+    resetCipherButton.onclick = () => {
+        if (!confirm('This will reset the cipher to its default state. Continue?')) return;
+        dbRefs.cipher.set(defaultEncodingChart);
+        dbRefs.keys.remove();
+        alert('Cipher has been reset to default.');
+    };
+
+    generateCipherButton.onclick = () => {
+        if (!confirm('This will generate a new cipher and may disrupt player decoding. Continue?')) return;
+        const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'.split('');
+        let possiblePairs = [];
+        groups.forEach(g => {
+            symbols.forEach(s => {
+                if (g !== s) possiblePairs.push(g + s);
+            });
+        });
+        possiblePairs.sort(() => 0.5 - Math.random()); // Shuffle the array
+        const newChart = {};
+        chars.forEach((char, index) => {
+            newChart[char] = possiblePairs[index];
+        });
+        dbRefs.cipher.set(newChart);
+        dbRefs.keys.remove();
+        alert('New cipher generated and synced.');
+    };
+    
+    dbRefs.cipher.on('value', (snapshot) => { if (snapshot.exists()) { encodingChart = snapshot.val(); } else { encodingChart = defaultEncodingChart; dbRefs.cipher.set(defaultEncodingChart); } displayCipherKey(encodingChart); dbRefs.keys.on('value', (snapshot) => { const keys = snapshot.val() || {}; generateKeySwitches(keys); }); });
     
     // --- Initial calls ---
     MESSAGE_TEMPLATES.forEach(template => { const btn = document.createElement('button'); btn.textContent = template; btn.onclick = () => messageInput.value = template; templateButtons.appendChild(btn); });
