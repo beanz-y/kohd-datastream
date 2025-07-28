@@ -14,20 +14,20 @@
         .prompt-text { flex-shrink: 0; }
         #commandInput { background-color: transparent; border: none; font-family: inherit; font-size: inherit; flex-grow: 1; padding: 0; margin: 0; }
         #commandInput:focus { outline: none; }
-        body.relic-theme { background-color: #1a2123; color: #d4d4d4; font-family: 'Share Tech Mono', monospace; font-size: 18px; }
+        body.relic-theme { background-color: #1a2123; color: #d4d4d4; font-family: 'Share Tech Mono', monospace; font-size: 18px; transition: background-color 0.1s; }
         .relic-theme #terminal { padding: 10px; } .relic-theme .prompt-text { color: #E8772E; } .relic-theme #commandInput { color: #d4d4d4; } .relic-theme .system-msg { color: #00E5FF; text-shadow: 0 0 2px rgba(0, 229, 255, 0.5); } .relic-theme .error-msg, .relic-theme .data-msg-header { color: #E8772E; } .relic-theme .data-msg-body { color: #00E5FF; }
-        .relic-theme .decoded-char { color: #fff; background-color: #00E5FF; padding: 0 2px; }
-        .relic-theme .locked-char { color: #6c7a7d; }
-        body.terminal-theme { background-color: #000; color: #0f0; font-family: 'VT323', monospace; font-size: 22px; }
+        body.terminal-theme { background-color: #000; color: #0f0; font-family: 'VT323', monospace; font-size: 22px; transition: background-color 0.1s; }
         .terminal-theme #terminal { padding: 10px; text-shadow: 0 0 3px #0f0; } .terminal-theme .prompt-text, .terminal-theme #commandInput, .terminal-theme .system-msg, .terminal-theme .error-msg, .terminal-theme .data-msg-header, .terminal-theme .data-msg-body { color: #0f0; }
         .terminal-theme::after { content: " "; display: block; position: absolute; top: 0; left: 0; bottom: 0; right: 0; background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%), linear-gradient(90deg, rgba(255, 0, 0, 0.06), rgba(0, 255, 0, 0.02), rgba(0, 0, 255, 0.06)); z-index: 2; background-size: 100% 4px, 3px 100%; pointer-events: none; animation: flicker 0.15s infinite; }
         @keyframes flicker { 0% { opacity: 0.2; } 20% { opacity: 0.6; } 40% { opacity: 0.3; } 60% { opacity: 0.7; } 80% { opacity: 0.4; } 100% { opacity: 0.6; } }
+        body.error-flash { background-color: #600; }
     </style>
     <script src="firebase-config.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
 </head>
-<body class="relic-theme"> <div id="terminal">
+<body class="relic-theme">
+    <div id="terminal">
         <div class="prompt"><span class="prompt-text">>&nbsp;</span><input type="text" id="commandInput" autofocus></div>
     </div>
 
@@ -37,11 +37,13 @@
 
     const terminal = document.getElementById('terminal');
     const commandInput = document.getElementById('commandInput');
-
+    
     let isConnected = false;
     let isScanning = false;
     let config = { theme: 'relic-theme', systemName: "SYSTEM", osName: "OS", scanCommand: "scan", connectCommand: "connect", dataNoun: "Data", signalNoun: "Signal" };
     let unlockedKeys = {};
+    let isTyping = false; 
+    let fileSystem = {};
 
     const encodingChart = {'A': '<>', 'B': '<%', 'C': '<^', 'D': '<&', 'E': '<*', 'F': '<-', 'G': '<+', 'H': '<@','I': '><', 'J': '>%', 'K': '>^', 'L': '>&', 'M': '>*', 'N': '>-', 'O': '>+', 'P': '>@','Q': '%<', 'R': '%>', 'S': '%^', 'T': '%&', 'U': '%*', 'V': '%-', 'W': '%+', 'X': '%@','Y': '^<', 'Z': '^>', '0': '^%', '1': '^&', '2': '^*', '3': '^-', '4': '^+', '5': '^@','6': '&<', '7': '&>', '8': '&%', '9': '&^'};
     const doubledSymbols = ['<<', '>>', '%%', '^^', '&&', '**', '--', '++', '@@'];
@@ -53,27 +55,51 @@
     function partiallyDecode(fullStream) {
         const parts = fullStream.match(/(.*?)\$:(.*):#(.*)/);
         if (!parts) return fullStream;
-
-        const leadingNoise = parts[1];
-        const encodedPart = parts[2];
-        const trailingNoise = parts[3];
+        const leadingNoise = parts[1], encodedPart = parts[2], trailingNoise = parts[3];
         let decodedContent = '';
-
         for (let i = 0; i < encodedPart.length; i += 2) {
             const pair = encodedPart.substring(i, i + 2);
             const char = decodingChart[pair];
-            
-            if (char && unlockedKeys[char]) {
-                decodedContent += char;
-            } else {
-                decodedContent += pair;
-            }
+            if (char && unlockedKeys[char]) { decodedContent += char; } else { decodedContent += pair; }
         }
         return `${leadingNoise}$:${decodedContent}:#${trailingNoise}`;
     }
 
-    function printLine(text, className = '') { const line = document.createElement('div'); line.innerHTML = text; line.className = 'line'; if (className) { line.classList.add(className); } terminal.insertBefore(line, terminal.lastElementChild); }
-    function drawWelcomeMessage() { /* ... unchanged ... */ const welcomeLines = terminal.querySelectorAll('.welcome-line'); welcomeLines.forEach(line => line.remove()); const line1 = document.createElement('div'); line1.textContent = `Attempting to interface with ${config.systemName}... OK`; line1.className = 'line system-msg welcome-line'; const line2 = document.createElement('div'); line2.textContent = `${config.osName} -- Ready.`; line2.className = 'line system-msg welcome-line'; const line3 = document.createElement('div'); line3.textContent = `Type 'help' for command list.`; line3.className = 'line welcome-line'; const line4 = document.createElement('div'); line4.className = 'line welcome-line'; line4.innerHTML = '&nbsp;'; const prompt = terminal.querySelector('.prompt'); terminal.insertBefore(line1, prompt); terminal.insertBefore(line2, prompt); terminal.insertBefore(line3, prompt); terminal.insertBefore(line4, prompt); }
+    function typeLine(text, className = '', speed = 15, callback = () => {}) {
+        isTyping = true;
+        const line = document.createElement('div');
+        line.className = 'line';
+        // **FIXED:** Split className string by spaces and add each class individually.
+        if (className) {
+            className.split(' ').forEach(cls => line.classList.add(cls));
+        }
+        terminal.insertBefore(line, terminal.lastElementChild);
+        let i = 0;
+        const interval = setInterval(() => {
+            if (i < text.length) {
+                line.innerHTML += text.charAt(i);
+                i++;
+                window.scrollTo(0, document.body.scrollHeight);
+            } else {
+                clearInterval(interval);
+                isTyping = false;
+                callback();
+            }
+        }, speed);
+    }
+    
+    function printLine(text, className = '') {
+        const line = document.createElement('div');
+        line.innerHTML = text;
+        line.className = 'line';
+        // **FIXED:** Split className string by spaces and add each class individually.
+        if (className) {
+            className.split(' ').forEach(cls => line.classList.add(cls));
+        }
+        terminal.insertBefore(line, terminal.lastElementChild);
+    }
+
+    function drawWelcomeMessage() { const welcomeLines = terminal.querySelectorAll('.welcome-line'); welcomeLines.forEach(line => line.remove()); typeLine(`Attempting to interface with ${config.systemName}... OK`, 'system-msg welcome-line', 20, () => { typeLine(`${config.osName} -- Ready.`, 'system-msg welcome-line', 20, () => { typeLine(`Type 'help' for command list.`, 'welcome-line', 20, () => { printLine('&nbsp;', 'welcome-line'); }); }); }); }
     
     function handleCommand(fullCmd) {
         printLine(`> ${fullCmd}`, 'prompt-text');
@@ -81,68 +107,97 @@
         const argString = args.join(' ');
 
         if (cmd === 'help') {
-            printLine(`${config.systemName} Command List:`, 'system-msg');
-            printLine(`  help          - Displays this list`);
-            printLine(`  ${config.scanCommand.padEnd(13, ' ')} - Scan for active data ${config.signalNoun.toLowerCase()}s`);
-            printLine(`  ${config.connectCommand.padEnd(13, ' ')} - Connect to a detected ${config.signalNoun.toLowerCase()}`);
-            printLine(`  reply <msg>   - Sends a message back to source`);
-            printLine(`  ping          - Checks connection to the source`);
-            printLine(`  status        - Displays current system status`);
-            printLine(`  history       - Shows received message history`);
-            printLine(`  cls           - Clears the display`);
+            typeLine(`${config.systemName} Command List:`, 'system-msg');
+            typeLine(`  help          - Displays this list`);
+            typeLine(`  ls            - Lists files in the current directory`);
+            typeLine(`  cat <file>    - Displays the content of a file`);
+            typeLine(`  ${config.scanCommand.padEnd(13, ' ')} - Scan for active data ${config.signalNoun.toLowerCase()}s`);
+            typeLine(`  ${config.connectCommand.padEnd(13, ' ')} - Connect to a detected ${config.signalNoun.toLowerCase()}`);
+            typeLine(`  reply <msg>   - Sends a message back to source`);
+            typeLine(`  ping          - Checks connection to the source`);
+            typeLine(`  status        - Displays current system status`);
+            typeLine(`  history       - Shows received message history`);
+            typeLine(`  cls           - Clears the display`);
+        } else if (cmd === 'ls') {
+            if (!isConnected) { typeLine('ERROR: Not connected to a system.', 'error-msg'); return; }
+            const fileNames = Object.keys(fileSystem).map(name => name.replace(/·/g, '.'));
+            if (fileNames.length > 0) {
+                typeLine(fileNames.join('   '), 'data-msg-body');
+            } else {
+                typeLine('Directory is empty.');
+            }
+        } else if (cmd === 'cat') {
+            if (!isConnected) { typeLine('ERROR: Not connected to a system.', 'error-msg'); return; }
+            const fileName = argString.trim();
+            const safeFileName = fileName.replace(/\./g, '·');
+            if (!fileName) {
+                typeLine('ERROR: Missing filename. Usage: cat <filename>', 'error-msg');
+            } else if (fileSystem[safeFileName]) {
+                typeLine(`--- BEGIN FILE: ${fileName} ---`, 'data-msg-header');
+                printLine(fileSystem[safeFileName], 'data-msg-body');
+                typeLine(`--- END FILE: ${fileName} ---`, 'data-msg-header');
+            } else {
+                typeLine(`ERROR: File not found: ${fileName}`, 'error-msg');
+            }
         } else if (cmd === config.scanCommand) {
-            printLine(`Scanning for kohd-datastream ${config.signalNoun.toLowerCase()}s from ${config.systemName}...`);
-            setTimeout(() => { printLine(`...Faint ${config.signalNoun} detected. Source confirmed: ${config.systemName}.`, 'system-msg'); isScanning = true; }, 1500);
+            typeLine(`Scanning for kohd-datastream ${config.signalNoun.toLowerCase()}s from ${config.systemName}...`, '', 30, () => { setTimeout(() => { typeLine(`...Faint ${config.signalNoun} detected. Source confirmed: ${config.systemName}.`, 'system-msg'); }, 1500); });
+            isScanning = true;
         } else if (cmd === config.connectCommand) {
-            if (isScanning) { printLine(`Attempting to synchronize with ${config.systemName}...`); isConnected = true; printLine(`Synchronization complete. Interface active. Awaiting ${config.dataNoun}...`, 'system-msg'); } else { printLine(`ERROR: No ${config.signalNoun} detected. Run ${config.scanCommand.toUpperCase()} first.`, 'error-msg'); }
+            if (isScanning) { typeLine(`Attempting to synchronize with ${config.systemName}...`, '', 30, () => { isConnected = true; typeLine(`Synchronization complete. Interface active. Awaiting ${config.dataNoun}...`, 'system-msg'); }); } else { typeLine(`ERROR: No ${config.signalNoun} detected. Run ${config.scanCommand.toUpperCase()} first.`, 'error-msg'); }
         } else if (cmd === 'cls') {
             const lines = terminal.querySelectorAll('.line:not(.welcome-line)');
             lines.forEach(line => line.remove());
         } else if (cmd === 'ping') {
-            if (isConnected) { const latency = Math.floor(Math.random() * (150 - 40 + 1)) + 40; printLine(`PONG! Received reply from ${config.systemName} in ${latency}ms.`, 'system-msg'); } else { printLine('ERROR: Not connected. Cannot ping target.', 'error-msg'); }
+            if (isConnected) { const latency = Math.floor(Math.random() * (150 - 40 + 1)) + 40; typeLine(`PONG! Received reply from ${config.systemName} in ${latency}ms.`, 'system-msg'); } else { typeLine('ERROR: Not connected. Cannot ping target.', 'error-msg'); }
         } else if (cmd === 'status') {
-            printLine(`SYSTEM STATUS:`, 'system-msg');
-            printLine(`  Connection:  ${isConnected ? `CONNECTED to ${config.systemName}` : 'OFFLINE'}`);
-            printLine(`  Data Noun:   ${config.dataNoun}`);
-            printLine(`  Signal Noun: ${config.signalNoun}`);
+            typeLine(`SYSTEM STATUS:`, 'system-msg');
+            typeLine(`  Connection:  ${isConnected ? `CONNECTED to ${config.systemName}` : 'OFFLINE'}`);
+            typeLine(`  Data Noun:   ${config.dataNoun}`);
+            typeLine(`  Signal Noun: ${config.signalNoun}`);
         } else if (cmd === 'reply') {
-            if (isConnected) { if (argString) { database.ref('player_reply').set(argString); printLine(`Message sent: "${argString}"`, 'system-msg'); } else { printLine('ERROR: Cannot send an empty message. Usage: reply <message>', 'error-msg'); } } else { printLine('ERROR: Must be connected to send a reply.', 'error-msg'); }
+            if (isConnected) { if (argString) { database.ref('player_reply').set(argString); typeLine(`Message sent: "${argString}"`, 'system-msg'); } else { typeLine('ERROR: Cannot send an empty message. Usage: reply <message>', 'error-msg'); } } else { typeLine('ERROR: Must be connected to send a reply.', 'error-msg'); }
         } else if (cmd === 'history') {
-             // **FIXED:** Re-fetch history from localStorage every time the command is run
              const history = JSON.parse(localStorage.getItem(RECEIVED_HISTORY_KEY)) || [];
              if (history.length > 0) {
-                printLine(`Received ${config.dataNoun} History:`, 'system-msg');
-                history.forEach((msg, i) => { const decoded = partiallyDecode(msg); printLine(`${(i + 1).toString().padStart(2, ' ')}: ${decoded}`, 'data-msg-body'); });
-            } else {
-                printLine(`No message history found.`);
-            }
+                typeLine(`Received ${config.dataNoun} History:`, 'system-msg', 20, () => {
+                    history.forEach((msg, i) => { const decoded = partiallyDecode(msg); printLine(`${(i + 1).toString().padStart(2, ' ')}: ${decoded}`, 'data-msg-body'); });
+                });
+            } else { typeLine(`No message history found.`); }
         }
-        else { printLine(`ERROR: Unknown command. Refer to 'help' list.`, 'error-msg'); }
+        else {
+            document.body.classList.add('error-flash');
+            typeLine('//_UNAUTHORIZED COMMAND. LOGGING ATTEMPT..._//', 'error-msg', 30, () => {
+                setTimeout(() => document.body.classList.remove('error-flash'), 200);
+            });
+        }
     }
     
-    commandInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') { const cmd = commandInput.value.trim().toLowerCase(); if (cmd) { handleCommand(cmd); } commandInput.value = ''; window.scrollTo(0, document.body.scrollHeight); } });
+    commandInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') { 
+            if (isTyping) return;
+            const cmd = commandInput.value.trim().toLowerCase();
+            if (cmd) { handleCommand(cmd); }
+            commandInput.value = '';
+        }
+    });
 
     // --- Firebase Listeners ---
     database.ref('terminal_config').on('value', (snapshot) => { const newConfig = snapshot.val(); if (newConfig) { config = newConfig; document.body.className = config.theme || 'relic-theme'; drawWelcomeMessage(); } });
     database.ref('decryption_keys').on('value', (snapshot) => { unlockedKeys = snapshot.val() || {}; });
-    
-    database.ref('history_cleared_timestamp').on('value', (snapshot) => {
-        // Use a flag to avoid showing the message on initial page load
-        if (snapshot.exists() && isConnected) {
-            localStorage.removeItem(RECEIVED_HISTORY_KEY);
-            printLine('// REMOTE LOGS PURGED BY SOURCE //', 'system-msg');
-        }
+    database.ref('history_cleared_timestamp').on('value', (snapshot) => { if (snapshot.exists() && isConnected) { localStorage.removeItem(RECEIVED_HISTORY_KEY); typeLine('// REMOTE LOGS PURGED BY SOURCE //', 'system-msg'); } });
+    database.ref('file_system').on('value', (snapshot) => {
+        fileSystem = snapshot.val() || {};
     });
 
     database.ref('kohd_datastream').on('value', (snapshot) => {
         const data = snapshot.val();
         if (isConnected && data) {
             const partiallyDecodedMessage = partiallyDecode(data);
-            printLine(`\n>>> INCOMING ${config.dataNoun.toUpperCase()} FROM ${config.systemName} <<<`, 'data-msg-header');
-            printLine(partiallyDecodedMessage, 'data-msg-body');
-            printLine(`>>> END OF ${config.dataNoun.toUpperCase()} <<<`, 'data-msg-header');
+            typeLine(`\n>>> INCOMING ${config.dataNoun.toUpperCase()} FROM ${config.systemName} <<<`, 'data-msg-header', 20, () => {
+                printLine(partiallyDecodedMessage, 'data-msg-body');
+                typeLine(`>>> END OF ${config.dataNoun.toUpperCase()} <<<`, 'data-msg-header');
+            });
             saveMessageToHistory(data);
-            window.scrollTo(0, document.body.scrollHeight);
         }
     });
 </script>
