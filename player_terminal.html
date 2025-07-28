@@ -292,6 +292,7 @@
     </style>
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
+    <script src="firebase-config.js"></script>
 </head>
 
 <body class="relic-theme">
@@ -305,24 +306,14 @@
     </div>
 
     <script>
-        // **FIXED:** Configuration and initialization are now in one script block.
-        async function initializeApp() {
-            // Fetch the configuration from our secure function
-            const response = await fetch('/config');
-            const firebaseConfig = await response.json();
-
-            // Initialize Firebase with the fetched config
-            firebase.initializeApp(firebaseConfig);
-            const database = firebase.database();
-
-            // All other application logic now runs safely inside this function
-            // ...
+        // This function holds all the main app logic.
+        function runApp(database) {
             const terminal = document.getElementById('terminal');
             const commandInput = document.getElementById('commandInput');
             const overrideOverlay = document.getElementById('system-override-overlay');
             const clearButton = document.getElementById('clear-button');
             let isConnected = false, isScanning = false, isTyping = false;
-            let config = { theme: 'relic-theme', systemName: "SYSTEM", osName: "OS", scanCommand: "scan", connectCommand: "connect", dataNoun: "Data", signalNoun: "Signal" };
+            let config = { theme: 'relic-theme', systemName: "MOTHERBOARD", osName: "M-OS", scanCommand: "scan", connectCommand: "connect", dataNoun: "Data", signalNoun: "Signal" };
             let unlockedKeys = {}, fileSystem = {}, glitches = {}, accessPasswords = {};
             let clearanceLevel = 1;
             let decodingChart = {};
@@ -335,14 +326,14 @@
             function partiallyDecode(fullStream) { if (Object.keys(decodingChart).length === 0) return fullStream; const parts = fullStream.match(/(.*?)\$:(.*):#(.*)/); if (!parts) return fullStream; const leadingNoise = parts[1], encodedPart = parts[2], trailingNoise = parts[3]; let decodedContent = ''; for (let i = 0; i < encodedPart.length; i += 2) { const pair = encodedPart.substring(i, i + 2); const char = decodingChart[pair]; if (char && unlockedKeys[char]) { decodedContent += char; } else { decodedContent += pair; } } return `${leadingNoise}$:${decodedContent}:#${trailingNoise}`; }
             function typeLine(text, className = '', speed = 15, callback = () => { }) { isTyping = true; const line = document.createElement('div'); line.className = 'line'; if (className) { className.split(' ').forEach(cls => line.classList.add(cls)); } terminal.insertBefore(line, terminal.lastElementChild); let i = 0; const interval = setInterval(() => { if (i < text.length) { line.innerHTML += text.charAt(i); i++; window.scrollTo(0, document.body.scrollHeight); } else { clearInterval(interval); isTyping = false; callback(); } }, speed); }
             function printLine(text, className = '') { const line = document.createElement('div'); line.innerHTML = text; line.className = 'line'; if (className) { className.split(' ').forEach(cls => line.classList.add(cls)); } terminal.insertBefore(line, terminal.lastElementChild); }
-            function drawWelcomeMessage() { const welcomeLines = terminal.querySelectorAll('.welcome-line'); welcomeLines.forEach(line => line.remove()); typeLine(`Attempting to interface with ${config.systemName}... OK`, 'system-msg welcome-line', 20, () => { typeLine(`${config.osName} -- Ready.`, 'system-msg welcome-line', 20, () => { typeLine(`Type 'help' for command list.`, 'welcome-line', 20, () => { printLine('&nbsp;', 'welcome-line'); }); }); }); }
+            function drawWelcomeMessage() { const welcomeLines = terminal.querySelectorAll('.welcome-line'); welcomeLines.forEach(line => line.remove()); typeLine(`Attempting to interface with the ${config.systemName}... OK`, 'system-msg welcome-line', 20, () => { typeLine(`${config.osName} -- Ready.`, 'system-msg welcome-line', 20, () => { typeLine(`Type 'help' for command list.`, 'welcome-line', 20, () => { printLine('&nbsp;', 'welcome-line'); }); }); }); }
             function handleCommand(fullCmd) {
                 if (glitches.glitched_command && fullCmd.startsWith(glitches.glitched_command)) { printLine(`> ${fullCmd}`, 'prompt-text'); typeLine(`//_COMMAND MALFUNCTION: [${glitches.glitched_command.toUpperCase()}] OFFLINE_//`, 'error-msg'); return; }
                 printLine(`> ${fullCmd}`, 'prompt-text');
                 const [cmd, ...args] = fullCmd.split(' ');
                 const argString = args.join(' ');
                 if (cmd === 'help') {
-                    typeLine(`${config.systemName} Command List:`, 'system-msg'); typeLine(`  help          - Displays this list`); typeLine(`  elevate <pass>  - Elevate security clearance`); typeLine(`  ls            - Lists files in the current directory`); typeLine(`  cat <file>    - Displays the content of a file`); typeLine(`  ${config.scanCommand.padEnd(13, ' ')} - Scan for active data ${config.signalNoun.toLowerCase()}s`); typeLine(`  ${config.connectCommand.padEnd(13, ' ')} - Connect to a detected ${config.signalNoun.toLowerCase()}`); typeLine(`  reply <msg>   - Sends a message back to source`); typeLine(`  ping          - Checks connection to the source`); typeLine(`  status        - Displays current system status`); typeLine(`  history       - Shows received message history`); typeLine(`  cls           - Clears the display`);
+                    typeLine(`${config.systemName} Command List:`, 'system-msg'); typeLine(`  help          - Displays this list`); typeLine(`  elevate <pass>  - Elevate security clearance`); typeLine(`  ls            - Lists files in the current directory`); typeLine(`  cat <file>    - Displays the content of a file`); typeLine(`  ${config.scanCommand.padEnd(13, ' ')} - Scan for ${config.signalNoun.toLowerCase()}s on the Network`); typeLine(`  ${config.connectCommand.padEnd(13, ' ')} - Connect to a detected ${config.signalNoun.toLowerCase()}`); typeLine(`  reply <msg>   - Sends a message back to source`); typeLine(`  ping          - Checks connection to the source`); typeLine(`  status        - Displays current system status`); typeLine(`  history       - Shows received ${config.dataNoun.toLowerCase()} history`); typeLine(`  cls           - Clears the display`);
                 } else if (cmd === 'elevate') {
                     const pass = argString.trim();
                     if (!pass) { typeLine('ERROR: Missing password. Usage: elevate <password>', 'error-msg'); return; }
@@ -360,7 +351,7 @@
                 } else if (cmd === 'cat') {
                     if (!isConnected) { typeLine('ERROR: Not connected to a system.', 'error-msg'); return; } const fileName = argString.trim(); const safeFileName = fileName.replace(/\./g, '·'); if (!fileName) { typeLine('ERROR: Missing filename. Usage: cat <filename>', 'error-msg'); } else if (!fileSystem[safeFileName]) { typeLine(`ERROR: File not found: ${fileName}`, 'error-msg'); } else if (fileSystem[safeFileName].level > clearanceLevel) { typeLine(`ERROR: INSUFFICIENT CLEARANCE. ACCESS LEVEL ${fileSystem[safeFileName].level} REQUIRED.`, 'error-msg'); } else { typeLine(`--- BEGIN FILE: ${fileName} ---`, 'data-msg-header'); printLine(fileSystem[safeFileName].content, 'data-msg-body'); typeLine(`--- END FILE: ${fileName} ---`, 'data-msg-header'); }
                 } else if (cmd === config.scanCommand) {
-                    typeLine(`Scanning for kohd-datastream ${config.signalNoun.toLowerCase()}s from ${config.systemName}...`, '', 30, () => { setTimeout(() => { typeLine(`...Faint ${config.signalNoun} detected. Source confirmed: ${config.systemName}.`, 'system-msg'); }, 1500); }); isScanning = true;
+                    typeLine(`Scanning the Network for ${config.signalNoun.toLowerCase()}s from ${config.systemName}...`, '', 30, () => { setTimeout(() => { typeLine(`...Faint ${config.signalNoun} detected. Source confirmed: ${config.systemName}.`, 'system-msg'); }, 1500); }); isScanning = true;
                 } else if (cmd === config.connectCommand) {
                     if (isScanning) { typeLine(`Attempting to synchronize with ${config.systemName}...`, '', 30, () => { isConnected = true; database.ref('player_status').set({ isConnected: true }); typeLine(`Synchronization complete. Interface active. Awaiting ${config.dataNoun}...`, 'system-msg'); }); } else { typeLine(`ERROR: No ${config.signalNoun} detected. Run ${config.scanCommand.toUpperCase()} first.`, 'error-msg'); }
                 } else if (cmd === 'cls') {
@@ -372,7 +363,7 @@
                 } else if (cmd === 'reply') {
                     if (isConnected) { if (argString) { database.ref('player_reply').set(argString); typeLine(`Message sent: "${argString}"`, 'system-msg'); } else { typeLine('ERROR: Cannot send an empty message. Usage: reply <message>', 'error-msg'); } } else { typeLine('ERROR: Must be connected to send a reply.', 'error-msg'); }
                 } else if (cmd === 'history') {
-                    const history = JSON.parse(localStorage.getItem(RECEIVED_HISTORY_KEY)) || []; if (history.length > 0) { typeLine(`Received ${config.dataNoun} History:`, 'system-msg', 20, () => { history.forEach((msg, i) => { const decoded = partiallyDecode(msg); printLine(`${(i + 1).toString().padStart(2, ' ')}: ${decoded}`, 'data-msg-body'); }); }); } else { typeLine(`No message history found.`); }
+                    const history = JSON.parse(localStorage.getItem(RECEIVED_HISTORY_KEY)) || []; if (history.length > 0) { typeLine(`Received ${config.dataNoun} History:`, 'system-msg', 20, () => { history.forEach((msg, i) => { const decoded = partiallyDecode(msg); printLine(`${(i + 1).toString().padStart(2, ' ')}: ${decoded}`, 'data-msg-body'); }); }); } else { typeLine(`No ${config.dataNoun.toLowerCase()} history found.`); }
                 } else { typeLine('//_UNAUTHORIZED COMMAND. LOGGING ATTEMPT..._//', 'error-msg'); }
             }
             commandInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') { if (isTyping) return; const cmd = commandInput.value.trim().toLowerCase(); if (cmd) { handleCommand(cmd); } commandInput.value = ''; } });
@@ -400,7 +391,28 @@
             window.addEventListener('beforeunload', () => { database.ref('player_status').set({ isConnected: false }); });
         }
 
-        // Start the application
+        async function initializeApp() {
+            let config;
+            if (window.location.protocol === 'file:') {
+                // Local file environment
+                config = firebaseConfig;
+            } else {
+                // Deployed (Cloudflare) environment
+                try {
+                    const response = await fetch('/config');
+                    if (!response.ok) throw new Error('Network response was not ok');
+                    config = await response.json();
+                } catch (error) {
+                    console.error("FATAL: Could not fetch live config and no local fallback available.", error);
+                    document.body.innerHTML = '<h1>FATAL ERROR: Could not load configuration.</h1>';
+                    return;
+                }
+            }
+            firebase.initializeApp(config);
+            const database = firebase.database();
+            runApp(database);
+        }
+
         initializeApp();
     </script>
 </body>
