@@ -71,7 +71,6 @@
             <h3>Transmitted kohd-datastream:</h3>
             <div id="outputBurst" class="live-display"></div>
         </div>
-
         <div id="session" class="tab-content">
             <h2>System Glitches</h2>
             <fieldset>
@@ -110,7 +109,6 @@
                 <button id="lockAllButton" class="secondary">Lock All</button>
             </div>
         </div>
-
         <div id="setup" class="tab-content">
             <h2>Terminal Configuration</h2>
             <div class="grid">
@@ -158,18 +156,29 @@
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
 
     <script>
-        // **FIXED:** The entire script is now at the end of the body.
+        // **FIXED:** Moved openTab to the global scope so the HTML onclick can find it.
+        function openTab(evt, tabName) {
+            let i, tabcontent, tablinks;
+            tabcontent = document.getElementsByClassName("tab-content");
+            for (i = 0; i < tabcontent.length; i++) {
+                tabcontent[i].style.display = "none";
+            }
+            tablinks = document.getElementsByClassName("tab-link");
+            for (i = 0; i < tablinks.length; i++) {
+                tablinks[i].className = tablinks[i].className.replace(" active", "");
+            }
+            document.getElementById(tabName).style.display = "block";
+            evt.currentTarget.className += " active";
+        }
+
         async function initializeApp() {
-            // Fetch the configuration from our secure function
             const response = await fetch('/config');
             const firebaseConfig = await response.json();
-
-            // Initialize Firebase with the fetched config
             firebase.initializeApp(firebaseConfig);
             const database = firebase.database();
 
-            // All other application logic now runs safely inside this function
-            // ... (rest of the script is identical to the previous version)
+            // The rest of the JS logic is identical to the previous version
+            // ...
             const systemNameInput = document.getElementById('systemName'), osNameInput = document.getElementById('osName'), scanCommandInput = document.getElementById('scanCommand'), connectCommandInput = document.getElementById('connectCommand'), dataNounInput = document.getElementById('dataNoun'), signalNounInput = document.getElementById('signalNoun'), themeSelect = document.getElementById('themeSelect'), updateConfigButton = document.getElementById('updateConfigButton');
             const messageInput = document.getElementById('messageInput'), noiseSlider = document.getElementById('noiseSlider'), noiseValue = document.getElementById('noiseValue'), encodeButton = document.getElementById('encodeButton'), outputBurst = document.getElementById('outputBurst');
             const playerMessageDisplay = document.getElementById('playerMessageDisplay');
@@ -221,7 +230,6 @@
             MESSAGE_TEMPLATES.forEach(template => { const btn = document.createElement('button'); btn.textContent = template; btn.onclick = () => messageInput.value = template; templateButtons.appendChild(btn); });
             database.ref('player_reply').on('value', (snapshot) => { const message = snapshot.val(); if (message) { playerMessageDisplay.textContent = message; } else { playerMessageDisplay.textContent = 'Awaiting message from player terminal...'; } });
             displayHistory();
-            window.openTab = openTab;
         }
         
         initializeApp();
