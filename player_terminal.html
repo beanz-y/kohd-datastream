@@ -296,7 +296,7 @@
 </head>
 
 <body class="relic-theme">
-    <div id="login-overlay" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 10001; display: flex; align-items: center; justify-content: center; flex-direction: column;">
+    <div id="login-overlay" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 10001; display: none; align-items: center; justify-content: center; flex-direction: column;">
         <div style="width: 350px; padding: 20px; border: 1px solid currentColor;">
              <div class="line">//_SECURE ACCESS TERMINAL_//</div>
              <br>
@@ -309,6 +309,10 @@
              <div class="prompt">
                 <span class="prompt-text">Password:&nbsp;</span>
                 <input type="password" id="loginPassword" class="commandInput" style="width: 100%; background: transparent; border: none; color: inherit; font-family: inherit; font-size: inherit;">
+             </div>
+             <div class="prompt" style="margin-top: 15px; align-items: center;">
+                <input type="checkbox" id="rememberMeCheckbox" style="margin-right: 10px;">
+                <label for="rememberMeCheckbox">Remember Connection</label>
              </div>
              <br>
              <div id="login-error" class="line error-msg" style="display: none;"></div>
@@ -330,23 +334,27 @@
 
     <script>
         function runApp(database) {
+            const SESSION_KEY = 'daggerheart_session_user';
+            const REMEMBER_ME_KEY = 'daggerheart_remember_me';
+
             // --- LOGIN ELEMENTS ---
             const loginOverlay = document.getElementById('login-overlay');
             const loginUsernameInput = document.getElementById('loginUsername');
             const loginPasswordInput = document.getElementById('loginPassword');
+            const rememberMeCheckbox = document.getElementById('rememberMeCheckbox');
             const loginButton = document.getElementById('loginButton');
             const loginError = document.getElementById('login-error');
             const terminalContainer = document.getElementById('terminal-container');
 
-            // --- TERMINAL ELEMENTS (to be used after login) ---
+            // --- TERMINAL ELEMENTS ---
             const terminal = document.getElementById('terminal');
             const commandInput = document.getElementById('commandInput');
             const overrideOverlay = document.getElementById('system-override-overlay');
             const clearButton = document.getElementById('clear-button');
 
-            // --- STATE & CONFIG (to be used after login) ---
-            let isConnected = false, isScanning = false, isTyping = false;
-            let config = { theme: 'relic-theme', systemName: "MOTHERBOARD", osName: "M-OS", scanCommand: "scan", connectCommand: "connect", dataNoun: "Data", signalNoun: "Signal" };
+            // --- STATE & CONFIG ---
+            let isConnected = false, isScanning = false, isTyping = false, isInitialLoad = true;
+            let config = {};
             let unlockedKeys = {}, fileSystem = {}, glitches = {}, accessPasswords = {}, customCommands = {}, playerResources = { name: "Resources", count: 0 };
             let clearanceLevel = 1;
             let decodingChart = {};
@@ -356,10 +364,24 @@
             const allSymbols = [...doubledSymbols, '$', ':', '#', '<', '>', '%', '^', '&', '*', '-', '+', '@'];
             const RECEIVED_HISTORY_KEY = 'receivedMessageHistory';
 
-            // --- LOGIN LOGIC ---
+            function startLogin() {
+                terminalContainer.style.display = 'none';
+                loginOverlay.style.display = 'flex';
+                
+                const rememberedUser = localStorage.getItem(REMEMBER_ME_KEY);
+                if (rememberedUser) {
+                    loginUsernameInput.value = rememberedUser;
+                    rememberMeCheckbox.checked = true;
+                    loginPasswordInput.focus();
+                } else {
+                    loginUsernameInput.focus();
+                }
+            }
+
             const handleLoginAttempt = () => {
                 const username = loginUsernameInput.value.trim().toLowerCase();
                 const password = loginPasswordInput.value.trim();
+                const rememberMe = rememberMeCheckbox.checked;
 
                 if (!username || !password) {
                     loginError.textContent = "CREDENTIALS CANNOT BE BLANK.";
@@ -369,6 +391,15 @@
 
                 database.ref('users/' + username).once('value', (snapshot) => {
                     if (snapshot.exists() && snapshot.val().password === password) {
+                        const storage = rememberMe ? localStorage : sessionStorage;
+                        storage.setItem(SESSION_KEY, username);
+                        
+                        if (rememberMe) {
+                            localStorage.setItem(REMEMBER_ME_KEY, username);
+                        } else {
+                            localStorage.removeItem(REMEMBER_ME_KEY);
+                        }
+                        
                         loginOverlay.style.display = 'none';
                         terminalContainer.style.display = 'flex';
                         initializeTerminal();
@@ -407,7 +438,7 @@
 
                 function typeLine(text, className = '', speed = 15, callback = () => { }) { isTyping = true; const line = document.createElement('div'); line.className = 'line'; if (className) { className.split(' ').forEach(cls => line.classList.add(cls)); } terminal.insertBefore(line, terminal.lastElementChild); let i = 0; const interval = setInterval(() => { if (i < text.length) { line.innerHTML += text.charAt(i); i++; window.scrollTo(0, document.body.scrollHeight); } else { clearInterval(interval); isTyping = false; callback(); } }, speed); }
                 function printLine(text, className = '') { const line = document.createElement('div'); line.innerHTML = text; line.className = 'line'; if (className) { className.split(' ').forEach(cls => line.classList.add(cls)); } terminal.insertBefore(line, terminal.lastElementChild); }
-                function drawWelcomeMessage() { const welcomeLines = terminal.querySelectorAll('.welcome-line'); welcomeLines.forEach(line => line.remove()); typeLine(`Attempting to interface with the ${config.systemName}... OK`, 'system-msg welcome-line', 20, () => { typeLine(`${config.osName} -- Ready.`, 'system-msg welcome-line', 20, () => { typeLine(`Type 'help' for command list.`, 'welcome-line', 20, () => { printLine('&nbsp;', 'welcome-line'); }); }); }); }
+                function drawWelcomeMessage() { const welcomeLines = terminal.querySelectorAll('.welcome-line'); welcomeLines.forEach(line => line.remove()); typeLine(`Attempting to interface with the ${config.systemName || 'SYSTEM'}... OK`, 'system-msg welcome-line', 20, () => { typeLine(`${config.osName || 'M-OS'} -- Ready.`, 'system-msg welcome-line', 20, () => { typeLine(`Type 'help' for command list.`, 'welcome-line', 20, () => { printLine('&nbsp;', 'welcome-line'); }); }); }); }
 
                 function handleSpecialCommand(cmd, commandData) {
                     database.ref('player_resources').transaction((resources) => {
@@ -479,7 +510,11 @@
                     }
 
                     if (cmd === 'help') {
-                        typeLine(`${config.systemName} Command List:`, 'system-msg'); typeLine(`  help          - Displays this list`); typeLine(`  elevate <pass>  - Elevate security clearance`); typeLine(`  ls            - Lists files in the current directory`); typeLine(`  cat <file>    - Displays the content of a file`); typeLine(`  ${config.scanCommand.padEnd(13, ' ')} - Scan for ${config.signalNoun.toLowerCase()}s on the Network`); typeLine(`  ${config.connectCommand.padEnd(13, ' ')} - Connect to a detected ${config.signalNoun.toLowerCase()}`); typeLine(`  reply <msg>   - Sends a message back to source`); typeLine(`  ping          - Checks connection to the source`); typeLine(`  status        - Displays current system status`); typeLine(`  history       - Shows received ${config.dataNoun.toLowerCase()} history`); typeLine(`  cls           - Clears the display`);
+                        typeLine(`${config.systemName} Command List:`, 'system-msg'); typeLine(`  help          - Displays this list`); typeLine(`  logout        - Ends session and returns to login`); typeLine(`  elevate <pass>  - Elevate security clearance`); typeLine(`  ls            - Lists files in the current directory`); typeLine(`  cat <file>    - Displays the content of a file`); typeLine(`  ${(config.scanCommand || 'scan').padEnd(13, ' ')} - Scan for ${(config.signalNoun || 'signal').toLowerCase()}s on the Network`); typeLine(`  ${(config.connectCommand || 'connect').padEnd(13, ' ')} - Connect to a detected ${(config.signalNoun || 'signal').toLowerCase()}`); typeLine(`  reply <msg>   - Sends a message back to source`); typeLine(`  ping          - Checks connection to the source`); typeLine(`  status        - Displays current system status`); typeLine(`  history       - Shows received ${(config.dataNoun || 'data').toLowerCase()} history`); typeLine(`  cls           - Clears the display`);
+                    } else if (cmd === 'logout') {
+                        localStorage.removeItem(SESSION_KEY);
+                        sessionStorage.removeItem(SESSION_KEY);
+                        location.reload();
                     } else if (cmd === 'elevate') {
                         const pass = argString.trim();
                         if (!pass) { typeLine('ERROR: Missing password. Usage: elevate <password>', 'error-msg'); return; }
@@ -496,10 +531,10 @@
                         if (!isConnected) { typeLine('ERROR: Not connected to a system.', 'error-msg'); return; } const fileNames = Object.keys(fileSystem); if (fileNames.length > 0) { let output = ''; fileNames.forEach(safeFileName => { const originalFileName = safeFileName.replace(/·/g, '.'); const fileData = fileSystem[safeFileName]; if (fileData.level > clearanceLevel) { output += `<span class="file-locked">${originalFileName} [LEVEL ${fileData.level}]</span>   `; } else { output += `${originalFileName}   `; } }); printLine(output, 'data-msg-body'); } else { typeLine('Directory is empty.'); }
                     } else if (cmd === 'cat') {
                         if (!isConnected) { typeLine('ERROR: Not connected to a system.', 'error-msg'); return; } const fileName = argString.trim(); const safeFileName = fileName.replace(/\./g, '·'); if (!fileName) { typeLine('ERROR: Missing filename. Usage: cat <filename>', 'error-msg'); } else if (!fileSystem[safeFileName]) { typeLine(`ERROR: File not found: ${fileName}`, 'error-msg'); } else if (fileSystem[safeFileName].level > clearanceLevel) { typeLine(`ERROR: INSUFFICIENT CLEARANCE. ACCESS LEVEL ${fileSystem[safeFileName].level} REQUIRED.`, 'error-msg'); } else { typeLine(`--- BEGIN FILE: ${fileName} ---`, 'data-msg-header'); printLine(fileSystem[safeFileName].content, 'data-msg-body'); typeLine(`--- END FILE: ${fileName} ---`, 'data-msg-header'); }
-                    } else if (cmd === config.scanCommand) {
-                        typeLine(`Scanning the Network for ${config.signalNoun.toLowerCase()}s from ${config.systemName}...`, '', 30, () => { setTimeout(() => { typeLine(`...Faint ${config.signalNoun} detected. Source confirmed: ${config.systemName}.`, 'system-msg'); }, 1500); }); isScanning = true;
-                    } else if (cmd === config.connectCommand) {
-                        if (isScanning) { typeLine(`Attempting to synchronize with ${config.systemName}...`, '', 30, () => { isConnected = true; database.ref('player_status').set({ isConnected: true }); typeLine(`Synchronization complete. Interface active. Awaiting ${config.dataNoun}...`, 'system-msg'); }); } else { typeLine(`ERROR: No ${config.signalNoun} detected. Run ${config.scanCommand.toUpperCase()} first.`, 'error-msg'); }
+                    } else if (cmd === (config.scanCommand || 'scan')) {
+                        typeLine(`Scanning the Network for ${(config.signalNoun || 'signal').toLowerCase()}s from ${config.systemName}...`, '', 30, () => { setTimeout(() => { typeLine(`...Faint ${(config.signalNoun || 'signal')} detected. Source confirmed: ${config.systemName}.`, 'system-msg'); }, 1500); }); isScanning = true;
+                    } else if (cmd === (config.connectCommand || 'connect')) {
+                        if (isScanning) { typeLine(`Attempting to synchronize with ${config.systemName}...`, '', 30, () => { isConnected = true; database.ref('player_status').set({ isConnected: true }); typeLine(`Synchronization complete. Interface active. Awaiting ${config.dataNoun || 'Data'}...`, 'system-msg'); }); } else { typeLine(`ERROR: No ${(config.signalNoun || 'signal')} detected. Run ${(config.scanCommand || 'scan').toUpperCase()} first.`, 'error-msg'); }
                     } else if (cmd === 'cls') {
                         const lines = terminal.querySelectorAll('.line:not(.welcome-line)'); lines.forEach(line => line.remove());
                     } else if (cmd === 'ping') {
@@ -509,13 +544,33 @@
                     } else if (cmd === 'reply') {
                         if (isConnected) { if (argString) { database.ref('player_reply').set(argString); typeLine(`Message sent: "${argString}"`, 'system-msg'); } else { typeLine('ERROR: Cannot send an empty message. Usage: reply <message>', 'error-msg'); } } else { typeLine('ERROR: Must be connected to send a reply.', 'error-msg'); }
                     } else if (cmd === 'history') {
-                        const history = JSON.parse(localStorage.getItem(RECEIVED_HISTORY_KEY)) || []; if (history.length > 0) { typeLine(`Received ${config.dataNoun} History:`, 'system-msg', 20, () => { history.forEach((msg, i) => { const decoded = partiallyDecode(msg); printLine(`${(i + 1).toString().padStart(2, ' ')}: ${decoded}`, 'data-msg-body'); }); }); } else { typeLine(`No ${config.dataNoun.toLowerCase()} history found.`); }
-                    } else { typeLine('//_UNAUTHORIZED COMMAND. LOGGING ATTEMPT..._//', 'error-msg'); }
+                        const history = JSON.parse(localStorage.getItem(RECEIVED_HISTORY_KEY)) || []; if (history.length > 0) { typeLine(`Received ${(config.dataNoun || 'Data')} History:`, 'system-msg', 20, () => { history.forEach((msg, i) => { const decoded = partiallyDecode(msg); printLine(`${(i + 1).toString().padStart(2, ' ')}: ${decoded}`, 'data-msg-body'); }); }); } else { typeLine(`No ${(config.dataNoun || 'data').toLowerCase()} history found.`); }
+                    } else { 
+                        typeLine('//_UNAUTHORIZED COMMAND. LOGGING ATTEMPT..._//', 'error-msg');
+                    }
                 }
+
                 commandInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') { if (isTyping) return; const cmd = commandInput.value.trim().toLowerCase(); if (cmd) { handleCommand(cmd); } commandInput.value = ''; } });
                 clearButton.onclick = () => { handleCommand('cls'); };
                 terminal.addEventListener('click', (e) => { if (e.target !== commandInput) { commandInput.focus(); } });
-                database.ref('terminal_config').on('value', (snapshot) => { const newConfig = snapshot.val(); if (newConfig) { config = newConfig; document.body.className = config.theme || 'relic-theme'; } else { document.body.className = 'relic-theme'; } drawWelcomeMessage(); });
+                
+                database.ref('terminal_config').on('value', (snapshot) => {
+                    const newConfig = snapshot.val();
+                    const shouldDrawWelcome = isInitialLoad;
+
+                    if (newConfig) {
+                        config = newConfig;
+                        document.body.className = config.theme || 'relic-theme';
+                    } else {
+                        document.body.className = 'relic-theme';
+                    }
+
+                    if (shouldDrawWelcome) {
+                        drawWelcomeMessage();
+                        isInitialLoad = false;
+                    }
+                });
+                
                 database.ref('decryption_keys').on('value', (snapshot) => { unlockedKeys = snapshot.val() || {}; });
                 database.ref('history_cleared_timestamp').on('value', (snapshot) => { if (snapshot.exists() && isConnected) { localStorage.removeItem(RECEIVED_HISTORY_KEY); typeLine('// REMOTE LOGS PURGED BY SOURCE //', 'system-msg'); } });
                 database.ref('file_system').on('value', (snapshot) => { fileSystem = snapshot.val() || {}; });
@@ -527,18 +582,25 @@
                 database.ref('kohd_datastream').on('value', (snapshot) => {
                     const data = snapshot.val();
                     if (isConnected && data) {
-                        if (glitches.scramble_next) { let scrambled = ''; for (let i = 0; i < data.length; i++) { scrambled += allSymbols[Math.floor(Math.random() * allSymbols.length)]; } printLine(`\n>>> INCOMING ${config.dataNoun.toUpperCase()} FROM ${config.systemName} <<<`, 'data-msg-header'); printLine(scrambled, 'data-msg-body'); printLine(`>>> ${config.signalNoun.toUpperCase()} CORRUPTED <<<`, 'data-msg-header'); database.ref('glitches/scramble_next').remove(); return; }
+                        if (glitches.scramble_next) { let scrambled = ''; for (let i = 0; i < data.length; i++) { scrambled += allSymbols[Math.floor(Math.random() * allSymbols.length)]; } printLine(`\n>>> INCOMING ${(config.dataNoun || 'Data').toUpperCase()} FROM ${config.systemName} <<<`, 'data-msg-header'); printLine(scrambled, 'data-msg-body'); printLine(`>>> ${(config.signalNoun || 'Signal').toUpperCase()} CORRUPTED <<<`, 'data-msg-header'); database.ref('glitches/scramble_next').remove(); return; }
                         const partiallyDecodedMessage = partiallyDecode(data);
-                        typeLine(`\n>>> INCOMING ${config.dataNoun.toUpperCase()} FROM ${config.systemName} <<<`, 'data-msg-header', 20, () => {
+                        typeLine(`\n>>> INCOMING ${(config.dataNoun || 'Data').toUpperCase()} FROM ${config.systemName} <<<`, 'data-msg-header', 20, () => {
                             printLine(partiallyDecodedMessage, 'data-msg-body');
-                            typeLine(`>>> END OF ${config.dataNoun.toUpperCase()} <<<`, 'data-msg-header');
+                            typeLine(`>>> END OF ${(config.dataNoun || 'Data').toUpperCase()} <<<`, 'data-msg-header');
                         });
                         saveMessageToHistory(data);
                     }
                 });
                 window.addEventListener('beforeunload', () => { database.ref('player_status').set({ isConnected: false }); });
-                
-                drawWelcomeMessage();
+            }
+
+            // --- INITIAL PAGE LOAD ---
+            const savedUser = localStorage.getItem(SESSION_KEY) || sessionStorage.getItem(SESSION_KEY);
+            if (savedUser) {
+                terminalContainer.style.display = 'flex';
+                initializeTerminal();
+            } else {
+                startLogin();
             }
         }
 
