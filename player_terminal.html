@@ -43,7 +43,7 @@
             flex-shrink: 0;
         }
 
-        #commandInput {
+        #commandInput, .commandInput {
             background-color: transparent;
             border: none;
             font-family: inherit;
@@ -54,7 +54,7 @@
             color: inherit;
         }
 
-        #commandInput:focus {
+        #commandInput:focus, .commandInput:focus {
             outline: none;
         }
 
@@ -296,23 +296,55 @@
 </head>
 
 <body class="relic-theme">
-    <div id="system-override-overlay"></div>
-    <div id="terminal">
-        <div class="prompt"><span class="prompt-text">>&nbsp;</span><input type="text" id="commandInput" autofocus>
+    <div id="login-overlay" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 10001; display: flex; align-items: center; justify-content: center; flex-direction: column;">
+        <div style="width: 350px; padding: 20px; border: 1px solid currentColor;">
+             <div class="line">//_SECURE ACCESS TERMINAL_//</div>
+             <br>
+             <div class="line">AWAITING CREDENTIALS...</div>
+             <br>
+             <div class="prompt">
+                <span class="prompt-text">Username:&nbsp;</span>
+                <input type="text" id="loginUsername" class="commandInput" style="width: 100%; background: transparent; border: none; color: inherit; font-family: inherit; font-size: inherit;">
+             </div>
+             <div class="prompt">
+                <span class="prompt-text">Password:&nbsp;</span>
+                <input type="password" id="loginPassword" class="commandInput" style="width: 100%; background: transparent; border: none; color: inherit; font-family: inherit; font-size: inherit;">
+             </div>
+             <br>
+             <div id="login-error" class="line error-msg" style="display: none;"></div>
+             <button id="loginButton" style="background: transparent; color: inherit; border: 1px solid currentColor; padding: 5px 10px; cursor: pointer; font-family: inherit; margin-top: 10px;">[ AUTHENTICATE ]</button>
         </div>
     </div>
-    <div id="qol-buttons">
-        <button id="clear-button">[ CLS ]</button>
+    
+    <div id="system-override-overlay"></div>
+    
+    <div id="terminal-container" style="display: none; height: 100%; flex-direction: column; display: flex;">
+        <div id="terminal">
+            <div class="prompt"><span class="prompt-text">>&nbsp;</span><input type="text" id="commandInput" autofocus>
+            </div>
+        </div>
+        <div id="qol-buttons">
+            <button id="clear-button">[ CLS ]</button>
+        </div>
     </div>
 
     <script>
-        // This function holds all the main app logic.
         function runApp(database) {
+            // --- LOGIN ELEMENTS ---
+            const loginOverlay = document.getElementById('login-overlay');
+            const loginUsernameInput = document.getElementById('loginUsername');
+            const loginPasswordInput = document.getElementById('loginPassword');
+            const loginButton = document.getElementById('loginButton');
+            const loginError = document.getElementById('login-error');
+            const terminalContainer = document.getElementById('terminal-container');
+
+            // --- TERMINAL ELEMENTS (to be used after login) ---
             const terminal = document.getElementById('terminal');
             const commandInput = document.getElementById('commandInput');
             const overrideOverlay = document.getElementById('system-override-overlay');
             const clearButton = document.getElementById('clear-button');
 
+            // --- STATE & CONFIG (to be used after login) ---
             let isConnected = false, isScanning = false, isTyping = false;
             let config = { theme: 'relic-theme', systemName: "MOTHERBOARD", osName: "M-OS", scanCommand: "scan", connectCommand: "connect", dataNoun: "Data", signalNoun: "Signal" };
             let unlockedKeys = {}, fileSystem = {}, glitches = {}, accessPasswords = {}, customCommands = {}, playerResources = { name: "Resources", count: 0 };
@@ -320,162 +352,194 @@
             let decodingChart = {};
             const defaultEncodingChart = { 'A': '<>', 'B': '<%', 'C': '<^', 'D': '<&', 'E': '<*', 'F': '<-', 'G': '<+', 'H': '<@', 'I': '><', 'J': '>%', 'K': '>^', 'L': '>&', 'M': '>*', 'N': '>-', 'O': '>+', 'P': '>@', 'Q': '%<', 'R': '%>', 'S': '%^', 'T': '%&', 'U': '%*', 'V': '%-', 'W': '%+', 'X': '%@', 'Y': '^<', 'Z': '^>', '0': '^%', '1': '^&', '2': '^*', '3': '^-', '4': '^+', '5': '^@', '6': '&<', '7': '&>', '8': '&%', '9': '&^' };
             decodingChart = Object.fromEntries(Object.entries(defaultEncodingChart).map(a => a.reverse()));
-
             const doubledSymbols = ['<<', '>>', '%%', '^^', '&&', '**', '--', '++', '@@'];
             const allSymbols = [...doubledSymbols, '$', ':', '#', '<', '>', '%', '^', '&', '*', '-', '+', '@'];
-
             const RECEIVED_HISTORY_KEY = 'receivedMessageHistory';
-            function saveMessageToHistory(message) { let history = JSON.parse(localStorage.getItem(RECEIVED_HISTORY_KEY)) || []; if (!history.length || history[0] !== message) { history.unshift(message); if (history.length > 20) history.pop(); localStorage.setItem(RECEIVED_HISTORY_KEY, JSON.stringify(history)); } }
-            function partiallyDecode(fullStream) { if (Object.keys(decodingChart).length === 0) return fullStream; const parts = fullStream.match(/(.*?)\$:(.*):#(.*)/); if (!parts) return fullStream; const leadingNoise = parts[1], encodedPart = parts[2], trailingNoise = parts[3]; let decodedContent = ''; for (let i = 0; i < encodedPart.length; i += 2) { const pair = encodedPart.substring(i, i + 2); const char = decodingChart[pair]; if (char && unlockedKeys[char]) { decodedContent += char; } else { decodedContent += pair; } } return `${leadingNoise}$:${decodedContent}:#${trailingNoise}`; }
-            function fullyDecode(fullStream) {
-                const parts = fullStream.match(/(.*?)\$:(.*):#(.*)/);
-                if (!parts) return fullStream;
-                const encodedPart = parts[2];
-                let decodedContent = '';
-                for (let i = 0; i < encodedPart.length; i += 2) {
-                    const pair = encodedPart.substring(i, i + 2);
-                    if (doubledSymbols.includes(pair)) {
-                        decodedContent += ' ';
-                    } else {
-                        const char = decodingChart[pair];
-                        decodedContent += char || '?'; // Use '?' for any unknown symbols
-                    }
-                }
-                return decodedContent;
-            }
 
-            function typeLine(text, className = '', speed = 15, callback = () => { }) { isTyping = true; const line = document.createElement('div'); line.className = 'line'; if (className) { className.split(' ').forEach(cls => line.classList.add(cls)); } terminal.insertBefore(line, terminal.lastElementChild); let i = 0; const interval = setInterval(() => { if (i < text.length) { line.innerHTML += text.charAt(i); i++; window.scrollTo(0, document.body.scrollHeight); } else { clearInterval(interval); isTyping = false; callback(); } }, speed); }
-            function printLine(text, className = '') { const line = document.createElement('div'); line.innerHTML = text; line.className = 'line'; if (className) { className.split(' ').forEach(cls => line.classList.add(cls)); } terminal.insertBefore(line, terminal.lastElementChild); }
-            function drawWelcomeMessage() { const welcomeLines = terminal.querySelectorAll('.welcome-line'); welcomeLines.forEach(line => line.remove()); typeLine(`Attempting to interface with the ${config.systemName}... OK`, 'system-msg welcome-line', 20, () => { typeLine(`${config.osName} -- Ready.`, 'system-msg welcome-line', 20, () => { typeLine(`Type 'help' for command list.`, 'welcome-line', 20, () => { printLine('&nbsp;', 'welcome-line'); }); }); }); }
+            // --- LOGIN LOGIC ---
+            const handleLoginAttempt = () => {
+                const username = loginUsernameInput.value.trim().toLowerCase();
+                const password = loginPasswordInput.value.trim();
 
-            function handleSpecialCommand(cmd, commandData) {
-                database.ref('player_resources').transaction((resources) => {
-                    if (resources && resources.count > 0) {
-                        if (commandData.special_action === 'bruteforce_decrypt') {
-                            typeLine(`// ${cmd.toUpperCase()} SEQUENCE INITIATED... //`, 'system-msg');
-                            isTyping = true; // Lock input during animation
-                            let dots = 0;
-                            const interval = setInterval(() => {
-                                printLine('.', 'system-msg');
-                                dots++;
-                                if (dots >= 5) {
-                                    clearInterval(interval);
-                                    const history = JSON.parse(localStorage.getItem(RECEIVED_HISTORY_KEY)) || [];
-                                    if (history.length > 0) {
-                                        const lastMessage = history[0];
-                                        const fullyDecoded = fullyDecode(lastMessage);
-                                        typeLine(`// DECRYPTION COMPLETE //`, 'system-msg');
-                                        printLine(fullyDecoded, 'data-msg-body');
-                                    } else {
-                                        typeLine(`// DECRYPTION FAILED: NO MESSAGE IN BUFFER //`, 'error-msg');
-                                    }
-                                    isTyping = false;
-                                }
-                            }, 700);
-                        } else if (commandData.special_action === 'trace_signal') {
-                            typeLine(commandData.response, 'system-msg');
-                        }
-                        resources.count--;
-                        return resources;
-                    } else {
-                        typeLine(`// ACTION FAILED: INSUFFICIENT ${resources?.name.toUpperCase() || 'RESOURCES'} //`, 'error-msg');
-                        return; // Abort transaction
-                    }
-                });
-            }
-
-            function handleCommand(fullCmd) {
-                if (glitches.glitched_command && fullCmd.startsWith(glitches.glitched_command)) { printLine(`> ${fullCmd}`, 'prompt-text'); typeLine(`//_COMMAND MALFUNCTION: [${glitches.glitched_command.toUpperCase()}] OFFLINE_//`, 'error-msg'); return; }
-                printLine(`> ${fullCmd}`, 'prompt-text');
-                const [cmd, ...args] = fullCmd.split(' ');
-                const argString = args.join(' ').trim();
-
-                if (customCommands[cmd]) {
-                    const command = customCommands[cmd];
-                    if (command.args && argString !== command.args) {
-                        typeLine(`ERROR: Invalid arguments for command '${cmd}'. Usage: ${cmd} ${command.args}`, 'error-msg');
-                        return;
-                    }
-                    if (command.special_action) {
-                        handleSpecialCommand(cmd, command);
-                        return;
-                    }
-                    if (command.consumesResource) {
-                        database.ref('player_resources').transaction((resources) => {
-                            if (resources && resources.count > 0) {
-                                typeLine(command.response, 'system-msg');
-                                resources.count--;
-                                return resources;
-                            } else {
-                                typeLine(`// ACTION FAILED: INSUFFICIENT ${resources?.name.toUpperCase() || 'RESOURCES'} //`, 'error-msg');
-                                return;
-                            }
-                        });
-                    } else {
-                        typeLine(command.response, 'system-msg');
-                    }
+                if (!username || !password) {
+                    loginError.textContent = "CREDENTIALS CANNOT BE BLANK.";
+                    loginError.style.display = 'block';
                     return;
                 }
 
-                if (cmd === 'help') {
-                    typeLine(`${config.systemName} Command List:`, 'system-msg'); typeLine(`  help          - Displays this list`); typeLine(`  elevate <pass>  - Elevate security clearance`); typeLine(`  ls            - Lists files in the current directory`); typeLine(`  cat <file>    - Displays the content of a file`); typeLine(`  ${config.scanCommand.padEnd(13, ' ')} - Scan for ${config.signalNoun.toLowerCase()}s on the Network`); typeLine(`  ${config.connectCommand.padEnd(13, ' ')} - Connect to a detected ${config.signalNoun.toLowerCase()}`); typeLine(`  reply <msg>   - Sends a message back to source`); typeLine(`  ping          - Checks connection to the source`); typeLine(`  status        - Displays current system status`); typeLine(`  history       - Shows received ${config.dataNoun.toLowerCase()} history`); typeLine(`  cls           - Clears the display`);
-                } else if (cmd === 'elevate') {
-                    const pass = argString.trim();
-                    if (!pass) { typeLine('ERROR: Missing password. Usage: elevate <password>', 'error-msg'); return; }
-                    if (pass === accessPasswords.level3 && clearanceLevel < 3) {
-                        clearanceLevel = 3;
-                        typeLine(`// ACCESS GRANTED. SECURITY CLEARANCE ELEVATED TO LEVEL 3 //`, 'system-msg');
-                    } else if (pass === accessPasswords.level2 && clearanceLevel < 2) {
-                        clearanceLevel = 2;
-                        typeLine(`// ACCESS GRANTED. SECURITY CLEARANCE ELEVATED TO LEVEL 2 //`, 'system-msg');
+                database.ref('users/' + username).once('value', (snapshot) => {
+                    if (snapshot.exists() && snapshot.val().password === password) {
+                        loginOverlay.style.display = 'none';
+                        terminalContainer.style.display = 'flex';
+                        initializeTerminal();
                     } else {
-                        typeLine('Authentication failed: Invalid credentials.', 'error-msg');
+                        loginError.textContent = "ACCESS DENIED. CHECK CREDENTIALS.";
+                        loginError.style.display = 'block';
+                        loginPasswordInput.value = '';
                     }
-                } else if (cmd === 'ls') {
-                    if (!isConnected) { typeLine('ERROR: Not connected to a system.', 'error-msg'); return; } const fileNames = Object.keys(fileSystem); if (fileNames.length > 0) { let output = ''; fileNames.forEach(safeFileName => { const originalFileName = safeFileName.replace(/·/g, '.'); const fileData = fileSystem[safeFileName]; if (fileData.level > clearanceLevel) { output += `<span class="file-locked">${originalFileName} [LEVEL ${fileData.level}]</span>   `; } else { output += `${originalFileName}   `; } }); printLine(output, 'data-msg-body'); } else { typeLine('Directory is empty.'); }
-                } else if (cmd === 'cat') {
-                    if (!isConnected) { typeLine('ERROR: Not connected to a system.', 'error-msg'); return; } const fileName = argString.trim(); const safeFileName = fileName.replace(/\./g, '·'); if (!fileName) { typeLine('ERROR: Missing filename. Usage: cat <filename>', 'error-msg'); } else if (!fileSystem[safeFileName]) { typeLine(`ERROR: File not found: ${fileName}`, 'error-msg'); } else if (fileSystem[safeFileName].level > clearanceLevel) { typeLine(`ERROR: INSUFFICIENT CLEARANCE. ACCESS LEVEL ${fileSystem[safeFileName].level} REQUIRED.`, 'error-msg'); } else { typeLine(`--- BEGIN FILE: ${fileName} ---`, 'data-msg-header'); printLine(fileSystem[safeFileName].content, 'data-msg-body'); typeLine(`--- END FILE: ${fileName} ---`, 'data-msg-header'); }
-                } else if (cmd === config.scanCommand) {
-                    typeLine(`Scanning the Network for ${config.signalNoun.toLowerCase()}s from ${config.systemName}...`, '', 30, () => { setTimeout(() => { typeLine(`...Faint ${config.signalNoun} detected. Source confirmed: ${config.systemName}.`, 'system-msg'); }, 1500); }); isScanning = true;
-                } else if (cmd === config.connectCommand) {
-                    if (isScanning) { typeLine(`Attempting to synchronize with ${config.systemName}...`, '', 30, () => { isConnected = true; database.ref('player_status').set({ isConnected: true }); typeLine(`Synchronization complete. Interface active. Awaiting ${config.dataNoun}...`, 'system-msg'); }); } else { typeLine(`ERROR: No ${config.signalNoun} detected. Run ${config.scanCommand.toUpperCase()} first.`, 'error-msg'); }
-                } else if (cmd === 'cls') {
-                    const lines = terminal.querySelectorAll('.line:not(.welcome-line)'); lines.forEach(line => line.remove());
-                } else if (cmd === 'ping') {
-                    if (isConnected) { const latency = Math.floor(Math.random() * (150 - 40 + 1)) + 40; typeLine(`PONG! Received reply from ${config.systemName} in ${latency}ms.`, 'system-msg'); } else { typeLine('ERROR: Not connected. Cannot ping target.', 'error-msg'); }
-                } else if (cmd === 'status') {
-                    typeLine(`SYSTEM STATUS:`, 'system-msg'); typeLine(`  Connection:  ${isConnected ? `CONNECTED to ${config.systemName}` : 'OFFLINE'}`); typeLine(`  Clearance:   LEVEL ${clearanceLevel}`); typeLine(`  ${playerResources.name}:    ${playerResources.count}`);
-                } else if (cmd === 'reply') {
-                    if (isConnected) { if (argString) { database.ref('player_reply').set(argString); typeLine(`Message sent: "${argString}"`, 'system-msg'); } else { typeLine('ERROR: Cannot send an empty message. Usage: reply <message>', 'error-msg'); } } else { typeLine('ERROR: Must be connected to send a reply.', 'error-msg'); }
-                } else if (cmd === 'history') {
-                    const history = JSON.parse(localStorage.getItem(RECEIVED_HISTORY_KEY)) || []; if (history.length > 0) { typeLine(`Received ${config.dataNoun} History:`, 'system-msg', 20, () => { history.forEach((msg, i) => { const decoded = partiallyDecode(msg); printLine(`${(i + 1).toString().padStart(2, ' ')}: ${decoded}`, 'data-msg-body'); }); }); } else { typeLine(`No ${config.dataNoun.toLowerCase()} history found.`); }
-                } else { typeLine('//_UNAUTHORIZED COMMAND. LOGGING ATTEMPT..._//', 'error-msg'); }
-            }
-            commandInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') { if (isTyping) return; const cmd = commandInput.value.trim().toLowerCase(); if (cmd) { handleCommand(cmd); } commandInput.value = ''; } });
-            clearButton.onclick = () => { handleCommand('cls'); };
-            terminal.addEventListener('click', (e) => { if (e.target !== commandInput) { commandInput.focus(); } });
-            database.ref('terminal_config').on('value', (snapshot) => { const newConfig = snapshot.val(); if (newConfig) { config = newConfig; document.body.className = config.theme || 'relic-theme'; } else { document.body.className = 'relic-theme'; } drawWelcomeMessage(); });
-            database.ref('decryption_keys').on('value', (snapshot) => { unlockedKeys = snapshot.val() || {}; });
-            database.ref('history_cleared_timestamp').on('value', (snapshot) => { if (snapshot.exists() && isConnected) { localStorage.removeItem(RECEIVED_HISTORY_KEY); typeLine('// REMOTE LOGS PURGED BY SOURCE //', 'system-msg'); } });
-            database.ref('file_system').on('value', (snapshot) => { fileSystem = snapshot.val() || {}; });
-            database.ref('access_control').on('value', (snapshot) => { accessPasswords = snapshot.val() || {}; });
-            database.ref('cipher_config').on('value', (snapshot) => { if (snapshot.exists()) { decodingChart = Object.fromEntries(Object.entries(snapshot.val()).map(a => a.reverse())); if (isConnected) typeLine('// Cipher matrix re-initialized by source //', 'system-msg'); } });
-            database.ref('custom_commands').on('value', (snapshot) => { customCommands = snapshot.val() || {}; });
-            database.ref('player_resources').on('value', (snapshot) => { playerResources = snapshot.val() || { name: "Resources", count: 0 }; });
-            database.ref('glitches').on('value', (snapshot) => { glitches = snapshot.val() || {}; const override = glitches.override_state; if (override) { overrideOverlay.textContent = override.message; overrideOverlay.className = override.type; overrideOverlay.style.display = 'flex'; } else { overrideOverlay.style.display = 'none'; } if (glitches.reset_access_timestamp && isConnected) { clearanceLevel = 1; typeLine('// SECURITY CREDENTIALS INVALIDATED. ACCESS LEVEL RESET BY SOURCE. //', 'error-msg'); database.ref('glitches/reset_access_timestamp').remove(); } });
-            database.ref('kohd_datastream').on('value', (snapshot) => {
-                const data = snapshot.val();
-                if (isConnected && data) {
-                    if (glitches.scramble_next) { let scrambled = ''; for (let i = 0; i < data.length; i++) { scrambled += allSymbols[Math.floor(Math.random() * allSymbols.length)]; } printLine(`\n>>> INCOMING ${config.dataNoun.toUpperCase()} FROM ${config.systemName} <<<`, 'data-msg-header'); printLine(scrambled, 'data-msg-body'); printLine(`>>> ${config.signalNoun.toUpperCase()} CORRUPTED <<<`, 'data-msg-header'); database.ref('glitches/scramble_next').remove(); return; }
-                    const partiallyDecodedMessage = partiallyDecode(data);
-                    typeLine(`\n>>> INCOMING ${config.dataNoun.toUpperCase()} FROM ${config.systemName} <<<`, 'data-msg-header', 20, () => {
-                        printLine(partiallyDecodedMessage, 'data-msg-body');
-                        typeLine(`>>> END OF ${config.dataNoun.toUpperCase()} <<<`, 'data-msg-header');
-                    });
-                    saveMessageToHistory(data);
-                }
+                });
+            };
+
+            loginButton.onclick = handleLoginAttempt;
+            loginPasswordInput.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') handleLoginAttempt();
             });
-            window.addEventListener('beforeunload', () => { database.ref('player_status').set({ isConnected: false }); });
+
+            function initializeTerminal() {
+                function saveMessageToHistory(message) { let history = JSON.parse(localStorage.getItem(RECEIVED_HISTORY_KEY)) || []; if (!history.length || history[0] !== message) { history.unshift(message); if (history.length > 20) history.pop(); localStorage.setItem(RECEIVED_HISTORY_KEY, JSON.stringify(history)); } }
+                function partiallyDecode(fullStream) { if (Object.keys(decodingChart).length === 0) return fullStream; const parts = fullStream.match(/(.*?)\$:(.*):#(.*)/); if (!parts) return fullStream; const leadingNoise = parts[1], encodedPart = parts[2], trailingNoise = parts[3]; let decodedContent = ''; for (let i = 0; i < encodedPart.length; i += 2) { const pair = encodedPart.substring(i, i + 2); const char = decodingChart[pair]; if (char && unlockedKeys[char]) { decodedContent += char; } else { decodedContent += pair; } } return `${leadingNoise}$:${decodedContent}:#${trailingNoise}`; }
+                function fullyDecode(fullStream) {
+                    const parts = fullStream.match(/(.*?)\$:(.*):#(.*)/);
+                    if (!parts) return fullStream;
+                    const encodedPart = parts[2];
+                    let decodedContent = '';
+                    for (let i = 0; i < encodedPart.length; i += 2) {
+                        const pair = encodedPart.substring(i, i + 2);
+                        if (doubledSymbols.includes(pair)) {
+                            decodedContent += ' ';
+                        } else {
+                            const char = decodingChart[pair];
+                            decodedContent += char || '?';
+                        }
+                    }
+                    return decodedContent;
+                }
+
+                function typeLine(text, className = '', speed = 15, callback = () => { }) { isTyping = true; const line = document.createElement('div'); line.className = 'line'; if (className) { className.split(' ').forEach(cls => line.classList.add(cls)); } terminal.insertBefore(line, terminal.lastElementChild); let i = 0; const interval = setInterval(() => { if (i < text.length) { line.innerHTML += text.charAt(i); i++; window.scrollTo(0, document.body.scrollHeight); } else { clearInterval(interval); isTyping = false; callback(); } }, speed); }
+                function printLine(text, className = '') { const line = document.createElement('div'); line.innerHTML = text; line.className = 'line'; if (className) { className.split(' ').forEach(cls => line.classList.add(cls)); } terminal.insertBefore(line, terminal.lastElementChild); }
+                function drawWelcomeMessage() { const welcomeLines = terminal.querySelectorAll('.welcome-line'); welcomeLines.forEach(line => line.remove()); typeLine(`Attempting to interface with the ${config.systemName}... OK`, 'system-msg welcome-line', 20, () => { typeLine(`${config.osName} -- Ready.`, 'system-msg welcome-line', 20, () => { typeLine(`Type 'help' for command list.`, 'welcome-line', 20, () => { printLine('&nbsp;', 'welcome-line'); }); }); }); }
+
+                function handleSpecialCommand(cmd, commandData) {
+                    database.ref('player_resources').transaction((resources) => {
+                        if (resources && resources.count > 0) {
+                            if (commandData.special_action === 'bruteforce_decrypt') {
+                                typeLine(`// ${cmd.toUpperCase()} SEQUENCE INITIATED... //`, 'system-msg');
+                                isTyping = true;
+                                let dots = 0;
+                                const interval = setInterval(() => {
+                                    printLine('.', 'system-msg');
+                                    dots++;
+                                    if (dots >= 5) {
+                                        clearInterval(interval);
+                                        const history = JSON.parse(localStorage.getItem(RECEIVED_HISTORY_KEY)) || [];
+                                        if (history.length > 0) {
+                                            const lastMessage = history[0];
+                                            const fullyDecoded = fullyDecode(lastMessage);
+                                            typeLine(`// DECRYPTION COMPLETE //`, 'system-msg');
+                                            printLine(fullyDecoded, 'data-msg-body');
+                                        } else {
+                                            typeLine(`// DECRYPTION FAILED: NO MESSAGE IN BUFFER //`, 'error-msg');
+                                        }
+                                        isTyping = false;
+                                    }
+                                }, 700);
+                            } else if (commandData.special_action === 'trace_signal') {
+                                typeLine(commandData.response, 'system-msg');
+                            }
+                            resources.count--;
+                            return resources;
+                        } else {
+                            typeLine(`// ACTION FAILED: INSUFFICIENT ${resources?.name.toUpperCase() || 'RESOURCES'} //`, 'error-msg');
+                            return;
+                        }
+                    });
+                }
+
+                function handleCommand(fullCmd) {
+                    if (glitches.glitched_command && fullCmd.startsWith(glitches.glitched_command)) { printLine(`> ${fullCmd}`, 'prompt-text'); typeLine(`//_COMMAND MALFUNCTION: [${glitches.glitched_command.toUpperCase()}] OFFLINE_//`, 'error-msg'); return; }
+                    printLine(`> ${fullCmd}`, 'prompt-text');
+                    const [cmd, ...args] = fullCmd.split(' ');
+                    const argString = args.join(' ').trim();
+
+                    if (customCommands[cmd]) {
+                        const command = customCommands[cmd];
+                        if (command.args && argString !== command.args) {
+                            typeLine(`ERROR: Invalid arguments for command '${cmd}'. Usage: ${cmd} ${command.args}`, 'error-msg');
+                            return;
+                        }
+                        if (command.special_action) {
+                            handleSpecialCommand(cmd, command);
+                            return;
+                        }
+                        if (command.consumesResource) {
+                            database.ref('player_resources').transaction((resources) => {
+                                if (resources && resources.count > 0) {
+                                    typeLine(command.response, 'system-msg');
+                                    resources.count--;
+                                    return resources;
+                                } else {
+                                    typeLine(`// ACTION FAILED: INSUFFICIENT ${resources?.name.toUpperCase() || 'RESOURCES'} //`, 'error-msg');
+                                    return;
+                                }
+                            });
+                        } else {
+                            typeLine(command.response, 'system-msg');
+                        }
+                        return;
+                    }
+
+                    if (cmd === 'help') {
+                        typeLine(`${config.systemName} Command List:`, 'system-msg'); typeLine(`  help          - Displays this list`); typeLine(`  elevate <pass>  - Elevate security clearance`); typeLine(`  ls            - Lists files in the current directory`); typeLine(`  cat <file>    - Displays the content of a file`); typeLine(`  ${config.scanCommand.padEnd(13, ' ')} - Scan for ${config.signalNoun.toLowerCase()}s on the Network`); typeLine(`  ${config.connectCommand.padEnd(13, ' ')} - Connect to a detected ${config.signalNoun.toLowerCase()}`); typeLine(`  reply <msg>   - Sends a message back to source`); typeLine(`  ping          - Checks connection to the source`); typeLine(`  status        - Displays current system status`); typeLine(`  history       - Shows received ${config.dataNoun.toLowerCase()} history`); typeLine(`  cls           - Clears the display`);
+                    } else if (cmd === 'elevate') {
+                        const pass = argString.trim();
+                        if (!pass) { typeLine('ERROR: Missing password. Usage: elevate <password>', 'error-msg'); return; }
+                        if (pass === accessPasswords.level3 && clearanceLevel < 3) {
+                            clearanceLevel = 3;
+                            typeLine(`// ACCESS GRANTED. SECURITY CLEARANCE ELEVATED TO LEVEL 3 //`, 'system-msg');
+                        } else if (pass === accessPasswords.level2 && clearanceLevel < 2) {
+                            clearanceLevel = 2;
+                            typeLine(`// ACCESS GRANTED. SECURITY CLEARANCE ELEVATED TO LEVEL 2 //`, 'system-msg');
+                        } else {
+                            typeLine('Authentication failed: Invalid credentials.', 'error-msg');
+                        }
+                    } else if (cmd === 'ls') {
+                        if (!isConnected) { typeLine('ERROR: Not connected to a system.', 'error-msg'); return; } const fileNames = Object.keys(fileSystem); if (fileNames.length > 0) { let output = ''; fileNames.forEach(safeFileName => { const originalFileName = safeFileName.replace(/·/g, '.'); const fileData = fileSystem[safeFileName]; if (fileData.level > clearanceLevel) { output += `<span class="file-locked">${originalFileName} [LEVEL ${fileData.level}]</span>   `; } else { output += `${originalFileName}   `; } }); printLine(output, 'data-msg-body'); } else { typeLine('Directory is empty.'); }
+                    } else if (cmd === 'cat') {
+                        if (!isConnected) { typeLine('ERROR: Not connected to a system.', 'error-msg'); return; } const fileName = argString.trim(); const safeFileName = fileName.replace(/\./g, '·'); if (!fileName) { typeLine('ERROR: Missing filename. Usage: cat <filename>', 'error-msg'); } else if (!fileSystem[safeFileName]) { typeLine(`ERROR: File not found: ${fileName}`, 'error-msg'); } else if (fileSystem[safeFileName].level > clearanceLevel) { typeLine(`ERROR: INSUFFICIENT CLEARANCE. ACCESS LEVEL ${fileSystem[safeFileName].level} REQUIRED.`, 'error-msg'); } else { typeLine(`--- BEGIN FILE: ${fileName} ---`, 'data-msg-header'); printLine(fileSystem[safeFileName].content, 'data-msg-body'); typeLine(`--- END FILE: ${fileName} ---`, 'data-msg-header'); }
+                    } else if (cmd === config.scanCommand) {
+                        typeLine(`Scanning the Network for ${config.signalNoun.toLowerCase()}s from ${config.systemName}...`, '', 30, () => { setTimeout(() => { typeLine(`...Faint ${config.signalNoun} detected. Source confirmed: ${config.systemName}.`, 'system-msg'); }, 1500); }); isScanning = true;
+                    } else if (cmd === config.connectCommand) {
+                        if (isScanning) { typeLine(`Attempting to synchronize with ${config.systemName}...`, '', 30, () => { isConnected = true; database.ref('player_status').set({ isConnected: true }); typeLine(`Synchronization complete. Interface active. Awaiting ${config.dataNoun}...`, 'system-msg'); }); } else { typeLine(`ERROR: No ${config.signalNoun} detected. Run ${config.scanCommand.toUpperCase()} first.`, 'error-msg'); }
+                    } else if (cmd === 'cls') {
+                        const lines = terminal.querySelectorAll('.line:not(.welcome-line)'); lines.forEach(line => line.remove());
+                    } else if (cmd === 'ping') {
+                        if (isConnected) { const latency = Math.floor(Math.random() * (150 - 40 + 1)) + 40; typeLine(`PONG! Received reply from ${config.systemName} in ${latency}ms.`, 'system-msg'); } else { typeLine('ERROR: Not connected. Cannot ping target.', 'error-msg'); }
+                    } else if (cmd === 'status') {
+                        typeLine(`SYSTEM STATUS:`, 'system-msg'); typeLine(`  Connection:  ${isConnected ? `CONNECTED to ${config.systemName}` : 'OFFLINE'}`); typeLine(`  Clearance:   LEVEL ${clearanceLevel}`); typeLine(`  ${playerResources.name}:    ${playerResources.count}`);
+                    } else if (cmd === 'reply') {
+                        if (isConnected) { if (argString) { database.ref('player_reply').set(argString); typeLine(`Message sent: "${argString}"`, 'system-msg'); } else { typeLine('ERROR: Cannot send an empty message. Usage: reply <message>', 'error-msg'); } } else { typeLine('ERROR: Must be connected to send a reply.', 'error-msg'); }
+                    } else if (cmd === 'history') {
+                        const history = JSON.parse(localStorage.getItem(RECEIVED_HISTORY_KEY)) || []; if (history.length > 0) { typeLine(`Received ${config.dataNoun} History:`, 'system-msg', 20, () => { history.forEach((msg, i) => { const decoded = partiallyDecode(msg); printLine(`${(i + 1).toString().padStart(2, ' ')}: ${decoded}`, 'data-msg-body'); }); }); } else { typeLine(`No ${config.dataNoun.toLowerCase()} history found.`); }
+                    } else { typeLine('//_UNAUTHORIZED COMMAND. LOGGING ATTEMPT..._//', 'error-msg'); }
+                }
+                commandInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') { if (isTyping) return; const cmd = commandInput.value.trim().toLowerCase(); if (cmd) { handleCommand(cmd); } commandInput.value = ''; } });
+                clearButton.onclick = () => { handleCommand('cls'); };
+                terminal.addEventListener('click', (e) => { if (e.target !== commandInput) { commandInput.focus(); } });
+                database.ref('terminal_config').on('value', (snapshot) => { const newConfig = snapshot.val(); if (newConfig) { config = newConfig; document.body.className = config.theme || 'relic-theme'; } else { document.body.className = 'relic-theme'; } drawWelcomeMessage(); });
+                database.ref('decryption_keys').on('value', (snapshot) => { unlockedKeys = snapshot.val() || {}; });
+                database.ref('history_cleared_timestamp').on('value', (snapshot) => { if (snapshot.exists() && isConnected) { localStorage.removeItem(RECEIVED_HISTORY_KEY); typeLine('// REMOTE LOGS PURGED BY SOURCE //', 'system-msg'); } });
+                database.ref('file_system').on('value', (snapshot) => { fileSystem = snapshot.val() || {}; });
+                database.ref('access_control').on('value', (snapshot) => { accessPasswords = snapshot.val() || {}; });
+                database.ref('cipher_config').on('value', (snapshot) => { if (snapshot.exists()) { decodingChart = Object.fromEntries(Object.entries(snapshot.val()).map(a => a.reverse())); if (isConnected) typeLine('// Cipher matrix re-initialized by source //', 'system-msg'); } });
+                database.ref('custom_commands').on('value', (snapshot) => { customCommands = snapshot.val() || {}; });
+                database.ref('player_resources').on('value', (snapshot) => { playerResources = snapshot.val() || { name: "Resources", count: 0 }; });
+                database.ref('glitches').on('value', (snapshot) => { glitches = snapshot.val() || {}; const override = glitches.override_state; if (override) { overrideOverlay.textContent = override.message; overrideOverlay.className = override.type; overrideOverlay.style.display = 'flex'; } else { overrideOverlay.style.display = 'none'; } if (glitches.reset_access_timestamp && isConnected) { clearanceLevel = 1; typeLine('// SECURITY CREDENTIALS INVALIDATED. ACCESS LEVEL RESET BY SOURCE. //', 'error-msg'); database.ref('glitches/reset_access_timestamp').remove(); } });
+                database.ref('kohd_datastream').on('value', (snapshot) => {
+                    const data = snapshot.val();
+                    if (isConnected && data) {
+                        if (glitches.scramble_next) { let scrambled = ''; for (let i = 0; i < data.length; i++) { scrambled += allSymbols[Math.floor(Math.random() * allSymbols.length)]; } printLine(`\n>>> INCOMING ${config.dataNoun.toUpperCase()} FROM ${config.systemName} <<<`, 'data-msg-header'); printLine(scrambled, 'data-msg-body'); printLine(`>>> ${config.signalNoun.toUpperCase()} CORRUPTED <<<`, 'data-msg-header'); database.ref('glitches/scramble_next').remove(); return; }
+                        const partiallyDecodedMessage = partiallyDecode(data);
+                        typeLine(`\n>>> INCOMING ${config.dataNoun.toUpperCase()} FROM ${config.systemName} <<<`, 'data-msg-header', 20, () => {
+                            printLine(partiallyDecodedMessage, 'data-msg-body');
+                            typeLine(`>>> END OF ${config.dataNoun.toUpperCase()} <<<`, 'data-msg-header');
+                        });
+                        saveMessageToHistory(data);
+                    }
+                });
+                window.addEventListener('beforeunload', () => { database.ref('player_status').set({ isConnected: false }); });
+                
+                drawWelcomeMessage();
+            }
         }
 
         async function initializeApp() {

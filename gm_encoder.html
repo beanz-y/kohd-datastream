@@ -40,7 +40,6 @@
             justify-content: space-between;
             align-items: center;
             flex-wrap: wrap;
-            /* Allow wrapping on small screens */
         }
 
         h2 {
@@ -221,13 +220,15 @@
         }
 
         #fileList,
-        #customCommandList {
+        #customCommandList,
+        #userList {
             list-style: none;
             padding: 0;
         }
 
         #fileList li,
-        #customCommandList li {
+        #customCommandList li,
+        #userList li {
             background-color: #0e1213;
             padding: 8px 12px;
             border-left: 3px solid var(--primary-color);
@@ -353,6 +354,7 @@
             <button class="tab-link active" onclick="openTab(event, 'transmit')">Transmit</button>
             <button class="tab-link" onclick="openTab(event, 'session')">Session Control</button>
             <button class="tab-link" onclick="openTab(event, 'setup')">System Setup</button>
+            <button class="tab-link" onclick="openTab(event, 'admin')">Admin</button>
         </div>
 
         <div id="transmit" class="tab-content active">
@@ -515,6 +517,22 @@
             <div id="historyContainer"></div>
             <button id="clearHistoryButton" class="secondary">Clear History</button>
         </div>
+
+        <div id="admin" class="tab-content">
+            <h2>User Account Management</h2>
+            <fieldset>
+                <legend>Create New User</legend>
+                <label for="newUsername">Username</label>
+                <input type="text" id="newUsername" placeholder="e.g., operator_7">
+                <label for="newPassword">Password</label>
+                <input type="text" id="newPassword" placeholder="e.g., alpha-gamma-9">
+                <button id="createUserButton">Create User</button>
+            </fieldset>
+
+            <h3>Existing Users:</h3>
+            <ul id="userList">
+            </ul>
+        </div>
     </div>
 
     <script>
@@ -545,7 +563,8 @@
             const customCommandNameInput = document.getElementById('customCommandName'), customCommandArgsInput = document.getElementById('customCommandArgs'), customCommandResponseInput = document.getElementById('customCommandResponse'), commandConsumesResourceCheckbox = document.getElementById('commandConsumesResource'), createCustomCommandButton = document.getElementById('createCustomCommandButton'), customCommandList = document.getElementById('customCommandList');
             const specialCommandNameInput = document.getElementById('specialCommandName'), createDecryptCommandButton = document.getElementById('createDecryptCommand'), traceCommandNameInput = document.getElementById('traceCommandName'), traceCommandResponseInput = document.getElementById('traceCommandResponse'), createTraceCommandButton = document.getElementById('createTraceCommand');
             const presetNameInput = document.getElementById('presetNameInput'), savePresetButton = document.getElementById('savePresetButton'), presetButtonsContainer = document.getElementById('presetButtonsContainer');
-            const dbRefs = { keys: database.ref('decryption_keys'), historyClear: database.ref('history_cleared_timestamp'), fileSystem: database.ref('file_system'), glitches: database.ref('glitches'), playerStatus: database.ref('player_status'), cipher: database.ref('cipher_config'), access: database.ref('access_control'), customCommands: database.ref('custom_commands'), playerResources: database.ref('player_resources') };
+            const newUsernameInput = document.getElementById('newUsername'), newPasswordInput = document.getElementById('newPassword'), createUserButton = document.getElementById('createUserButton'), userList = document.getElementById('userList');
+            const dbRefs = { keys: database.ref('decryption_keys'), historyClear: database.ref('history_cleared_timestamp'), fileSystem: database.ref('file_system'), glitches: database.ref('glitches'), playerStatus: database.ref('player_status'), cipher: database.ref('cipher_config'), access: database.ref('access_control'), customCommands: database.ref('custom_commands'), playerResources: database.ref('player_resources'), users: database.ref('users') };
             const symbols = ['<', '>', '%', '^', '&', '*', '-', '+', '@'];
             const groups = ['<', '>', '%', '^', '&'];
             let encodingChart = {};
@@ -593,6 +612,42 @@
             createDecryptCommand.onclick = () => { const name = specialCommandNameInput.value.trim().toLowerCase() || 'bruteforce'; dbRefs.customCommands.child(name).set({ special_action: 'bruteforce_decrypt' }); specialCommandNameInput.value = ''; };
             createTraceCommand.onclick = () => { const name = traceCommandNameInput.value.trim().toLowerCase() || 'trace'; const response = traceCommandResponseInput.value; if (!response) { alert('Trace clue response cannot be empty.'); return; } dbRefs.customCommands.child(name).set({ special_action: 'trace_signal', response: response }); traceCommandNameInput.value = ''; traceCommandResponseInput.value = ''; };
             dbRefs.customCommands.on('value', (snapshot) => { customCommandList.innerHTML = ''; const commands = snapshot.val(); if (commands) { Object.keys(commands).forEach(name => { const command = commands[name]; const li = document.createElement('li'); let displayText = `${name} ${command.args || ''}`; if (command.consumesResource || command.special_action) { displayText += ` (Consumes Resource)`; } li.textContent = displayText; const deleteButton = document.createElement('button'); deleteButton.textContent = 'Delete'; deleteButton.className = 'secondary'; deleteButton.onclick = () => dbRefs.customCommands.child(name).remove(); li.appendChild(deleteButton); customCommandList.appendChild(li); }); } });
+
+            createUserButton.onclick = () => {
+                const username = newUsernameInput.value.trim().toLowerCase();
+                const password = newPasswordInput.value.trim();
+                if (!username || !password) {
+                    alert('Username and password cannot be empty.');
+                    return;
+                }
+                dbRefs.users.child(username).set({ password: password });
+                newUsernameInput.value = '';
+                newPasswordInput.value = '';
+            };
+
+            dbRefs.users.on('value', (snapshot) => {
+                userList.innerHTML = '';
+                const users = snapshot.val();
+                if (users) {
+                    Object.keys(users).forEach(username => {
+                        const li = document.createElement('li');
+                        li.textContent = username;
+
+                        const deleteButton = document.createElement('button');
+                        deleteButton.textContent = 'Delete';
+                        deleteButton.className = 'critical';
+                        deleteButton.style.marginLeft = '15px';
+                        deleteButton.onclick = () => {
+                            if (confirm(`Are you sure you want to delete user "${username}"?`)) {
+                                dbRefs.users.child(username).remove();
+                            }
+                        };
+                        li.appendChild(deleteButton);
+                        userList.appendChild(li);
+                    });
+                }
+            });
+
             loadPresets();
         }
 
