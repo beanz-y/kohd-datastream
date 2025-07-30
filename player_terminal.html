@@ -43,7 +43,8 @@
             flex-shrink: 0;
         }
 
-        #commandInput, .commandInput {
+        #commandInput,
+        .commandInput {
             background-color: transparent;
             border: none;
             font-family: inherit;
@@ -54,7 +55,8 @@
             color: inherit;
         }
 
-        #commandInput:focus, .commandInput:focus {
+        #commandInput:focus,
+        .commandInput:focus {
             outline: none;
         }
 
@@ -296,32 +298,37 @@
 </head>
 
 <body class="relic-theme">
-    <div id="login-overlay" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 10001; display: none; align-items: center; justify-content: center; flex-direction: column;">
+    <div id="login-overlay"
+        style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 10001; display: none; align-items: center; justify-content: center; flex-direction: column;">
         <div style="width: 350px; padding: 20px; border: 1px solid currentColor;">
-             <div class="line">//_SECURE ACCESS TERMINAL_//</div>
-             <br>
-             <div class="line">AWAITING CREDENTIALS...</div>
-             <br>
-             <div class="prompt">
+            <div class="line">//_SECURE ACCESS TERMINAL_//</div>
+            <br>
+            <div class="line">AWAITING CREDENTIALS...</div>
+            <br>
+            <div class="prompt">
                 <span class="prompt-text">Username:&nbsp;</span>
-                <input type="text" id="loginUsername" class="commandInput" style="width: 100%; background: transparent; border: none; color: inherit; font-family: inherit; font-size: inherit;">
-             </div>
-             <div class="prompt">
+                <input type="text" id="loginUsername" class="commandInput"
+                    style="width: 100%; background: transparent; border: none; color: inherit; font-family: inherit; font-size: inherit;">
+            </div>
+            <div class="prompt">
                 <span class="prompt-text">Password:&nbsp;</span>
-                <input type="password" id="loginPassword" class="commandInput" style="width: 100%; background: transparent; border: none; color: inherit; font-family: inherit; font-size: inherit;">
-             </div>
-             <div class="prompt" style="margin-top: 15px; align-items: center;">
+                <input type="password" id="loginPassword" class="commandInput"
+                    style="width: 100%; background: transparent; border: none; color: inherit; font-family: inherit; font-size: inherit;">
+            </div>
+            <div class="prompt" style="margin-top: 15px; align-items: center;">
                 <input type="checkbox" id="rememberMeCheckbox" style="margin-right: 10px;">
                 <label for="rememberMeCheckbox">Remember Connection</label>
-             </div>
-             <br>
-             <div id="login-error" class="line error-msg" style="display: none;"></div>
-             <button id="loginButton" style="background: transparent; color: inherit; border: 1px solid currentColor; padding: 5px 10px; cursor: pointer; font-family: inherit; margin-top: 10px;">[ AUTHENTICATE ]</button>
+            </div>
+            <br>
+            <div id="login-error" class="line error-msg" style="display: none;"></div>
+            <button id="loginButton"
+                style="background: transparent; color: inherit; border: 1px solid currentColor; padding: 5px 10px; cursor: pointer; font-family: inherit; margin-top: 10px;">[
+                AUTHENTICATE ]</button>
         </div>
     </div>
-    
+
     <div id="system-override-overlay"></div>
-    
+
     <div id="terminal-container" style="display: none; height: 100%; flex-direction: column; display: flex;">
         <div id="terminal">
             <div class="prompt"><span class="prompt-text">>&nbsp;</span><input type="text" id="commandInput" autofocus>
@@ -367,7 +374,7 @@
             function startLogin() {
                 terminalContainer.style.display = 'none';
                 loginOverlay.style.display = 'flex';
-                
+
                 const rememberedUser = localStorage.getItem(REMEMBER_ME_KEY);
                 if (rememberedUser) {
                     loginUsernameInput.value = rememberedUser;
@@ -393,13 +400,13 @@
                     if (snapshot.exists() && snapshot.val().password === password) {
                         const storage = rememberMe ? localStorage : sessionStorage;
                         storage.setItem(SESSION_KEY, username);
-                        
+
                         if (rememberMe) {
                             localStorage.setItem(REMEMBER_ME_KEY, username);
                         } else {
                             localStorage.removeItem(REMEMBER_ME_KEY);
                         }
-                        
+
                         loginOverlay.style.display = 'none';
                         terminalContainer.style.display = 'flex';
                         initializeTerminal();
@@ -436,8 +443,40 @@
                     return decodedContent;
                 }
 
-                function typeLine(text, className = '', speed = 15, callback = () => { }) { isTyping = true; const line = document.createElement('div'); line.className = 'line'; if (className) { className.split(' ').forEach(cls => line.classList.add(cls)); } terminal.insertBefore(line, terminal.lastElementChild); let i = 0; const interval = setInterval(() => { if (i < text.length) { line.innerHTML += text.charAt(i); i++; window.scrollTo(0, document.body.scrollHeight); } else { clearInterval(interval); isTyping = false; callback(); } }, speed); }
-                function printLine(text, className = '') { const line = document.createElement('div'); line.innerHTML = text; line.className = 'line'; if (className) { className.split(' ').forEach(cls => line.classList.add(cls)); } terminal.insertBefore(line, terminal.lastElementChild); }
+                function typeLine(text, className = '', speed = 15, callback = () => { }) {
+                    isTyping = true;
+                    const line = document.createElement('div');
+                    line.className = 'line';
+                    if (className) {
+                        className.split(' ').forEach(cls => line.classList.add(cls));
+                    }
+                    terminal.insertBefore(line, terminal.lastElementChild);
+                    let i = 0;
+                    const interval = setInterval(() => {
+                        if (i < text.length) {
+                            line.innerHTML += text.charAt(i);
+                            i++;
+                            terminal.scrollTop = terminal.scrollHeight; // FIX: Scroll terminal div
+                        } else {
+                            clearInterval(interval);
+                            isTyping = false;
+                            terminal.scrollTop = terminal.scrollHeight; // FIX: Scroll at the end
+                            callback();
+                        }
+                    }, speed);
+                }
+
+                function printLine(text, className = '') {
+                    const line = document.createElement('div');
+                    line.innerHTML = text;
+                    line.className = 'line';
+                    if (className) {
+                        className.split(' ').forEach(cls => line.classList.add(cls));
+                    }
+                    terminal.insertBefore(line, terminal.lastElementChild);
+                    terminal.scrollTop = terminal.scrollHeight; // FIX: Scroll terminal div
+                }
+
                 function drawWelcomeMessage() { const welcomeLines = terminal.querySelectorAll('.welcome-line'); welcomeLines.forEach(line => line.remove()); typeLine(`Attempting to interface with the ${config.systemName || 'SYSTEM'}... OK`, 'system-msg welcome-line', 20, () => { typeLine(`${config.osName || 'M-OS'} -- Ready.`, 'system-msg welcome-line', 20, () => { typeLine(`Type 'help' for command list.`, 'welcome-line', 20, () => { printLine('&nbsp;', 'welcome-line'); }); }); }); }
 
                 function handleSpecialCommand(cmd, commandData) {
@@ -545,7 +584,7 @@
                         if (isConnected) { if (argString) { database.ref('player_reply').set(argString); typeLine(`Message sent: "${argString}"`, 'system-msg'); } else { typeLine('ERROR: Cannot send an empty message. Usage: reply <message>', 'error-msg'); } } else { typeLine('ERROR: Must be connected to send a reply.', 'error-msg'); }
                     } else if (cmd === 'history') {
                         const history = JSON.parse(localStorage.getItem(RECEIVED_HISTORY_KEY)) || []; if (history.length > 0) { typeLine(`Received ${(config.dataNoun || 'Data')} History:`, 'system-msg', 20, () => { history.forEach((msg, i) => { const decoded = partiallyDecode(msg); printLine(`${(i + 1).toString().padStart(2, ' ')}: ${decoded}`, 'data-msg-body'); }); }); } else { typeLine(`No ${(config.dataNoun || 'data').toLowerCase()} history found.`); }
-                    } else { 
+                    } else {
                         typeLine('//_UNAUTHORIZED COMMAND. LOGGING ATTEMPT..._//', 'error-msg');
                     }
                 }
@@ -553,7 +592,7 @@
                 commandInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') { if (isTyping) return; const cmd = commandInput.value.trim().toLowerCase(); if (cmd) { handleCommand(cmd); } commandInput.value = ''; } });
                 clearButton.onclick = () => { handleCommand('cls'); };
                 terminal.addEventListener('click', (e) => { if (e.target !== commandInput) { commandInput.focus(); } });
-                
+
                 database.ref('terminal_config').on('value', (snapshot) => {
                     const newConfig = snapshot.val();
                     const shouldDrawWelcome = isInitialLoad;
@@ -570,7 +609,7 @@
                         isInitialLoad = false;
                     }
                 });
-                
+
                 database.ref('decryption_keys').on('value', (snapshot) => { unlockedKeys = snapshot.val() || {}; });
                 database.ref('history_cleared_timestamp').on('value', (snapshot) => { if (snapshot.exists() && isConnected) { localStorage.removeItem(RECEIVED_HISTORY_KEY); typeLine('// REMOTE LOGS PURGED BY SOURCE //', 'system-msg'); } });
                 database.ref('file_system').on('value', (snapshot) => { fileSystem = snapshot.val() || {}; });
