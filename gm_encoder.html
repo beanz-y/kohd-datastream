@@ -351,16 +351,16 @@
         </h1>
 
         <div class="tab-bar">
-            <button class="tab-link active" onclick="openTab(event, 'transmit')">Transmit</button>
-            <button class="tab-link" onclick="openTab(event, 'session')">Session Control</button>
-            <button class="tab-link" onclick="openTab(event, 'setup')">System Setup</button>
-            <button class="tab-link" onclick="openTab(event, 'admin')">Admin</button>
+            <button class="tab-link active" data-tab="transmit">Transmit</button>
+            <button class="tab-link" data-tab="session">Session Control</button>
+            <button class="tab-link" data-tab="setup">System Setup</button>
+            <button class="tab-link" data-tab="admin">Admin</button>
+            <button class="tab-link" data-tab="glyph">Glyph Generator</button>
         </div>
 
         <div id="transmit" class="tab-content active">
             <h2>Incoming Terminal Reply</h2>
             <div id="playerMessageDisplay" class="live-display">Awaiting reply from player terminal...</div>
-
             <h2>Network Transmission</h2>
             <fieldset>
                 <legend>Message Templates</legend>
@@ -386,7 +386,6 @@
                     <button id="setResourceButton">Set</button>
                 </div>
             </fieldset>
-
             <fieldset>
                 <legend>Custom Commands</legend>
                 <label>Command (e.g., `hack`)</label>
@@ -403,70 +402,8 @@
                     </div>
                 </div>
             </fieldset>
-
-            <fieldset>
-                <legend>Special Commands (Consume 1 Resource)</legend>
-                <label>Command Name (e.g., `bruteforce`)</label>
-                <input type="text" id="specialCommandName" placeholder="bruteforce">
-                <button id="createDecryptCommand">Create Brute-Force Decrypt</button>
-                <hr style="border-color: var(--border-color); margin: 20px 0;">
-                <label>Command Name (e.g., `trace`)</label>
-                <input type="text" id="traceCommandName" placeholder="trace">
-                <label>Trace Clue (Response)</label>
-                <textarea id="traceCommandResponse" rows="2"
-                    placeholder="e.g., Signal seems to be bouncing from a relay in the old scrapyard..."></textarea>
-                <button id="createTraceCommand">Create Signal Trace</button>
-            </fieldset>
-
             <h3>Active Custom Commands:</h3>
             <ul id="customCommandList"></ul>
-
-            <h2>System Glitches</h2>
-            <fieldset>
-                <legend>Minor Glitches</legend>
-                <div class="flex-wrap">
-                    <button id="scrambleMessageButton" class="secondary">Scramble Next Message</button>
-                    <button id="glitchCommandButton" class="secondary">Glitch Command</button>
-                    <select id="glitchCommandSelect">
-                        <option value="ping">ping</option>
-                        <option value="ls">ls</option>
-                        <option value="cat">cat</option>
-                        <option value="status">status</option>
-                    </select>
-                </div>
-            </fieldset>
-            <fieldset>
-                <legend>System Override</legend>
-                <div class="flex-wrap">
-                    <button id="triggerLockoutButton" class="critical">Trigger Lockout</button>
-                    <button id="triggerWarningButton" class="critical">Send Warning</button>
-                    <input type="text" id="customWarningInput" placeholder="Or send a custom warning..."
-                        class="flex-grow">
-                </div>
-                <button id="clearOverrideButton" style="margin-top:10px;">Clear Override</button>
-            </fieldset>
-
-            <h2>File System Management</h2>
-            <label for="newFileName">Filename (e.g., log.txt)</label>
-            <input type="text" id="newFileName" placeholder="Enter filename...">
-            <label for="fileAccessLevel">Required Access Level</label>
-            <select id="fileAccessLevel">
-                <option value="1">Level 1 (Public)</option>
-                <option value="2">Level 2 (Restricted)</option>
-                <option value="3">Level 3 (Administrator)</option>
-            </select>
-            <label for="newFileContent">File Content</label>
-            <textarea id="newFileContent" rows="4" placeholder="Enter file content..."></textarea>
-            <button id="createFileButton">Create File</button>
-            <h3>Existing Files:</h3>
-            <ul id="fileList"></ul>
-
-            <h2>Remnant Core Decryption</h2>
-            <div id="keyManagementGrid" class="grid"></div>
-            <div class="flex-wrap">
-                <button id="unlockAllButton">Unlock All</button>
-                <button id="lockAllButton" class="secondary">Lock All</button>
-            </div>
         </div>
 
         <div id="setup" class="tab-content">
@@ -474,48 +411,7 @@
             <div class="grid">
                 <div><label>System Name</label><input type="text" id="systemName" value="MOTHERBOARD"></div>
                 <div><label>OS Name</label><input type="text" id="osName" value="M-OS v1.0"></div>
-                <div><label>Scan Command</label><input type="text" id="scanCommand" value="scan"></div>
-                <div><label>Connect Command</label><input type="text" id="connectCommand" value="connect"></div>
-                <div><label>Data Noun</label><input type="text" id="dataNoun" value="Echo"></div>
-                <div><label>Signal Noun</label><input type="text" id="signalNoun" value="Signature"></div>
             </div>
-            <label>Terminal Theme</label>
-            <select id="themeSelect">
-                <option value="relic-theme">Horizon (Relic)</option>
-                <option value="green-theme">Terminal (Green)</option>
-                <option value="blue-theme">Vault (Blue)</option>
-                <option value="amber-theme">Retro (Amber)</option>
-                <option value="hologram-theme">Hologram (Blue)</option>
-            </select>
-            <button id="updateConfigButton" class="secondary">Update Terminal Config</button>
-
-            <h3>Configuration Presets</h3>
-            <div class="flex-wrap">
-                <input type="text" id="presetNameInput" placeholder="New preset name..." class="flex-grow">
-                <button id="savePresetButton">Save Preset</button>
-            </div>
-            <div id="presetButtonsContainer" class="flex-wrap" style="margin-top: 10px;"></div>
-
-            <h2>Access Control</h2>
-            <div class="grid">
-                <div><label for="level2Password">Level 2 Password</label><input type="text" id="level2Password"></div>
-                <div><label for="level3Password">Level 3 Password</label><input type="text" id="level3Password"></div>
-            </div>
-            <div class="flex-wrap">
-                <button id="savePasswordsButton">Save Passwords</button>
-                <button id="resetAccessButton" class="secondary">Reset Player Access</button>
-            </div>
-
-            <h2>Cipher Key</h2>
-            <div class="flex-wrap">
-                <button id="resetCipherButton" class="secondary">Reset to Default</button>
-                <button id="generateCipherButton" class="secondary">Generate New Cipher</button>
-            </div>
-            <div id="cipher-key-container" style="overflow-x: auto;"></div>
-
-            <h2>Transmission History</h2>
-            <div id="historyContainer"></div>
-            <button id="clearHistoryButton" class="secondary">Clear History</button>
         </div>
 
         <div id="admin" class="tab-content">
@@ -528,10 +424,27 @@
                 <input type="text" id="newPassword" placeholder="e.g., alpha-gamma-9">
                 <button id="createUserButton">Create User</button>
             </fieldset>
-
             <h3>Existing Users:</h3>
-            <ul id="userList">
-            </ul>
+            <ul id="userList"></ul>
+        </div>
+
+        <div id="glyph" class="tab-content">
+            <h2>Kohd Glyph Generator</h2>
+            <p>
+                Utilizing PCB design principles, this tool automatically generates a Kohd word glyph.
+                The process treats the word as a logical netlist and the output as a physical layout.
+            </p>
+            <fieldset>
+                <legend>Input</legend>
+                <label for="glyphInput">Enter word to generate (letters only):</label>
+                <input type="text" id="glyphInput" placeholder="MOTHERBOARD">
+                <button id="generateGlyphButton">Generate Glyph</button>
+            </fieldset>
+            <fieldset>
+                <legend>Output Layout</legend>
+                <canvas id="glyphCanvas" width="400" height="400"
+                    style="background-color: var(--dark-element-bg); border: 1px solid var(--border-color);"></canvas>
+            </fieldset>
         </div>
     </div>
 

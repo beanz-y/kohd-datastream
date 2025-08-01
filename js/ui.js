@@ -3,6 +3,9 @@
 import { appState } from './state.js';
 import { generateNoise, encodeMessage, generateNewCipher } from './kohd.js';
 import { transmitDatastream, updateTerminalConfig } from './firebase.js';
+import { generateGlyphData } from './glyph-generator.js';
+import { renderGlyph } from './canvas-renderer.js';
+
 
 // --- DOM Element References ---
 let uiElements;
@@ -76,6 +79,10 @@ function cacheDOMElements() {
         newPasswordInput: document.getElementById('newPassword'),
         createUserButton: document.getElementById('createUserButton'),
         userList: document.getElementById('userList'),
+        // Glyph Generator Tab
+        glyphInput: document.getElementById('glyphInput'),
+        generateGlyphButton: document.getElementById('generateGlyphButton'),
+        glyphCanvas: document.getElementById('glyphCanvas'),
         // Global
         playerStatus: document.getElementById('playerStatus'),
         tabs: document.querySelectorAll('.tab-link'),
@@ -123,7 +130,7 @@ function initializeEventListeners() {
     // Tab functionality
     uiElements.tabs.forEach(tab => {
         tab.addEventListener('click', (event) => {
-            const tabName = tab.getAttribute('onclick').match(/'([^']+)'/)[1];
+            const tabName = tab.dataset.tab;
             
             uiElements.tabContents.forEach(content => content.classList.remove('active'));
             uiElements.tabs.forEach(t => t.classList.remove('active'));
@@ -157,6 +164,15 @@ function initializeEventListeners() {
         uiElements.templateButtons.appendChild(btn);
     });
 
+    // Glyph Generator listener
+    uiElements.generateGlyphButton.onclick = () => {
+        const inputText = uiElements.glyphInput.value;
+        if (inputText) {
+            const glyphData = generateGlyphData(inputText);
+            renderGlyph(uiElements.glyphCanvas, glyphData);
+        }
+    };
+    
     // Setup Tab Listeners
     uiElements.updateConfigButton.onclick = () => {
         const config = {
@@ -364,13 +380,15 @@ function displayUsers(users) {
 }
 
 function handleSystemOverride(override) {
-    const overlay = document.getElementById('system-override-overlay');
-    if (override) {
-        overlay.textContent = override.message;
-        overlay.className = override.type; // 'lockout' or 'warning'
-        overlay.style.display = 'flex';
-    } else {
-        overlay.style.display = 'none';
+    const overlay = document.getElementById('system-override-overlay'); // This element is not in gm_encoder, so it won't be in uiElements
+    if (overlay) {
+        if (override) {
+            overlay.textContent = override.message;
+            overlay.className = override.type; // 'lockout' or 'warning'
+            overlay.style.display = 'flex';
+        } else {
+            overlay.style.display = 'none';
+        }
     }
 }
 
