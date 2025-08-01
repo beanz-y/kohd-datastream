@@ -21,29 +21,25 @@ function runApp() {
  */
 async function initializeApp() {
     let config;
-    // Check if running locally (file://) or on a server
-    if (window.location.protocol === 'file:') {
-        // For local development, expects firebase-config.js to be loaded in HTML
+    // When running locally on localhost, always use the firebase-config.js file.
+    // The fetch('/config') method is for a deployed environment with serverless functions.
+    if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
         if (typeof firebaseConfig !== 'undefined') {
             config = firebaseConfig;
         } else {
-             document.body.innerHTML = '<h1>FATAL ERROR: firebase-config.js not found for local execution.</h1>';
-             return;
+            document.body.innerHTML = '<h1>FATAL ERROR: firebase-config.js not found for local execution.</h1>';
+            return;
         }
     } else {
+        // Deployed environment logic
         try {
-            // For deployed version, fetch config from the serverless function
             const response = await fetch('/config');
             if (!response.ok) throw new Error('Network response was not ok');
             config = await response.json();
         } catch (error) {
-            console.error("Could not fetch live config, falling back to local.", error);
-            if (typeof firebaseConfig !== 'undefined') {
-                config = firebaseConfig;
-            } else {
-                document.body.innerHTML = '<h1>FATAL ERROR: Could not load configuration.</h1>';
-                return;
-            }
+            console.error("Could not fetch live config.", error);
+            document.body.innerHTML = '<h1>FATAL ERROR: Could not load configuration.</h1>';
+            return;
         }
     }
 

@@ -6,16 +6,10 @@ import { transmitDatastream, updateTerminalConfig } from './firebase.js';
 import { generateGlyphData } from './glyph-generator.js';
 import { renderGlyph } from './canvas-renderer.js';
 
-
-// --- DOM Element References ---
 let uiElements;
 
-/**
- * Caches all necessary DOM element references for quick access.
- */
 function cacheDOMElements() {
     uiElements = {
-        // Transmit Tab
         playerMessageDisplay: document.getElementById('playerMessageDisplay'),
         messageInput: document.getElementById('messageInput'),
         noiseSlider: document.getElementById('noiseSlider'),
@@ -23,7 +17,6 @@ function cacheDOMElements() {
         encodeButton: document.getElementById('encodeButton'),
         outputBurst: document.getElementById('outputBurst'),
         templateButtons: document.getElementById('templateButtons'),
-        // Session Tab
         playerResourceNameInput: document.getElementById('playerResourceName'),
         playerResourceCountInput: document.getElementById('playerResourceCount'),
         setResourceButton: document.getElementById('setResourceButton'),
@@ -53,7 +46,6 @@ function cacheDOMElements() {
         keyManagementGrid: document.getElementById('keyManagementGrid'),
         unlockAllButton: document.getElementById('unlockAllButton'),
         lockAllButton: document.getElementById('lockAllButton'),
-        // Setup Tab
         systemNameInput: document.getElementById('systemName'),
         osNameInput: document.getElementById('osName'),
         scanCommandInput: document.getElementById('scanCommand'),
@@ -74,26 +66,19 @@ function cacheDOMElements() {
         resetCipherButton: document.getElementById('resetCipherButton'),
         historyContainer: document.getElementById('historyContainer'),
         clearHistoryButton: document.getElementById('clearHistoryButton'),
-        // Admin Tab
         newUsernameInput: document.getElementById('newUsername'),
         newPasswordInput: document.getElementById('newPassword'),
         createUserButton: document.getElementById('createUserButton'),
         userList: document.getElementById('userList'),
-        // Glyph Generator Tab
         glyphInput: document.getElementById('glyphInput'),
         generateGlyphButton: document.getElementById('generateGlyphButton'),
         glyphCanvas: document.getElementById('glyphCanvas'),
-        // Global
         playerStatus: document.getElementById('playerStatus'),
         tabs: document.querySelectorAll('.tab-link'),
         tabContents: document.querySelectorAll('.tab-content'),
     };
 }
 
-/**
- * Saves a message to the GM's local history and updates the display.
- * @param {string} message - The message to save.
- */
 function saveToHistory(message) {
     let history = JSON.parse(localStorage.getItem(appState.GM_HISTORY_KEY)) || [];
     if (!history.includes(message)) {
@@ -104,9 +89,6 @@ function saveToHistory(message) {
     displayHistory();
 }
 
-/**
- * Renders the GM's message history in the UI.
- */
 function displayHistory() {
     let history = JSON.parse(localStorage.getItem(appState.GM_HISTORY_KEY)) || [];
     uiElements.historyContainer.innerHTML = '';
@@ -123,18 +105,47 @@ function displayHistory() {
     }
 }
 
-/**
- * Sets up all the event listeners for the UI.
- */
+function loadPresets() {
+    const presets = JSON.parse(localStorage.getItem(appState.CONFIG_PRESETS_KEY)) || {};
+    uiElements.presetButtonsContainer.innerHTML = '';
+    Object.keys(presets).forEach(name => {
+        const preset = presets[name];
+        const container = document.createElement('div');
+        container.className = 'preset-button-container';
+        const loadBtn = document.createElement('button');
+        loadBtn.textContent = name;
+        loadBtn.onclick = () => {
+            uiElements.systemNameInput.value = preset.systemName;
+            uiElements.osNameInput.value = preset.osName;
+            uiElements.scanCommandInput.value = preset.scanCommand;
+            uiElements.connectCommandInput.value = preset.connectCommand;
+            uiElements.dataNounInput.value = preset.dataNoun;
+            uiElements.signalNounInput.value = preset.signalNoun;
+            uiElements.themeSelect.value = preset.theme;
+        };
+        const deleteBtn = document.createElement('button');
+        deleteBtn.textContent = 'X';
+        deleteBtn.className = 'critical';
+        deleteBtn.onclick = () => {
+            if (confirm(`Delete preset "${name}"?`)) {
+                delete presets[name];
+                localStorage.setItem(appState.CONFIG_PRESETS_KEY, JSON.stringify(presets));
+                loadPresets();
+            }
+        };
+        container.appendChild(loadBtn);
+        container.appendChild(deleteBtn);
+        uiElements.presetButtonsContainer.appendChild(container);
+    });
+}
+
 function initializeEventListeners() {
     // Tab functionality
     uiElements.tabs.forEach(tab => {
         tab.addEventListener('click', (event) => {
             const tabName = tab.dataset.tab;
-            
             uiElements.tabContents.forEach(content => content.classList.remove('active'));
             uiElements.tabs.forEach(t => t.classList.remove('active'));
-            
             document.getElementById(tabName).classList.add('active');
             event.currentTarget.classList.add('active');
         });
@@ -153,9 +164,7 @@ function initializeEventListeners() {
         uiElements.outputBurst.textContent = finalBurst;
         transmitDatastream(finalBurst);
     };
-    uiElements.noiseSlider.oninput = () => {
-        uiElements.noiseValue.textContent = uiElements.noiseSlider.value;
-    };
+    uiElements.noiseSlider.oninput = () => { uiElements.noiseValue.textContent = uiElements.noiseSlider.value; };
     const MESSAGE_TEMPLATES = ["CONNECTION UNSTABLE", "SIGNAL BOOSTED", "SECURITY ALERT", "TRACE DETECTED", "ACKNOWLEDGED", "STAND BY..."];
     MESSAGE_TEMPLATES.forEach(template => {
         const btn = document.createElement('button');
@@ -173,29 +182,97 @@ function initializeEventListeners() {
         }
     };
     
-    // Setup Tab Listeners
+    // Session Tab
+    uiElements.setResourceButton.onclick = () => {
+        const name = uiElements.playerResourceNameInput.value.trim() || 'Resources';
+        const count = parseInt(uiElements.playerResourceCountInput.value, 10);
+        appState.dbRefs.playerResources.set({ name: name, count: count });
+    };
+    uiElements.createCustomCommandButton.onclick = () => {
+        const name = uiElements.customCommandNameInput.value.trim().toLowerCase();
+        if (!name) return alert('Command name cannot be empty.');
+        const commandData = {
+            args: uiElements.customCommandArgsInput.value.trim().toLowerCase(),
+            response: uiElements.customCommandResponseInput.value,
+            consumesResource: uiElements.commandConsumesResourceCheckbox.checked
+        };
+        appState.dbRefs.customCommands.child(name).set(commandData);
+        uiElements.customCommandNameInput.value = '';
+        uiElements.customCommandArgsInput.value = '';
+        uiElements.customCommandResponseInput.value = '';
+        uiElements.commandConsumesResourceCheckbox.checked = false;
+    };
+    uiElements.createDecryptCommandButton.onclick = () => {
+        const name = uiElements.specialCommandNameInput.value.trim().toLowerCase() || 'bruteforce';
+        appState.dbRefs.customCommands.child(name).set({ special_action: 'bruteforce_decrypt' });
+        uiElements.specialCommandNameInput.value = '';
+    };
+    uiElements.createTraceCommandButton.onclick = () => {
+        const name = uiElements.traceCommandNameInput.value.trim().toLowerCase() || 'trace';
+        const response = uiElements.traceCommandResponseInput.value;
+        if (!response) return alert('Trace clue response cannot be empty.');
+        appState.dbRefs.customCommands.child(name).set({ special_action: 'trace_signal', response: response });
+        uiElements.traceCommandNameInput.value = '';
+        uiElements.traceCommandResponseInput.value = '';
+    };
+    uiElements.scrambleMessageButton.onclick = () => {
+        appState.dbRefs.glitches.child('scramble_next').set(true);
+        alert('Next message will be scrambled!');
+    };
+    uiElements.glitchCommandButton.onclick = () => {
+        const commandToGlitch = uiElements.glitchCommandSelect.value;
+        appState.dbRefs.glitches.child('glitched_command').set(commandToGlitch);
+        alert(`Command "${commandToGlitch}" will be glitched for 30 seconds.`);
+        setTimeout(() => appState.dbRefs.glitches.child('glitched_command').remove(), 30000);
+    };
+    uiElements.triggerLockoutButton.onclick = () => { appState.dbRefs.glitches.child('override_state').set({ type: 'lockout', message: 'CONNECTION TERMINATED' }); };
+    uiElements.triggerWarningButton.onclick = () => {
+        const message = uiElements.customWarningInput.value.trim() || '!! INTRUSION DETECTED !!';
+        appState.dbRefs.glitches.child('override_state').set({ type: 'warning', message: message });
+        uiElements.customWarningInput.value = '';
+    };
+    uiElements.clearOverrideButton.onclick = () => { appState.dbRefs.glitches.child('override_state').remove(); };
+    uiElements.createFileButton.onclick = () => {
+        const fileName = uiElements.newFileNameInput.value.trim().toLowerCase();
+        const accessLevel = parseInt(uiElements.fileAccessLevelSelect.value, 10);
+        const fileContent = uiElements.newFileContentInput.value;
+        if (!fileName || !fileContent) return alert('Filename and content cannot be empty.');
+        if (!fileName.includes('.')) return alert('Filename must include an extension (e.g., .txt, .log)');
+        const safeFileName = fileName.replace(/\./g, '·');
+        appState.dbRefs.fileSystem.child(safeFileName).set({ content: fileContent, level: accessLevel });
+        uiElements.newFileNameInput.value = '';
+        uiElements.newFileContentInput.value = '';
+    };
+    uiElements.unlockAllButton.onclick = () => {
+        const updates = {};
+        Object.keys(appState.encodingChart).forEach(char => { updates[char] = true; });
+        appState.dbRefs.keys.set(updates);
+    };
+    uiElements.lockAllButton.onclick = () => { appState.dbRefs.keys.set(null); };
+
+    // Setup Tab
     uiElements.updateConfigButton.onclick = () => {
         const config = {
-            systemName: uiElements.systemNameInput.value,
-            osName: uiElements.osNameInput.value,
-            scanCommand: uiElements.scanCommandInput.value.toLowerCase(),
-            connectCommand: uiElements.connectCommandInput.value.toLowerCase(),
-            dataNoun: uiElements.dataNounInput.value,
-            signalNoun: uiElements.signalNounInput.value,
-            theme: uiElements.themeSelect.value
+            systemName: uiElements.systemNameInput.value, osName: uiElements.osNameInput.value,
+            scanCommand: uiElements.scanCommandInput.value.toLowerCase(), connectCommand: uiElements.connectCommandInput.value.toLowerCase(),
+            dataNoun: uiElements.dataNounInput.value, signalNoun: uiElements.signalNounInput.value, theme: uiElements.themeSelect.value
         };
         updateTerminalConfig(config);
         alert('Terminal configuration updated!');
     };
-    
-    uiElements.clearHistoryButton.onclick = () => {
-        if (confirm('Are you sure you want to clear the transmission history for yourself and all players?')) {
-            localStorage.removeItem(appState.GM_HISTORY_KEY);
-            displayHistory();
-            appState.dbRefs.historyClear.set(firebase.database.ServerValue.TIMESTAMP);
-        }
+    uiElements.savePresetButton.onclick = () => {
+        const name = uiElements.presetNameInput.value.trim();
+        if (!name) return alert('Please enter a name for the preset.');
+        const presets = JSON.parse(localStorage.getItem(appState.CONFIG_PRESETS_KEY)) || {};
+        presets[name] = {
+            systemName: uiElements.systemNameInput.value, osName: uiElements.osNameInput.value,
+            scanCommand: uiElements.scanCommandInput.value, connectCommand: uiElements.connectCommandInput.value,
+            dataNoun: uiElements.dataNounInput.value, signalNoun: uiElements.signalNounInput.value, theme: uiElements.themeSelect.value
+        };
+        localStorage.setItem(appState.CONFIG_PRESETS_KEY, JSON.stringify(presets));
+        uiElements.presetNameInput.value = '';
+        loadPresets();
     };
-    
     uiElements.savePasswordsButton.onclick = () => {
         const pass2 = uiElements.level2PasswordInput.value.trim();
         const pass3 = uiElements.level3PasswordInput.value.trim();
@@ -205,14 +282,18 @@ function initializeEventListeners() {
         appState.dbRefs.access.set(updates);
         alert('Access passwords saved.');
     };
-    
+    uiElements.resetAccessButton.onclick = () => {
+        if (confirm('Are you sure you want to reset the player\'s access level back to 1?')) {
+            appState.dbRefs.glitches.child('reset_access_timestamp').set(firebase.database.ServerValue.TIMESTAMP);
+            alert('Player access level has been reset.');
+        }
+    };
     uiElements.resetCipherButton.onclick = () => {
         if (!confirm('This will reset the cipher to its default state. Continue?')) return;
         appState.dbRefs.cipher.set(appState.defaultEncodingChart);
-        appState.dbRefs.keys.remove(); // Clear unlocked keys as well
+        appState.dbRefs.keys.remove();
         alert('Cipher has been reset to default.');
     };
-
     uiElements.generateCipherButton.onclick = () => {
         if (!confirm('This will generate a new cipher and may disrupt player decoding. Continue?')) return;
         const newChart = generateNewCipher();
@@ -220,38 +301,27 @@ function initializeEventListeners() {
         appState.dbRefs.keys.remove();
         alert('New cipher generated and synced.');
     };
-
-    // Session Tab listeners...
-    uiElements.createFileButton.onclick = () => {
-        const fileName = uiElements.newFileNameInput.value.trim().toLowerCase();
-        const accessLevel = parseInt(uiElements.fileAccessLevelSelect.value, 10);
-        const fileContent = uiElements.newFileContentInput.value;
-        if (!fileName || !fileContent) { alert('Filename and content cannot be empty.'); return; }
-        if (!fileName.includes('.')) { alert('Filename must include an extension (e.g., .txt, .log)'); return; }
-        const safeFileName = fileName.replace(/\./g, '·');
-        appState.dbRefs.fileSystem.child(safeFileName).set({ content: fileContent, level: accessLevel });
-        uiElements.newFileNameInput.value = '';
-        uiElements.newFileContentInput.value = '';
+    uiElements.clearHistoryButton.onclick = () => {
+        if (confirm('Are you sure you want to clear the transmission history for yourself and all players?')) {
+            localStorage.removeItem(appState.GM_HISTORY_KEY);
+            displayHistory();
+            appState.dbRefs.historyClear.set(firebase.database.ServerValue.TIMESTAMP);
+        }
     };
 
-    // Admin Tab listeners
+    // Admin Tab
     uiElements.createUserButton.onclick = () => {
         const username = uiElements.newUsernameInput.value.trim().toLowerCase();
         const password = uiElements.newPasswordInput.value.trim();
-        if (!username || !password) {
-            alert('Username and password cannot be empty.');
-            return;
-        }
+        if (!username || !password) return alert('Username and password cannot be empty.');
         appState.dbRefs.users.child(username).set({ password: password });
         uiElements.newUsernameInput.value = '';
         uiElements.newPasswordInput.value = '';
     };
 
-    // Load initial state for things not covered by Firebase listeners
     displayHistory();
+    loadPresets();
 }
-
-// --- Functions to update UI from Firebase state ---
 
 function displayPlayerMessage(snapshot) {
     const message = snapshot.val();
@@ -368,6 +438,7 @@ function displayUsers(users) {
             const deleteButton = document.createElement('button');
             deleteButton.textContent = 'Delete';
             deleteButton.className = 'critical';
+            deleteButton.style.marginLeft = '15px';
             deleteButton.onclick = () => {
                 if (confirm(`Are you sure you want to delete user "${username}"?`)) {
                     appState.dbRefs.users.child(username).remove();
@@ -380,22 +451,13 @@ function displayUsers(users) {
 }
 
 function handleSystemOverride(override) {
-    const overlay = document.getElementById('system-override-overlay'); // This element is not in gm_encoder, so it won't be in uiElements
-    if (overlay) {
-        if (override) {
-            overlay.textContent = override.message;
-            overlay.className = override.type; // 'lockout' or 'warning'
-            overlay.style.display = 'flex';
-        } else {
-            overlay.style.display = 'none';
-        }
-    }
+    // This element is not in gm_encoder.html, so it won't be found.
+    // This function is included for completeness but will not run in this context.
 }
 
 function handleAccessReset(timestamp) {
     if (timestamp) {
         alert('Player access level has been reset remotely.');
-        // The player terminal handles the actual logic, this is just a notification for the GM
         appState.dbRefs.glitches.child('reset_access_timestamp').remove();
     }
 }
