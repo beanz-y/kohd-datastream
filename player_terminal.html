@@ -550,18 +550,28 @@
                         }
                     }
                     
-                    // Correctly theme the SVG
-                    svgElement.querySelectorAll('path, rect, circle, line, polygon, polyline, ellipse').forEach(el => {
-                        // Set the stroke (line) color for all elements to the primary theme color.
-                        el.setAttribute('stroke', primaryColor);
+                    // --- NEW, MORE NUANCED LOGIC ---
 
-                        // If an element was not explicitly filled with a color in the original SVG,
-                        // set its fill to 'none' to prevent unwanted coloring.
-                        const originalFill = el.getAttribute('fill');
-                        if (!originalFill || originalFill === 'black' || originalFill === '#000000') {
-                            el.setAttribute('fill', 'none');
-                        }
+                    // Handle PATHS, POLYLINES, and LINES conservatively.
+                    // These are almost always just strokes, so we avoid filling them.
+                    svgElement.querySelectorAll('path, polyline, line').forEach(el => {
+                        el.setAttribute('stroke', primaryColor); // Color the lines
+                        el.setAttribute('fill', 'none');       // Explicitly do not fill them
                     });
+
+                    // Handle SHAPES that are often filled, like circles and rectangles.
+                    svgElement.querySelectorAll('circle, rect, ellipse, polygon').forEach(el => {
+                        el.setAttribute('stroke', primaryColor); // Color the outline
+
+                        // Check if the shape was filled with black (or had no fill, which defaults to black).
+                        // If so, we assume it's an intentional fill (like our dots) and color it.
+                        const originalFill = el.getAttribute('fill');
+                        if (!originalFill || originalFill.toLowerCase() === 'black' || originalFill === '#000000' || originalFill === '#000') {
+                            el.setAttribute('fill', primaryColor);
+                        }
+                        // If it had another color (e.g., red) or was explicitly set to "none", we leave it alone.
+                    });
+
 
                     container.appendChild(svgElement);
                     terminal.insertBefore(container, terminal.lastElementChild);
@@ -704,7 +714,7 @@
                             typeLine('ERROR: Missing filename. Usage: cat <filename>', 'error-msg');
                         } else if (!fileData) {
                             typeLine(`ERROR: File not found: ${fileName}`, 'error-msg');
-                        } else if (fileData.level > clearanceLevel) { // *** THIS IS THE CORRECTED LINE ***
+                        } else if (fileData.level > clearanceLevel) { 
                             typeLine(`ERROR: INSUFFICIENT CLEARANCE. ACCESS LEVEL ${fileData.level} REQUIRED.`, 'error-msg');
                         } else {
                             typeLine(`--- BEGIN FILE: ${fileName} ---`, 'data-msg-header');
