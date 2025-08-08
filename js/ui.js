@@ -124,19 +124,6 @@ function displayHistory() {
  * Sets up all the event listeners for the UI.
  */
 function initializeEventListeners() {
-    // Tab functionality
-    uiElements.tabs.forEach(tab => {
-        tab.addEventListener('click', (event) => {
-            const tabName = tab.getAttribute('onclick').match(/'([^']+)'/)[1];
-            
-            uiElements.tabContents.forEach(content => content.classList.remove('active'));
-            uiElements.tabs.forEach(t => t.classList.remove('active'));
-            
-            document.getElementById(tabName).classList.add('active');
-            event.currentTarget.classList.add('active');
-        });
-    });
-
     // Transmit Tab
     uiElements.encodeButton.onclick = () => {
         const message = uiElements.messageInput.value;
@@ -221,7 +208,28 @@ function initializeEventListeners() {
         uiElements.newFileNameInput.value = '';
         uiElements.newFileContentInput.value = '';
     };
+
+    // System Override Listeners
+    uiElements.triggerLockoutButton.onclick = () => {
+        appState.dbRefs.glitches.child('override_state').set({
+            type: 'lockout',
+            message: 'SYSTEM LOCKOUT IN EFFECT'
+        });
+    };
     
+    uiElements.triggerWarningButton.onclick = () => {
+        const message = uiElements.customWarningInput.value.trim() || 'SECURITY ALERT: UNUSUAL ACTIVITY DETECTED';
+        appState.dbRefs.glitches.child('override_state').set({
+            type: 'warning',
+            message: message
+        });
+    };
+    
+    uiElements.clearOverrideButton.onclick = () => {
+        appState.dbRefs.glitches.child('override_state').remove();
+    };
+
+
     // SVG Handling Listeners
     const handleSvgUpload = (callback) => {
         const file = uiElements.svgFileInput.files[0];
@@ -239,15 +247,14 @@ function initializeEventListeners() {
     uiElements.createSvgFileButton.onclick = () => {
         handleSvgUpload((svgContent, fileName) => {
             const safeFileName = fileName.replace(/\./g, '·');
-            // Use the same access level selector as text files for simplicity
             const accessLevel = parseInt(uiElements.fileAccessLevelSelect.value, 10);
             appState.dbRefs.fileSystem.child(safeFileName).set({
                 content: svgContent,
                 level: accessLevel,
-                isSvg: true // Flag to identify SVG files
+                isSvg: true 
             });
             alert(`SVG file "${fileName}" created successfully.`);
-            uiElements.svgFileInput.value = ''; // Clear the input
+            uiElements.svgFileInput.value = ''; 
         });
     };
 
@@ -256,7 +263,7 @@ function initializeEventListeners() {
             const finalBurst = `SVG::${svgContent}`;
             uiElements.outputBurst.textContent = "SVG Datastream Sent";
             transmitDatastream(finalBurst);
-            uiElements.svgFileInput.value = ''; // Clear the input
+            uiElements.svgFileInput.value = '';
         });
     };
 
@@ -274,7 +281,6 @@ function initializeEventListeners() {
         uiElements.newPasswordInput.value = '';
     };
 
-    // Load initial state for things not covered by Firebase listeners
     displayHistory();
 }
 
@@ -423,7 +429,6 @@ function handleSystemOverride(override) {
 function handleAccessReset(timestamp) {
     if (timestamp) {
         alert('Player access level has been reset remotely.');
-        // The player terminal handles the actual logic, this is just a notification for the GM
         appState.dbRefs.glitches.child('reset_access_timestamp').remove();
     }
 }
