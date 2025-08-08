@@ -50,6 +50,10 @@ function cacheDOMElements() {
         keyManagementGrid: document.getElementById('keyManagementGrid'),
         unlockAllButton: document.getElementById('unlockAllButton'),
         lockAllButton: document.getElementById('lockAllButton'),
+        // SVG Elements
+        svgFileInput: document.getElementById('svgFileInput'),
+        createSvgFileButton: document.getElementById('createSvgFileButton'),
+        sendSvgDatastreamButton: document.getElementById('sendSvgDatastreamButton'),
         // Setup Tab
         systemNameInput: document.getElementById('systemName'),
         osNameInput: document.getElementById('osName'),
@@ -217,6 +221,45 @@ function initializeEventListeners() {
         uiElements.newFileNameInput.value = '';
         uiElements.newFileContentInput.value = '';
     };
+    
+    // SVG Handling Listeners
+    const handleSvgUpload = (callback) => {
+        const file = uiElements.svgFileInput.files[0];
+        if (!file) {
+            alert('Please select an SVG file first.');
+            return;
+        }
+        const reader = new FileReader();
+        reader.onload = (event) => {
+            callback(event.target.result, file.name);
+        };
+        reader.readAsText(file);
+    };
+
+    uiElements.createSvgFileButton.onclick = () => {
+        handleSvgUpload((svgContent, fileName) => {
+            const safeFileName = fileName.replace(/\./g, '·');
+            // Use the same access level selector as text files for simplicity
+            const accessLevel = parseInt(uiElements.fileAccessLevelSelect.value, 10);
+            appState.dbRefs.fileSystem.child(safeFileName).set({
+                content: svgContent,
+                level: accessLevel,
+                isSvg: true // Flag to identify SVG files
+            });
+            alert(`SVG file "${fileName}" created successfully.`);
+            uiElements.svgFileInput.value = ''; // Clear the input
+        });
+    };
+
+    uiElements.sendSvgDatastreamButton.onclick = () => {
+        handleSvgUpload((svgContent) => {
+            const finalBurst = `SVG::${svgContent}`;
+            uiElements.outputBurst.textContent = "SVG Datastream Sent";
+            transmitDatastream(finalBurst);
+            uiElements.svgFileInput.value = ''; // Clear the input
+        });
+    };
+
 
     // Admin Tab listeners
     uiElements.createUserButton.onclick = () => {
@@ -301,6 +344,9 @@ function displayFiles(files) {
             if (fileData.level > 1) {
                 li.classList.add('locked');
                 displayText += ` [LEVEL ${fileData.level}]`;
+            }
+            if (fileData.isSvg) {
+                 displayText += ` [SVG]`;
             }
             li.textContent = displayText;
             const deleteButton = document.createElement('button');

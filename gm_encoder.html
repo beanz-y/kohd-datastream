@@ -73,6 +73,30 @@
             font-size: 1em;
             border-radius: 4px;
         }
+        
+        input[type="file"] {
+             background: transparent;
+             border: none;
+             padding: 10px 0;
+             color: var(--text-color);
+        }
+        
+        input::file-selector-button {
+            background-color: var(--secondary-color);
+            color: var(--dark-element-bg);
+            border: none;
+            padding: 8px 12px;
+            cursor: pointer;
+            font-family: inherit;
+            font-weight: 700;
+            margin-right: 15px;
+            border-radius: 4px;
+            transition: filter 0.2s;
+        }
+        
+        input::file-selector-button:hover {
+            filter: brightness(1.2);
+        }
 
         button {
             background-color: var(--primary-color);
@@ -447,17 +471,31 @@
             </fieldset>
 
             <h2>File System Management</h2>
-            <label for="newFileName">Filename (e.g., log.txt)</label>
-            <input type="text" id="newFileName" placeholder="Enter filename...">
-            <label for="fileAccessLevel">Required Access Level</label>
-            <select id="fileAccessLevel">
-                <option value="1">Level 1 (Public)</option>
-                <option value="2">Level 2 (Restricted)</option>
-                <option value="3">Level 3 (Administrator)</option>
-            </select>
-            <label for="newFileContent">File Content</label>
-            <textarea id="newFileContent" rows="4" placeholder="Enter file content..."></textarea>
-            <button id="createFileButton">Create File</button>
+            <fieldset>
+                 <legend>Text File</legend>
+                <label for="newFileName">Filename (e.g., log.txt)</label>
+                <input type="text" id="newFileName" placeholder="Enter filename...">
+                <label for="fileAccessLevel">Required Access Level</label>
+                <select id="fileAccessLevel">
+                    <option value="1">Level 1 (Public)</option>
+                    <option value="2">Level 2 (Restricted)</option>
+                    <option value="3">Level 3 (Administrator)</option>
+                </select>
+                <label for="newFileContent">File Content</label>
+                <textarea id="newFileContent" rows="4" placeholder="Enter file content..."></textarea>
+                <button id="createFileButton">Create File</button>
+            </fieldset>
+            
+             <fieldset>
+                <legend>SVG Graphic</legend>
+                <label for="svgFileInput">Upload SVG File</label>
+                <input type="file" id="svgFileInput" accept=".svg">
+                <div class="flex-wrap">
+                    <button id="createSvgFileButton">Create SVG as File</button>
+                    <button id="sendSvgDatastreamButton" class="secondary">Send SVG as Datastream</button>
+                </div>
+            </fieldset>
+
             <h3>Existing Files:</h3>
             <ul id="fileList"></ul>
 

@@ -59,24 +59,66 @@
         .commandInput:focus {
             outline: none;
         }
+        
+        /* -- Updated styles for rendered SVGs -- */
+        .rendered-svg-container {
+            position: relative;
+            padding: 15px;
+            padding-top: 30px; /* Make space for close button */
+            background-color: rgba(0,0,0,0.2);
+            border: 1px solid;
+            margin: 10px 0;
+            max-height: 70vh; /* Prevent it from being too tall */
+            overflow-y: auto; /* Allow scrolling for tall SVGs */
+            resize: vertical; /* Allow user to resize vertically */
+        }
+
+        .rendered-svg-container svg {
+            width: 100%;
+            max-width: 500px;
+            height: auto;
+            display: block;
+            margin: auto;
+        }
+        
+        .svg-close-button {
+            position: absolute;
+            top: 2px;
+            right: 5px;
+            cursor: pointer;
+            font-size: 1.2em;
+            font-family: monospace;
+            padding: 2px 5px;
+        }
+        .svg-close-button:hover {
+            opacity: 0.7;
+        }
+
 
         body.relic-theme {
             background-color: #1a2123;
             color: #d4d4d4;
             font-family: 'Share Tech Mono', monospace;
             font-size: 18px;
+            --theme-primary: #00E5FF;
+            --theme-secondary: #E8772E;
         }
 
         .relic-theme .prompt-text,
         .relic-theme .error-msg,
         .relic-theme .data-msg-header,
-        .relic-theme .file-locked {
-            color: #E8772E;
+        .relic-theme .file-locked,
+        .relic-theme .svg-close-button {
+            color: var(--theme-secondary);
         }
 
         .relic-theme .system-msg,
         .relic-theme .data-msg-body {
-            color: #00E5FF;
+            color: var(--theme-primary);
+        }
+        
+        .relic-theme .rendered-svg-container {
+            border-color: var(--theme-secondary);
         }
 
         .relic-theme #qol-buttons button {
@@ -90,7 +132,15 @@
             color: #3f3;
             font-family: 'VT323', monospace;
             font-size: 24px;
+            --theme-primary: #3f3;
+            --theme-secondary: #3f3;
         }
+        
+        .green-theme .rendered-svg-container,
+        .green-theme .svg-close-button {
+            border-color: var(--theme-primary);
+        }
+
 
         .green-theme #terminal {
             text-shadow: 0 0 4px #3f3;
@@ -131,7 +181,15 @@
             color: #74f6ff;
             font-family: 'Share Tech Mono', monospace;
             font-size: 18px;
+            --theme-primary: #74f6ff;
+            --theme-secondary: #51a6ff;
         }
+        
+        .blue-theme .rendered-svg-container,
+        .blue-theme .svg-close-button {
+            border-color: var(--theme-secondary);
+        }
+
 
         .blue-theme #terminal {
             text-shadow: 0 0 3px #74f6ff;
@@ -141,12 +199,12 @@
         .blue-theme .error-msg,
         .blue-theme .data-msg-header,
         .blue-theme .file-locked {
-            color: #51a6ff;
+            color: var(--theme-secondary);
         }
 
         .blue-theme .system-msg,
         .blue-theme .data-msg-body {
-            color: #74f6ff;
+            color: var(--theme-primary);
         }
 
         .blue-theme #qol-buttons button {
@@ -160,6 +218,13 @@
             color: #ffb000;
             font-family: 'Share Tech Mono', monospace;
             font-size: 19px;
+            --theme-primary: #ffb000;
+            --theme-secondary: #ffb000;
+        }
+        
+        .amber-theme .rendered-svg-container,
+        .amber-theme .svg-close-button {
+            border-color: var(--theme-primary);
         }
 
         .amber-theme #terminal {
@@ -189,6 +254,13 @@
             color: #00dfff;
             font-family: 'Orbitron', sans-serif;
             font-size: 20px;
+            --theme-primary: #00dfff;
+            --theme-secondary: #8effff;
+        }
+        
+        .hologram-theme .rendered-svg-container,
+        .hologram-theme .svg-close-button {
+            border-color: var(--theme-secondary);
         }
 
         .hologram-theme #terminal {
@@ -442,6 +514,60 @@
                     }
                     return decodedContent;
                 }
+                
+                function renderThemedSvg(svgString) {
+                    const container = document.createElement('div');
+                    container.className = 'line rendered-svg-container';
+
+                    // Add close button
+                    const closeButton = document.createElement('span');
+                    closeButton.className = 'svg-close-button';
+                    closeButton.textContent = '[x]';
+                    closeButton.onclick = () => container.remove();
+                    container.appendChild(closeButton);
+
+                    const parser = new DOMParser();
+                    const svgDoc = parser.parseFromString(svgString, "image/svg+xml");
+                    const svgElement = svgDoc.documentElement;
+                    
+                    if (svgDoc.getElementsByTagName("parsererror").length > 0) {
+                        container.innerHTML += "Error: Invalid SVG data.";
+                        terminal.insertBefore(container, terminal.lastElementChild);
+                        return;
+                    }
+
+                    const primaryColor = getComputedStyle(document.body).getPropertyValue('--theme-primary').trim();
+                    
+                    const viewBox = svgElement.getAttribute('viewBox');
+                    if (viewBox) {
+                        const parts = viewBox.split(' ');
+                        if (parts.length === 4) {
+                            const w = parseFloat(parts[2]);
+                            const h = parseFloat(parts[3]);
+                            if (w > 0 && h > 0) {
+                                svgElement.style.aspectRatio = `${w} / ${h}`;
+                            }
+                        }
+                    }
+                    
+                    // Correctly theme the SVG
+                    svgElement.querySelectorAll('path, rect, circle, line, polygon, polyline, ellipse').forEach(el => {
+                        // Set the stroke (line) color for all elements to the primary theme color.
+                        el.setAttribute('stroke', primaryColor);
+
+                        // If an element was not explicitly filled with a color in the original SVG,
+                        // set its fill to 'none' to prevent unwanted coloring.
+                        const originalFill = el.getAttribute('fill');
+                        if (!originalFill || originalFill === 'black' || originalFill === '#000000') {
+                            el.setAttribute('fill', 'none');
+                        }
+                    });
+
+                    container.appendChild(svgElement);
+                    terminal.insertBefore(container, terminal.lastElementChild);
+                    terminal.scrollTop = terminal.scrollHeight;
+                }
+
 
                 function typeLine(text, className = '', speed = 15, callback = () => { }) {
                     isTyping = true;
@@ -569,7 +695,26 @@
                     } else if (cmd === 'ls') {
                         if (!isConnected) { typeLine('ERROR: Not connected to a system.', 'error-msg'); return; } const fileNames = Object.keys(fileSystem); if (fileNames.length > 0) { let output = ''; fileNames.forEach(safeFileName => { const originalFileName = safeFileName.replace(/·/g, '.'); const fileData = fileSystem[safeFileName]; if (fileData.level > clearanceLevel) { output += `<span class="file-locked">${originalFileName} [LEVEL ${fileData.level}]</span>   `; } else { output += `${originalFileName}   `; } }); printLine(output, 'data-msg-body'); } else { typeLine('Directory is empty.'); }
                     } else if (cmd === 'cat') {
-                        if (!isConnected) { typeLine('ERROR: Not connected to a system.', 'error-msg'); return; } const fileName = argString.trim(); const safeFileName = fileName.replace(/\./g, '·'); if (!fileName) { typeLine('ERROR: Missing filename. Usage: cat <filename>', 'error-msg'); } else if (!fileSystem[safeFileName]) { typeLine(`ERROR: File not found: ${fileName}`, 'error-msg'); } else if (fileSystem[safeFileName].level > clearanceLevel) { typeLine(`ERROR: INSUFFICIENT CLEARANCE. ACCESS LEVEL ${fileSystem[safeFileName].level} REQUIRED.`, 'error-msg'); } else { typeLine(`--- BEGIN FILE: ${fileName} ---`, 'data-msg-header'); printLine(fileSystem[safeFileName].content, 'data-msg-body'); typeLine(`--- END FILE: ${fileName} ---`, 'data-msg-header'); }
+                        if (!isConnected) { typeLine('ERROR: Not connected to a system.', 'error-msg'); return; }
+                        const fileName = argString.trim();
+                        const safeFileName = fileName.replace(/\./g, '·');
+                        const fileData = fileSystem[safeFileName];
+
+                        if (!fileName) {
+                            typeLine('ERROR: Missing filename. Usage: cat <filename>', 'error-msg');
+                        } else if (!fileData) {
+                            typeLine(`ERROR: File not found: ${fileName}`, 'error-msg');
+                        } else if (fileData.level > clearanceLevel) { // *** THIS IS THE CORRECTED LINE ***
+                            typeLine(`ERROR: INSUFFICIENT CLEARANCE. ACCESS LEVEL ${fileData.level} REQUIRED.`, 'error-msg');
+                        } else {
+                            typeLine(`--- BEGIN FILE: ${fileName} ---`, 'data-msg-header');
+                            if (fileData.isSvg || fileName.endsWith('.svg')) {
+                                renderThemedSvg(fileData.content);
+                            } else {
+                                printLine(fileData.content, 'data-msg-body');
+                            }
+                            typeLine(`--- END FILE: ${fileName} ---`, 'data-msg-header');
+                        }
                     } else if (cmd === (config.scanCommand || 'scan')) {
                         typeLine(`Scanning the Network for ${(config.signalNoun || 'signal').toLowerCase()}s from ${config.systemName}...`, '', 30, () => { setTimeout(() => { typeLine(`...Faint ${(config.signalNoun || 'signal')} detected. Source confirmed: ${config.systemName}.`, 'system-msg'); }, 1500); }); isScanning = true;
                     } else if (cmd === (config.connectCommand || 'connect')) {
@@ -621,6 +766,14 @@
                 database.ref('kohd_datastream').on('value', (snapshot) => {
                     const data = snapshot.val();
                     if (isConnected && data) {
+                        if (data.startsWith('SVG::')) {
+                            const svgContent = data.substring(5);
+                            typeLine(`\n>>> INCOMING VISUAL DATA FROM ${config.systemName} <<<`, 'data-msg-header');
+                            renderThemedSvg(svgContent);
+                            typeLine(`>>> END OF VISUAL DATA <<<`, 'data-msg-header');
+                            return; 
+                        }
+
                         if (glitches.scramble_next) { let scrambled = ''; for (let i = 0; i < data.length; i++) { scrambled += allSymbols[Math.floor(Math.random() * allSymbols.length)]; } printLine(`\n>>> INCOMING ${(config.dataNoun || 'Data').toUpperCase()} FROM ${config.systemName} <<<`, 'data-msg-header'); printLine(scrambled, 'data-msg-body'); printLine(`>>> ${(config.signalNoun || 'Signal').toUpperCase()} CORRUPTED <<<`, 'data-msg-header'); database.ref('glitches/scramble_next').remove(); return; }
                         const partiallyDecodedMessage = partiallyDecode(data);
                         typeLine(`\n>>> INCOMING ${(config.dataNoun || 'Data').toUpperCase()} FROM ${config.systemName} <<<`, 'data-msg-header', 20, () => {
@@ -645,17 +798,27 @@
 
         async function initializeApp() {
             let config;
-            if (window.location.protocol === 'file:') {
-                config = firebaseConfig;
+            // Check if running on a server or locally
+             if (window.location.protocol === 'file:') {
+                if (typeof firebaseConfig !== 'undefined') {
+                    config = firebaseConfig;
+                } else {
+                     document.body.innerHTML = '<h1>FATAL ERROR: firebase-config.js not found for local execution.</h1>';
+                     return;
+                }
             } else {
                 try {
                     const response = await fetch('/config');
                     if (!response.ok) throw new Error('Network response was not ok');
                     config = await response.json();
                 } catch (error) {
-                    console.error("FATAL: Could not fetch live config and no local fallback available.", error);
-                    document.body.innerHTML = '<h1>FATAL ERROR: Could not load configuration.</h1>';
-                    return;
+                    console.error("Could not fetch live config, falling back to local firebase-config.js", error);
+                    if (typeof firebaseConfig !== 'undefined') {
+                        config = firebaseConfig;
+                    } else {
+                        document.body.innerHTML = '<h1>FATAL ERROR: Could not load configuration from /config or local firebase-config.js.</h1>';
+                        return;
+                    }
                 }
             }
             firebase.initializeApp(config);
