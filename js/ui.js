@@ -52,8 +52,17 @@ function cacheDOMElements() {
         lockAllButton: document.getElementById('lockAllButton'),
         // SVG Elements
         svgFileInput: document.getElementById('svgFileInput'),
+        svgFileNameInput: document.getElementById('svgFileNameInput'),
         createSvgFileButton: document.getElementById('createSvgFileButton'),
         sendSvgDatastreamButton: document.getElementById('sendSvgDatastreamButton'),
+        // Edit Modal Elements
+        fileEditModal: document.getElementById('fileEditModal'),
+        editModalTitle: document.getElementById('editModalTitle'),
+        editModalFileName: document.getElementById('editModalFileName'),
+        editModalAccessLevel: document.getElementById('editModalAccessLevel'),
+        editModalTextarea: document.getElementById('editModalTextarea'),
+        editModalSave: document.getElementById('editModalSave'),
+        editModalCancel: document.getElementById('editModalCancel'),
         // Setup Tab
         systemNameInput: document.getElementById('systemName'),
         osNameInput: document.getElementById('osName'),
@@ -229,6 +238,21 @@ function initializeEventListeners() {
         appState.dbRefs.glitches.child('override_state').remove();
     };
 
+    // Decryption Key Listeners
+    uiElements.unlockAllButton.onclick = () => {
+        if (!confirm('Are you sure you want to unlock all decryption keys for the player?')) return;
+        const updates = {};
+        const allChars = Object.keys(appState.encodingChart);
+        allChars.forEach(char => {
+            updates[char] = true;
+        });
+        appState.dbRefs.keys.update(updates);
+    };
+
+    uiElements.lockAllButton.onclick = () => {
+        if (!confirm('Are you sure you want to lock all decryption keys for the player?')) return;
+        appState.dbRefs.keys.remove();
+    };
 
     // SVG Handling Listeners
     const handleSvgUpload = (callback) => {
@@ -245,16 +269,26 @@ function initializeEventListeners() {
     };
 
     uiElements.createSvgFileButton.onclick = () => {
-        handleSvgUpload((svgContent, fileName) => {
-            const safeFileName = fileName.replace(/\./g, '·');
+        handleSvgUpload((svgContent, originalFileName) => {
+            let newFileName = uiElements.svgFileNameInput.value.trim();
+            if (!newFileName) {
+                newFileName = originalFileName;
+            }
+
+            if (!newFileName.toLowerCase().endsWith('.svg')) {
+                newFileName += '.svg';
+            }
+
+            const safeFileName = newFileName.replace(/\./g, '·');
             const accessLevel = parseInt(uiElements.fileAccessLevelSelect.value, 10);
             appState.dbRefs.fileSystem.child(safeFileName).set({
                 content: svgContent,
                 level: accessLevel,
                 isSvg: true 
             });
-            alert(`SVG file "${fileName}" created successfully.`);
+            alert(`SVG file "${newFileName}" created successfully.`);
             uiElements.svgFileInput.value = ''; 
+            uiElements.svgFileNameInput.value = ''; 
         });
     };
 
@@ -264,9 +298,9 @@ function initializeEventListeners() {
             uiElements.outputBurst.textContent = "SVG Datastream Sent";
             transmitDatastream(finalBurst);
             uiElements.svgFileInput.value = '';
+            uiElements.svgFileNameInput.value = '';
         });
     };
-
 
     // Admin Tab listeners
     uiElements.createUserButton.onclick = () => {
@@ -280,6 +314,55 @@ function initializeEventListeners() {
         uiElements.newUsernameInput.value = '';
         uiElements.newPasswordInput.value = '';
     };
+
+    // File Edit Modal Listeners
+    uiElements.editModalCancel.onclick = () => {
+        uiElements.fileEditModal.style.display = 'none';
+        uiElements.editModalSave.removeAttribute('data-editing-file');
+    };
+
+    uiElements.editModalSave.onclick = () => {
+        const originalSafeName = uiElements.editModalSave.getAttribute('data-editing-file');
+        if (!originalSafeName) return;
+
+        const newFileName = uiElements.editModalFileName.value.trim();
+        if (!newFileName) {
+            alert('Filename cannot be empty.');
+            return;
+        }
+
+        const newSafeName = newFileName.replace(/\./g, '·');
+        const newContent = uiElements.editModalTextarea.value;
+        const newLevel = parseInt(uiElements.editModalAccessLevel.value, 10);
+        
+        // Get the original file data to preserve properties like 'isSvg'
+        appState.dbRefs.fileSystem.child(originalSafeName).once('value', (snapshot) => {
+            const originalData = snapshot.val();
+            if (!originalData) {
+                alert('Error: Original file not found!');
+                return;
+            }
+            
+            const updatedFile = {
+                ...originalData, // Preserve isSvg and any other properties
+                content: newContent,
+                level: newLevel,
+            };
+
+            // If the name is unchanged, just update the existing record
+            if (originalSafeName === newSafeName) {
+                appState.dbRefs.fileSystem.child(originalSafeName).update(updatedFile);
+            } else {
+                // If the name changed, create a new record and delete the old one
+                appState.dbRefs.fileSystem.child(newSafeName).set(updatedFile);
+                appState.dbRefs.fileSystem.child(originalSafeName).remove();
+            }
+
+            uiElements.fileEditModal.style.display = 'none';
+            uiElements.editModalSave.removeAttribute('data-editing-file');
+        });
+    };
+
 
     displayHistory();
 }
@@ -328,16 +411,22 @@ function generateKeySwitches(keys) {
     uiElements.keyManagementGrid.innerHTML = '';
     const allChars = Object.keys(appState.encodingChart).sort();
     allChars.forEach(char => {
-        const isChecked = keys[char] === true;
+        const isChecked = keys && keys[char] === true;
         const switchWrapper = document.createElement('div');
         switchWrapper.className = 'key-switch';
-        switchWrapper.innerHTML = `<label for="key-${char}">${char}</label><label class="switch"><input type="checkbox" id="key-${char}" ${isChecked ? 'checked' : ''}><span class="slider"></span></label>`;
+        switchWrapper.innerHTML = `
+            <label class="switch">
+                <input type="checkbox" id="key-${char}" ${isChecked ? 'checked' : ''}>
+                <span class="slider"></span>
+            </label>
+            <label for="key-${char}">${char}</label>`;
         uiElements.keyManagementGrid.appendChild(switchWrapper);
         document.getElementById(`key-${char}`).addEventListener('change', (e) => {
             appState.dbRefs.keys.child(char).set(e.target.checked);
         });
     });
 }
+
 
 function displayFiles(files) {
     uiElements.fileList.innerHTML = '';
@@ -346,6 +435,9 @@ function displayFiles(files) {
             const originalFileName = safeFileName.replace(/·/g, '.');
             const fileData = files[safeFileName];
             const li = document.createElement('li');
+            
+            const textSpan = document.createElement('span');
+            textSpan.style.flexGrow = '1';
             let displayText = originalFileName;
             if (fileData.level > 1) {
                 li.classList.add('locked');
@@ -354,7 +446,23 @@ function displayFiles(files) {
             if (fileData.isSvg) {
                  displayText += ` [SVG]`;
             }
-            li.textContent = displayText;
+            textSpan.textContent = displayText;
+            li.appendChild(textSpan);
+
+            const buttonContainer = document.createElement('div');
+
+            const editButton = document.createElement('button');
+            editButton.textContent = 'View/Edit';
+            editButton.onclick = () => {
+                uiElements.editModalTitle.textContent = `Editing File`;
+                uiElements.editModalFileName.value = originalFileName;
+                uiElements.editModalAccessLevel.value = fileData.level;
+                uiElements.editModalTextarea.value = fileData.content;
+                uiElements.fileEditModal.style.display = 'block';
+                uiElements.editModalSave.setAttribute('data-editing-file', safeFileName);
+            };
+            buttonContainer.appendChild(editButton);
+
             const deleteButton = document.createElement('button');
             deleteButton.textContent = 'Delete';
             deleteButton.className = 'secondary';
@@ -363,11 +471,14 @@ function displayFiles(files) {
                     appState.dbRefs.fileSystem.child(safeFileName).remove();
                 }
             };
-            li.appendChild(deleteButton);
+            buttonContainer.appendChild(deleteButton);
+            
+            li.appendChild(buttonContainer);
             uiElements.fileList.appendChild(li);
         });
     }
 }
+
 
 function displayCustomCommands(commands) {
     uiElements.customCommandList.innerHTML = '';
@@ -417,9 +528,13 @@ function displayUsers(users) {
 
 function handleSystemOverride(override) {
     const overlay = document.getElementById('system-override-overlay');
+    if (!overlay) {
+        return;
+    }
+
     if (override) {
         overlay.textContent = override.message;
-        overlay.className = override.type; // 'lockout' or 'warning'
+        overlay.className = override.type;
         overlay.style.display = 'flex';
     } else {
         overlay.style.display = 'none';

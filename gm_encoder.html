@@ -25,6 +25,57 @@
             padding: 10px;
             margin: 0;
         }
+        
+        #system-override-overlay {
+            display: none; 
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.9);
+            color: #ff4136;
+            z-index: 10000;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+            font-size: 2.5em;
+            text-transform: uppercase;
+        }
+        
+        #system-override-overlay.warning {
+            color: #E8772E;
+        }
+
+        /* Styles for the new File Edit Modal */
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            overflow: auto;
+            background-color: rgba(0,0,0,0.7);
+        }
+        .modal-content {
+            background-color: var(--background-color);
+            margin: 10% auto;
+            padding: 20px;
+            border: 1px solid var(--border-color);
+            width: 80%;
+            max-width: 700px;
+            border-radius: 4px;
+        }
+        .modal-content h2 {
+            margin-top: 0;
+        }
+        .modal-content textarea {
+            height: 250px;
+            font-size: 0.9em;
+        }
+
 
         .container {
             max-width: 900px;
@@ -267,6 +318,7 @@
         #customCommandList button {
             font-size: 0.8em;
             padding: 3px 8px;
+            margin-left: 5px;
         }
 
         .locked {
@@ -301,11 +353,12 @@
             padding: 15px;
             margin-bottom: 10px;
         }
-
+        
         .key-switch {
             display: flex;
             align-items: center;
-            justify-content: space-between;
+            justify-content: flex-start; 
+            gap: 8px;
         }
 
         .key-switch label {
@@ -314,20 +367,29 @@
             color: #00E5FF;
         }
 
+        .key-switch .switch {
+            position: relative;
+            display: inline-block;
+            width: 34px;
+            height: 18px;
+        }
+
         .key-switch input {
-            height: 0;
+            opacity: 0;
             width: 0;
-            visibility: hidden;
+            height: 0;
         }
 
         .key-switch .slider {
+            position: absolute;
             cursor: pointer;
-            width: 34px;
-            height: 18px;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
             background-color: #555;
-            display: inline-block;
             border-radius: 18px;
-            position: relative;
+            transition: .2s;
         }
 
         .key-switch .slider:before {
@@ -490,6 +552,8 @@
                 <legend>SVG Graphic</legend>
                 <label for="svgFileInput">Upload SVG File</label>
                 <input type="file" id="svgFileInput" accept=".svg">
+                <label for="svgFileNameInput">New Filename (optional, e.g., map.svg)</label>
+                <input type="text" id="svgFileNameInput" placeholder="Leave blank to use original filename...">
                 <div class="flex-wrap">
                     <button id="createSvgFileButton">Create SVG as File</button>
                     <button id="sendSvgDatastreamButton" class="secondary">Send SVG as Datastream</button>
@@ -573,22 +637,38 @@
         </div>
     </div>
     
+    <div id="fileEditModal" class="modal">
+        <div class="modal-content">
+            <h2 id="editModalTitle">Edit File</h2>
+            <label for="editModalFileName">Filename</label>
+            <input type="text" id="editModalFileName">
+            <label for="editModalAccessLevel">Required Access Level</label>
+            <select id="editModalAccessLevel">
+                <option value="1">Level 1 (Public)</option>
+                <option value="2">Level 2 (Restricted)</option>
+                <option value="3">Level 3 (Administrator)</option>
+            </select>
+            <label for="editModalTextarea">File Content</label>
+            <textarea id="editModalTextarea"></textarea>
+            <div class="flex-wrap" style="justify-content: flex-end;">
+                <button id="editModalCancel" class="secondary">Cancel</button>
+                <button id="editModalSave">Save Changes</button>
+            </div>
+        </div>
+    </div>
+
     <script>
-        // This function is now globally available to be called by the `onclick` attributes in the HTML.
         function openTab(event, tabName) {
-            // Get all elements with class="tab-content" and hide them
             const tabContents = document.getElementsByClassName("tab-content");
             for (let i = 0; i < tabContents.length; i++) {
                 tabContents[i].style.display = "none";
             }
 
-            // Get all elements with class="tab-link" and remove the class "active"
             const tabLinks = document.getElementsByClassName("tab-link");
             for (let i = 0; i < tabLinks.length; i++) {
                 tabLinks[i].className = tabLinks[i].className.replace(" active", "");
             }
 
-            // Show the current tab, and add an "active" class to the button that opened the tab
             document.getElementById(tabName).style.display = "block";
             event.currentTarget.className += " active";
         }

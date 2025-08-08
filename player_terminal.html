@@ -364,39 +364,38 @@
             font-size: 16px;
         }
     </style>
-    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
-    <script src="firebase-config.js"></script>
 </head>
 
 <body class="relic-theme">
     <div id="login-overlay"
         style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 10001; display: none; align-items: center; justify-content: center; flex-direction: column;">
-        <div style="width: 350px; padding: 20px; border: 1px solid currentColor;">
-            <div class="line">//_SECURE ACCESS TERMINAL_//</div>
-            <br>
-            <div class="line">AWAITING CREDENTIALS...</div>
-            <br>
-            <div class="prompt">
-                <span class="prompt-text">Username:&nbsp;</span>
-                <input type="text" id="loginUsername" class="commandInput"
-                    style="width: 100%; background: transparent; border: none; color: inherit; font-family: inherit; font-size: inherit;">
+        <form id="login-form">
+            <div style="width: 350px; padding: 20px; border: 1px solid currentColor;">
+                <div class="line">//_SECURE ACCESS TERMINAL_//</div>
+                <br>
+                <div class="line">AWAITING CREDENTIALS...</div>
+                <br>
+                <div class="prompt">
+                    <span class="prompt-text">Username:&nbsp;</span>
+                    <input type="text" id="loginUsername" class="commandInput"
+                        style="width: 100%; background: transparent; border: none; color: inherit; font-family: inherit; font-size: inherit;" autocomplete="username">
+                </div>
+                <div class="prompt">
+                    <span class="prompt-text">Password:&nbsp;</span>
+                    <input type="password" id="loginPassword" class="commandInput"
+                        style="width: 100%; background: transparent; border: none; color: inherit; font-family: inherit; font-size: inherit;" autocomplete="current-password">
+                </div>
+                <div class="prompt" style="margin-top: 15px; align-items: center;">
+                    <input type="checkbox" id="rememberMeCheckbox" style="margin-right: 10px;">
+                    <label for="rememberMeCheckbox">Remember Connection</label>
+                </div>
+                <br>
+                <div id="login-error" class="line error-msg" style="display: none;"></div>
+                <button type="submit" id="loginButton"
+                    style="background: transparent; color: inherit; border: 1px solid currentColor; padding: 5px 10px; cursor: pointer; font-family: inherit; margin-top: 10px;">[
+                    AUTHENTICATE ]</button>
             </div>
-            <div class="prompt">
-                <span class="prompt-text">Password:&nbsp;</span>
-                <input type="password" id="loginPassword" class="commandInput"
-                    style="width: 100%; background: transparent; border: none; color: inherit; font-family: inherit; font-size: inherit;">
-            </div>
-            <div class="prompt" style="margin-top: 15px; align-items: center;">
-                <input type="checkbox" id="rememberMeCheckbox" style="margin-right: 10px;">
-                <label for="rememberMeCheckbox">Remember Connection</label>
-            </div>
-            <br>
-            <div id="login-error" class="line error-msg" style="display: none;"></div>
-            <button id="loginButton"
-                style="background: transparent; color: inherit; border: 1px solid currentColor; padding: 5px 10px; cursor: pointer; font-family: inherit; margin-top: 10px;">[
-                AUTHENTICATE ]</button>
-        </div>
+        </form>
     </div>
 
     <div id="system-override-overlay"></div>
@@ -410,7 +409,11 @@
             <button id="clear-button">[ CLS ]</button>
         </div>
     </div>
-
+    
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
+    <script src="firebase-config.js"></script>
+    
     <script>
         function runApp(database) {
             const SESSION_KEY = 'daggerheart_session_user';
@@ -418,6 +421,7 @@
 
             // --- LOGIN ELEMENTS ---
             const loginOverlay = document.getElementById('login-overlay');
+            const loginForm = document.getElementById('login-form');
             const loginUsernameInput = document.getElementById('loginUsername');
             const loginPasswordInput = document.getElementById('loginPassword');
             const rememberMeCheckbox = document.getElementById('rememberMeCheckbox');
@@ -457,7 +461,9 @@
                 }
             }
 
-            const handleLoginAttempt = () => {
+            const handleLoginAttempt = (event) => {
+                if (event) event.preventDefault();
+                
                 const username = loginUsernameInput.value.trim().toLowerCase();
                 const password = loginPasswordInput.value.trim();
                 const rememberMe = rememberMeCheckbox.checked;
@@ -490,11 +496,8 @@
                 });
             };
 
-            loginButton.onclick = handleLoginAttempt;
-            loginPasswordInput.addEventListener('keydown', (e) => {
-                if (e.key === 'Enter') handleLoginAttempt();
-            });
-
+            loginForm.onsubmit = handleLoginAttempt;
+            
             function initializeTerminal() {
                 function saveMessageToHistory(message) { let history = JSON.parse(localStorage.getItem(RECEIVED_HISTORY_KEY)) || []; if (!history.length || history[0] !== message) { history.unshift(message); if (history.length > 20) history.pop(); localStorage.setItem(RECEIVED_HISTORY_KEY, JSON.stringify(history)); } }
                 function partiallyDecode(fullStream) { if (Object.keys(decodingChart).length === 0) return fullStream; const parts = fullStream.match(/(.*?)\$:(.*):#(.*)/); if (!parts) return fullStream; const leadingNoise = parts[1], encodedPart = parts[2], trailingNoise = parts[3]; let decodedContent = ''; for (let i = 0; i < encodedPart.length; i += 2) { const pair = encodedPart.substring(i, i + 2); const char = decodingChart[pair]; if (char && unlockedKeys[char]) { decodedContent += char; } else { decodedContent += pair; } } return `${leadingNoise}$:${decodedContent}:#${trailingNoise}`; }
@@ -515,11 +518,10 @@
                     return decodedContent;
                 }
                 
-                function renderThemedSvg(svgString) {
+                 function renderThemedSvg(svgString) {
                     const container = document.createElement('div');
                     container.className = 'line rendered-svg-container';
 
-                    // Add close button
                     const closeButton = document.createElement('span');
                     closeButton.className = 'svg-close-button';
                     closeButton.textContent = '[x]';
@@ -550,34 +552,23 @@
                         }
                     }
                     
-                    // --- NEW, MORE NUANCED LOGIC ---
-
-                    // Handle PATHS, POLYLINES, and LINES conservatively.
-                    // These are almost always just strokes, so we avoid filling them.
                     svgElement.querySelectorAll('path, polyline, line').forEach(el => {
-                        el.setAttribute('stroke', primaryColor); // Color the lines
-                        el.setAttribute('fill', 'none');       // Explicitly do not fill them
+                        el.setAttribute('stroke', primaryColor);
+                        el.setAttribute('fill', 'none');
                     });
 
-                    // Handle SHAPES that are often filled, like circles and rectangles.
                     svgElement.querySelectorAll('circle, rect, ellipse, polygon').forEach(el => {
-                        el.setAttribute('stroke', primaryColor); // Color the outline
-
-                        // Check if the shape was filled with black (or had no fill, which defaults to black).
-                        // If so, we assume it's an intentional fill (like our dots) and color it.
+                        el.setAttribute('stroke', primaryColor);
                         const originalFill = el.getAttribute('fill');
                         if (!originalFill || originalFill.toLowerCase() === 'black' || originalFill === '#000000' || originalFill === '#000') {
                             el.setAttribute('fill', primaryColor);
                         }
-                        // If it had another color (e.g., red) or was explicitly set to "none", we leave it alone.
                     });
-
 
                     container.appendChild(svgElement);
                     terminal.insertBefore(container, terminal.lastElementChild);
                     terminal.scrollTop = terminal.scrollHeight;
                 }
-
 
                 function typeLine(text, className = '', speed = 15, callback = () => { }) {
                     isTyping = true;
@@ -592,11 +583,11 @@
                         if (i < text.length) {
                             line.innerHTML += text.charAt(i);
                             i++;
-                            terminal.scrollTop = terminal.scrollHeight; // FIX: Scroll terminal div
+                            terminal.scrollTop = terminal.scrollHeight; 
                         } else {
                             clearInterval(interval);
                             isTyping = false;
-                            terminal.scrollTop = terminal.scrollHeight; // FIX: Scroll at the end
+                            terminal.scrollTop = terminal.scrollHeight; 
                             callback();
                         }
                     }, speed);
@@ -610,7 +601,7 @@
                         className.split(' ').forEach(cls => line.classList.add(cls));
                     }
                     terminal.insertBefore(line, terminal.lastElementChild);
-                    terminal.scrollTop = terminal.scrollHeight; // FIX: Scroll terminal div
+                    terminal.scrollTop = terminal.scrollHeight;
                 }
 
                 function drawWelcomeMessage() { const welcomeLines = terminal.querySelectorAll('.welcome-line'); welcomeLines.forEach(line => line.remove()); typeLine(`Attempting to interface with the ${config.systemName || 'SYSTEM'}... OK`, 'system-msg welcome-line', 20, () => { typeLine(`${config.osName || 'M-OS'} -- Ready.`, 'system-msg welcome-line', 20, () => { typeLine(`Type 'help' for command list.`, 'welcome-line', 20, () => { printLine('&nbsp;', 'welcome-line'); }); }); }); }
@@ -808,27 +799,26 @@
 
         async function initializeApp() {
             let config;
-            // Check if running on a server or locally
-             if (window.location.protocol === 'file:') {
+            // For local development, expect a global firebaseConfig object from firebase-config.js
+            if (window.location.protocol === 'file:') { 
                 if (typeof firebaseConfig !== 'undefined') {
                     config = firebaseConfig;
                 } else {
-                     document.body.innerHTML = '<h1>FATAL ERROR: firebase-config.js not found for local execution.</h1>';
+                     document.body.innerHTML = '<h1>FATAL ERROR: firebase-config.js not found. This file is required for local development and must be created manually.</h1>';
                      return;
                 }
-            } else {
+            } else { 
+                // For a deployed site, fetch the config from the /config endpoint.
                 try {
                     const response = await fetch('/config');
-                    if (!response.ok) throw new Error('Network response was not ok');
+                    if (!response.ok) {
+                        throw new Error(`Network response was not ok (${response.status})`);
+                    }
                     config = await response.json();
                 } catch (error) {
-                    console.error("Could not fetch live config, falling back to local firebase-config.js", error);
-                    if (typeof firebaseConfig !== 'undefined') {
-                        config = firebaseConfig;
-                    } else {
-                        document.body.innerHTML = '<h1>FATAL ERROR: Could not load configuration from /config or local firebase-config.js.</h1>';
-                        return;
-                    }
+                    console.error("FATAL: Could not fetch configuration from the /config endpoint.", error);
+                    document.body.innerHTML = '<h1>FATAL ERROR: Could not load server configuration. Ensure the /config function is deployed and working correctly.</h1>';
+                    return;
                 }
             }
             firebase.initializeApp(config);

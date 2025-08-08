@@ -21,29 +21,30 @@ function runApp() {
  */
 async function initializeApp() {
     let config;
-    // Check if running locally (file://) or on a server
-    if (window.location.protocol === 'file:') {
-        // For local development, expects firebase-config.js to be loaded in HTML
+    
+    // Check if running locally (as a file or on localhost)
+    const isLocal = window.location.protocol === 'file:' || window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+
+    if (isLocal) { 
+        // For local development, expect a global firebaseConfig object from firebase-config.js
         if (typeof firebaseConfig !== 'undefined') {
             config = firebaseConfig;
         } else {
-             document.body.innerHTML = '<h1>FATAL ERROR: firebase-config.js not found for local execution.</h1>';
+             document.body.innerHTML = '<h1>FATAL ERROR: firebase-config.js not found. This file is required for local development and must be created manually.</h1>';
              return;
         }
-    } else {
+    } else { 
+        // For a deployed site, fetch the config from the /config endpoint.
         try {
-            // For deployed version, fetch config from the serverless function
             const response = await fetch('/config');
-            if (!response.ok) throw new Error('Network response was not ok');
+            if (!response.ok) {
+                throw new Error(`Network response was not ok (${response.status})`);
+            }
             config = await response.json();
         } catch (error) {
-            console.error("Could not fetch live config, falling back to local.", error);
-            if (typeof firebaseConfig !== 'undefined') {
-                config = firebaseConfig;
-            } else {
-                document.body.innerHTML = '<h1>FATAL ERROR: Could not load configuration.</h1>';
-                return;
-            }
+            console.error("FATAL: Could not fetch configuration from the /config endpoint.", error);
+            document.body.innerHTML = '<h1>FATAL ERROR: Could not load server configuration. Ensure the /config function is deployed and working correctly.</h1>';
+            return;
         }
     }
 
