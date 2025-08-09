@@ -47,7 +47,6 @@
             color: #E8772E;
         }
 
-        /* Styles for the new File Edit Modal */
         .modal {
             display: none;
             position: fixed;
@@ -456,7 +455,10 @@
             <textarea id="messageInput">COORDINATES RECEIVED. STAND BY.</textarea>
             <label for="noiseSlider">Signal Corruption: <span id="noiseValue">50</span></label>
             <input type="range" id="noiseSlider" min="0" max="200" value="50">
-            <button id="encodeButton">Transmit Datastream</button>
+            <div class="flex-wrap">
+                <button id="encodeButton">Transmit Datastream</button>
+                <button id="transmitDecodedButton" class="secondary">Transmit Decoded</button>
+            </div>
             <h3>Transmitted Datastream:</h3>
             <div id="outputBurst" class="live-display"></div>
         </div>
@@ -552,7 +554,7 @@
                 <legend>SVG Graphic</legend>
                 <label for="svgFileInput">Upload SVG File</label>
                 <input type="file" id="svgFileInput" accept=".svg">
-                <label for="svgFileNameInput">New Filename (optional, e.g., map.svg)</label>
+                <label for="svgFileNameInput">New Filename (optional, e.g., map.kohd)</label>
                 <input type="text" id="svgFileNameInput" placeholder="Leave blank to use original filename...">
                 <div class="flex-wrap">
                     <button id="createSvgFileButton">Create SVG as File</button>

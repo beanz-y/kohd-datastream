@@ -694,27 +694,48 @@
                             typeLine('Authentication failed: Invalid credentials.', 'error-msg');
                         }
                     } else if (cmd === 'ls') {
-                        if (!isConnected) { typeLine('ERROR: Not connected to a system.', 'error-msg'); return; } const fileNames = Object.keys(fileSystem); if (fileNames.length > 0) { let output = ''; fileNames.forEach(safeFileName => { const originalFileName = safeFileName.replace(/·/g, '.'); const fileData = fileSystem[safeFileName]; if (fileData.level > clearanceLevel) { output += `<span class="file-locked">${originalFileName} [LEVEL ${fileData.level}]</span>   `; } else { output += `${originalFileName}   `; } }); printLine(output, 'data-msg-body'); } else { typeLine('Directory is empty.'); }
+                        if (!isConnected) { typeLine('ERROR: Not connected to a system.', 'error-msg'); return; }
+                        const fileNames = Object.keys(fileSystem);
+                        if (fileNames.length > 0) {
+                            let output = '';
+                            fileNames.forEach(safeFileName => {
+                                let originalFileName = safeFileName.replace(/·/g, '.');
+                                const fileData = fileSystem[safeFileName];
+                                if (fileData.isSvg) {
+                                    let baseName = originalFileName.split('.').slice(0, -1).join('.') || originalFileName;
+                                    originalFileName = baseName + '.kohd';
+                                }
+                                if (fileData.level > clearanceLevel) {
+                                    output += `<span class="file-locked">${originalFileName} [LEVEL ${fileData.level}]</span>   `;
+                                } else {
+                                    output += `${originalFileName}   `;
+                                }
+                            });
+                            printLine(output, 'data-msg-body');
+                        } else {
+                            typeLine('Directory is empty.');
+                        }
                     } else if (cmd === 'cat') {
                         if (!isConnected) { typeLine('ERROR: Not connected to a system.', 'error-msg'); return; }
-                        const fileName = argString.trim();
-                        const safeFileName = fileName.replace(/\./g, '·');
-                        const fileData = fileSystem[safeFileName];
+                        
+                        // Create a safe version of the player's input to search the file system
+                        const safeArg = argString.replace(/\./g, '·');
+                        const fileData = fileSystem[safeArg];
 
-                        if (!fileName) {
+                        if (!argString) {
                             typeLine('ERROR: Missing filename. Usage: cat <filename>', 'error-msg');
                         } else if (!fileData) {
-                            typeLine(`ERROR: File not found: ${fileName}`, 'error-msg');
+                            typeLine(`ERROR: File not found: ${argString}`, 'error-msg');
                         } else if (fileData.level > clearanceLevel) { 
                             typeLine(`ERROR: INSUFFICIENT CLEARANCE. ACCESS LEVEL ${fileData.level} REQUIRED.`, 'error-msg');
                         } else {
-                            typeLine(`--- BEGIN FILE: ${fileName} ---`, 'data-msg-header');
-                            if (fileData.isSvg || fileName.endsWith('.svg')) {
+                            typeLine(`--- BEGIN FILE: ${argString} ---`, 'data-msg-header');
+                            if (fileData.isSvg) {
                                 renderThemedSvg(fileData.content);
                             } else {
                                 printLine(fileData.content, 'data-msg-body');
                             }
-                            typeLine(`--- END FILE: ${fileName} ---`, 'data-msg-header');
+                            typeLine(`--- END FILE: ${argString} ---`, 'data-msg-header');
                         }
                     } else if (cmd === (config.scanCommand || 'scan')) {
                         typeLine(`Scanning the Network for ${(config.signalNoun || 'signal').toLowerCase()}s from ${config.systemName}...`, '', 30, () => { setTimeout(() => { typeLine(`...Faint ${(config.signalNoun || 'signal')} detected. Source confirmed: ${config.systemName}.`, 'system-msg'); }, 1500); }); isScanning = true;

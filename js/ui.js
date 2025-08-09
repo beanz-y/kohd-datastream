@@ -7,6 +7,28 @@ import { transmitDatastream, updateTerminalConfig } from './firebase.js';
 // --- DOM Element References ---
 let uiElements;
 
+// --- Helper function for Presets ---
+function displayPresets() {
+    const presets = JSON.parse(localStorage.getItem(appState.CONFIG_PRESETS_KEY)) || {};
+    uiElements.presetButtonsContainer.innerHTML = '';
+    Object.keys(presets).forEach(name => {
+        const preset = presets[name];
+        const btn = document.createElement('button');
+        btn.textContent = name;
+        btn.onclick = () => {
+            uiElements.systemNameInput.value = preset.systemName;
+            uiElements.osNameInput.value = preset.osName;
+            uiElements.scanCommandInput.value = preset.scanCommand;
+            uiElements.connectCommandInput.value = preset.connectCommand;
+            uiElements.dataNounInput.value = preset.dataNoun;
+            uiElements.signalNounInput.value = preset.signalNoun;
+            uiElements.themeSelect.value = preset.theme;
+        };
+        uiElements.presetButtonsContainer.appendChild(btn);
+    });
+}
+
+
 /**
  * Caches all necessary DOM element references for quick access.
  */
@@ -18,6 +40,7 @@ function cacheDOMElements() {
         noiseSlider: document.getElementById('noiseSlider'),
         noiseValue: document.getElementById('noiseValue'),
         encodeButton: document.getElementById('encodeButton'),
+        transmitDecodedButton: document.getElementById('transmitDecodedButton'),
         outputBurst: document.getElementById('outputBurst'),
         templateButtons: document.getElementById('templateButtons'),
         // Session Tab
@@ -146,6 +169,19 @@ function initializeEventListeners() {
         uiElements.outputBurst.textContent = finalBurst;
         transmitDatastream(finalBurst);
     };
+
+    uiElements.transmitDecodedButton.onclick = () => {
+        const message = uiElements.messageInput.value;
+        if (!message) return;
+        saveToHistory(message);
+        const noiseLength = parseInt(uiElements.noiseSlider.value, 10);
+        const leadingNoise = generateNoise(Math.floor(noiseLength / 2));
+        const trailingNoise = generateNoise(Math.ceil(noiseLength / 2));
+        const finalBurst = `${leadingNoise}$:${message}:#${trailingNoise}`;
+        uiElements.outputBurst.textContent = `DECODED: ${finalBurst}`;
+        transmitDatastream(finalBurst);
+    };
+
     uiElements.noiseSlider.oninput = () => {
         uiElements.noiseValue.textContent = uiElements.noiseSlider.value;
     };
@@ -172,6 +208,36 @@ function initializeEventListeners() {
         alert('Terminal configuration updated!');
     };
     
+    uiElements.savePresetButton.onclick = () => {
+        const name = uiElements.presetNameInput.value.trim();
+        if (!name) {
+            alert('Please enter a name for the preset.');
+            return;
+        }
+        const preset = {
+            systemName: uiElements.systemNameInput.value,
+            osName: uiElements.osNameInput.value,
+            scanCommand: uiElements.scanCommandInput.value.toLowerCase(),
+            connectCommand: uiElements.connectCommandInput.value.toLowerCase(),
+            dataNoun: uiElements.dataNounInput.value,
+            signalNoun: uiElements.signalNounInput.value,
+            theme: uiElements.themeSelect.value
+        };
+        const presets = JSON.parse(localStorage.getItem(appState.CONFIG_PRESETS_KEY)) || {};
+        presets[name] = preset;
+        localStorage.setItem(appState.CONFIG_PRESETS_KEY, JSON.stringify(presets));
+        displayPresets();
+        uiElements.presetNameInput.value = '';
+    };
+
+    uiElements.resetAccessButton.onclick = () => {
+        if (confirm('This will reset the player\'s access to Level 1 and clear saved passwords. Are you sure?')) {
+            appState.dbRefs.access.remove();
+            appState.dbRefs.glitches.child('reset_access_timestamp').set(firebase.database.ServerValue.TIMESTAMP);
+            alert('Player access has been reset.');
+        }
+    };
+    
     uiElements.clearHistoryButton.onclick = () => {
         if (confirm('Are you sure you want to clear the transmission history for yourself and all players?')) {
             localStorage.removeItem(appState.GM_HISTORY_KEY);
@@ -193,7 +259,7 @@ function initializeEventListeners() {
     uiElements.resetCipherButton.onclick = () => {
         if (!confirm('This will reset the cipher to its default state. Continue?')) return;
         appState.dbRefs.cipher.set(appState.defaultEncodingChart);
-        appState.dbRefs.keys.remove(); // Clear unlocked keys as well
+        appState.dbRefs.keys.remove();
         alert('Cipher has been reset to default.');
     };
 
@@ -205,7 +271,75 @@ function initializeEventListeners() {
         alert('New cipher generated and synced.');
     };
 
-    // Session Tab listeners...
+    // Session Tab listeners
+    uiElements.setResourceButton.onclick = () => {
+        const name = uiElements.playerResourceNameInput.value.trim();
+        const count = parseInt(uiElements.playerResourceCountInput.value, 10);
+        if (!name) {
+            alert('Resource name cannot be empty.');
+            return;
+        }
+        appState.dbRefs.playerResources.set({ name, count });
+        alert('Player resources updated.');
+    };
+
+    uiElements.createCustomCommandButton.onclick = () => {
+        const name = uiElements.customCommandNameInput.value.trim().toLowerCase();
+        const args = uiElements.customCommandArgsInput.value.trim();
+        const response = uiElements.customCommandResponseInput.value;
+        const consumesResource = uiElements.commandConsumesResourceCheckbox.checked;
+        if (!name || !response) {
+            alert('Command name and response cannot be empty.');
+            return;
+        }
+        const command = { response, consumesResource };
+        if (args) command.args = args;
+        appState.dbRefs.customCommands.child(name).set(command);
+    };
+
+    uiElements.createDecryptCommandButton.onclick = () => {
+        const name = uiElements.specialCommandNameInput.value.trim().toLowerCase();
+        if (!name) {
+            alert('Special command name cannot be empty.');
+            return;
+        }
+        appState.dbRefs.customCommands.child(name).set({
+            special_action: 'bruteforce_decrypt',
+            consumesResource: true
+        });
+    };
+
+    uiElements.createTraceCommandButton.onclick = () => {
+        const name = uiElements.traceCommandNameInput.value.trim().toLowerCase();
+        const response = uiElements.traceCommandResponseInput.value;
+        if (!name || !response) {
+            alert('Trace command name and response cannot be empty.');
+            return;
+        }
+        appState.dbRefs.customCommands.child(name).set({
+            special_action: 'trace_signal',
+            response: response,
+            consumesResource: true
+        });
+    };
+
+    uiElements.scrambleMessageButton.onclick = () => {
+        appState.dbRefs.glitches.child('scramble_next').set(true);
+        alert('Next message will be scrambled.');
+    };
+
+    uiElements.glitchCommandButton.onclick = () => {
+        const commandToGlitch = uiElements.glitchCommandSelect.value;
+        appState.dbRefs.glitches.child('glitched_command').set(commandToGlitch);
+        alert(`Command '${commandToGlitch}' will now appear offline for the player for 30 seconds.`);
+        
+        // Set a timer to remove the glitch after 30 seconds
+        setTimeout(() => {
+            appState.dbRefs.glitches.child('glitched_command').remove();
+        }, 30000);
+    };
+
+
     uiElements.createFileButton.onclick = () => {
         const fileName = uiElements.newFileNameInput.value.trim().toLowerCase();
         const accessLevel = parseInt(uiElements.fileAccessLevelSelect.value, 10);
@@ -274,9 +408,11 @@ function initializeEventListeners() {
             if (!newFileName) {
                 newFileName = originalFileName;
             }
-
-            if (!newFileName.toLowerCase().endsWith('.svg')) {
-                newFileName += '.svg';
+            
+            if (newFileName.toLowerCase().includes('.')) {
+                newFileName = newFileName.substring(0, newFileName.lastIndexOf('.')) + '.kohd';
+            } else {
+                newFileName = newFileName + '.kohd';
             }
 
             const safeFileName = newFileName.replace(/\./g, '·');
@@ -291,6 +427,7 @@ function initializeEventListeners() {
             uiElements.svgFileNameInput.value = ''; 
         });
     };
+
 
     uiElements.sendSvgDatastreamButton.onclick = () => {
         handleSvgUpload((svgContent) => {
@@ -335,7 +472,6 @@ function initializeEventListeners() {
         const newContent = uiElements.editModalTextarea.value;
         const newLevel = parseInt(uiElements.editModalAccessLevel.value, 10);
         
-        // Get the original file data to preserve properties like 'isSvg'
         appState.dbRefs.fileSystem.child(originalSafeName).once('value', (snapshot) => {
             const originalData = snapshot.val();
             if (!originalData) {
@@ -344,16 +480,14 @@ function initializeEventListeners() {
             }
             
             const updatedFile = {
-                ...originalData, // Preserve isSvg and any other properties
+                ...originalData,
                 content: newContent,
                 level: newLevel,
             };
 
-            // If the name is unchanged, just update the existing record
             if (originalSafeName === newSafeName) {
                 appState.dbRefs.fileSystem.child(originalSafeName).update(updatedFile);
             } else {
-                // If the name changed, create a new record and delete the old one
                 appState.dbRefs.fileSystem.child(newSafeName).set(updatedFile);
                 appState.dbRefs.fileSystem.child(originalSafeName).remove();
             }
@@ -365,6 +499,7 @@ function initializeEventListeners() {
 
 
     displayHistory();
+    displayPresets();
 }
 
 // --- Functions to update UI from Firebase state ---
@@ -439,12 +574,15 @@ function displayFiles(files) {
             const textSpan = document.createElement('span');
             textSpan.style.flexGrow = '1';
             let displayText = originalFileName;
+            
+            if (fileData.isSvg) {
+                let baseName = originalFileName.split('.').slice(0, -1).join('.') || originalFileName;
+                displayText = baseName + '.kohd';
+            }
+
             if (fileData.level > 1) {
                 li.classList.add('locked');
                 displayText += ` [LEVEL ${fileData.level}]`;
-            }
-            if (fileData.isSvg) {
-                 displayText += ` [SVG]`;
             }
             textSpan.textContent = displayText;
             li.appendChild(textSpan);
@@ -455,7 +593,7 @@ function displayFiles(files) {
             editButton.textContent = 'View/Edit';
             editButton.onclick = () => {
                 uiElements.editModalTitle.textContent = `Editing File`;
-                uiElements.editModalFileName.value = originalFileName;
+                uiElements.editModalFileName.value = fileData.isSvg ? displayText.split(' ')[0] : originalFileName;
                 uiElements.editModalAccessLevel.value = fileData.level;
                 uiElements.editModalTextarea.value = fileData.content;
                 uiElements.fileEditModal.style.display = 'block';
