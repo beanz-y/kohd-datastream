@@ -60,17 +60,16 @@
             outline: none;
         }
         
-        /* -- Updated styles for rendered SVGs -- */
         .rendered-svg-container {
             position: relative;
             padding: 15px;
-            padding-top: 30px; /* Make space for close button */
+            padding-top: 30px; 
             background-color: rgba(0,0,0,0.2);
             border: 1px solid;
             margin: 10px 0;
-            max-height: 70vh; /* Prevent it from being too tall */
-            overflow-y: auto; /* Allow scrolling for tall SVGs */
-            resize: vertical; /* Allow user to resize vertically */
+            max-height: 70vh; 
+            overflow-y: auto; 
+            resize: vertical; 
         }
 
         .rendered-svg-container svg {
@@ -289,6 +288,38 @@
             border: 1px solid rgba(0, 223, 255, 0.4);
             color: rgba(0, 223, 255, 0.7);
         }
+        
+        body.red-theme {
+            background-color: #1c0505;
+            color: #ff4136;
+            font-family: 'Share Tech Mono', monospace;
+            font-size: 18px;
+            --theme-primary: #ff4136;
+            --theme-secondary: #ff851b;
+        }
+        .red-theme #terminal {
+            text-shadow: 0 0 5px rgba(255, 65, 54, 0.7);
+        }
+        .red-theme .prompt-text,
+        .red-theme .error-msg,
+        .red-theme .data-msg-header,
+        .red-theme .file-locked,
+        .red-theme .svg-close-button {
+            color: var(--theme-secondary);
+        }
+        .red-theme .system-msg,
+        .red-theme .data-msg-body {
+            color: var(--theme-primary);
+        }
+        .red-theme .rendered-svg-container {
+            border-color: var(--theme-secondary);
+        }
+        .red-theme #qol-buttons button {
+            background-color: rgba(255, 65, 54, 0.15);
+            border: 1px solid rgba(255, 65, 54, 0.4);
+            color: rgba(255, 65, 54, 0.8);
+        }
+
 
         @keyframes holo-flicker {
 
@@ -385,6 +416,16 @@
                     <input type="password" id="loginPassword" class="commandInput"
                         style="width: 100%; background: transparent; border: none; color: inherit; font-family: inherit; font-size: inherit;" autocomplete="current-password">
                 </div>
+                <div class="prompt" style="margin-top: 15px;">
+                     <span class="prompt-text">Theme:&nbsp;</span>
+                     <select id="loginThemeSelect" class="commandInput" style="width: 100%; background: transparent; border: none; color: inherit; font-family: inherit; font-size: inherit;">
+                        <option value="relic-theme" style="background: #1a2123;">Horizon (Relic)</option>
+                        <option value="green-theme" style="background: #0a0a0a;">Terminal (Green)</option>
+                        <option value="blue-theme" style="background: #0b112a;">Vault (Blue)</option>
+                        <option value="amber-theme" style="background: #1a1000;">Retro (Amber)</option>
+                        <option value="hologram-theme" style="background: #030409;">Hologram (Blue)</option>
+                    </select>
+                </div>
                 <div class="prompt" style="margin-top: 15px; align-items: center;">
                     <input type="checkbox" id="rememberMeCheckbox" style="margin-right: 10px;">
                     <label for="rememberMeCheckbox">Remember Connection</label>
@@ -424,6 +465,7 @@
             const loginForm = document.getElementById('login-form');
             const loginUsernameInput = document.getElementById('loginUsername');
             const loginPasswordInput = document.getElementById('loginPassword');
+            const loginThemeSelect = document.getElementById('loginThemeSelect');
             const rememberMeCheckbox = document.getElementById('rememberMeCheckbox');
             const loginButton = document.getElementById('loginButton');
             const loginError = document.getElementById('login-error');
@@ -438,6 +480,8 @@
             // --- STATE & CONFIG ---
             let isConnected = false, isScanning = false, isTyping = false, isInitialLoad = true;
             let config = {};
+            let currentUser = null;
+            let userTheme = 'relic-theme';
             let unlockedKeys = {}, fileSystem = {}, glitches = {}, accessPasswords = {}, customCommands = {}, playerResources = { name: "Resources", count: 0 };
             let clearanceLevel = 1;
             let decodingChart = {};
@@ -455,6 +499,11 @@
                 if (rememberedUser) {
                     loginUsernameInput.value = rememberedUser;
                     rememberMeCheckbox.checked = true;
+                    database.ref('users/' + rememberedUser).once('value', (snapshot) => {
+                        if(snapshot.exists() && snapshot.val().theme) {
+                            loginThemeSelect.value = snapshot.val().theme;
+                        }
+                    });
                     loginPasswordInput.focus();
                 } else {
                     loginUsernameInput.focus();
@@ -466,6 +515,7 @@
                 
                 const username = loginUsernameInput.value.trim().toLowerCase();
                 const password = loginPasswordInput.value.trim();
+                const theme = loginThemeSelect.value;
                 const rememberMe = rememberMeCheckbox.checked;
 
                 if (!username || !password) {
@@ -478,13 +528,17 @@
                     if (snapshot.exists() && snapshot.val().password === password) {
                         const storage = rememberMe ? localStorage : sessionStorage;
                         storage.setItem(SESSION_KEY, username);
+                        
+                        database.ref('users/' + username).update({ theme: theme });
 
                         if (rememberMe) {
                             localStorage.setItem(REMEMBER_ME_KEY, username);
                         } else {
                             localStorage.removeItem(REMEMBER_ME_KEY);
                         }
-
+                        
+                        currentUser = username;
+                        userTheme = theme;
                         loginOverlay.style.display = 'none';
                         terminalContainer.style.display = 'flex';
                         initializeTerminal();
@@ -499,6 +553,14 @@
             loginForm.onsubmit = handleLoginAttempt;
             
             function initializeTerminal() {
+                function applyTheme() {
+                    if (config && config.theme) {
+                        document.body.className = config.theme;
+                    } else {
+                        document.body.className = userTheme;
+                    }
+                }
+                
                 function saveMessageToHistory(message) { let history = JSON.parse(localStorage.getItem(RECEIVED_HISTORY_KEY)) || []; if (!history.length || history[0] !== message) { history.unshift(message); if (history.length > 20) history.pop(); localStorage.setItem(RECEIVED_HISTORY_KEY, JSON.stringify(history)); } }
                 function partiallyDecode(fullStream) { if (Object.keys(decodingChart).length === 0) return fullStream; const parts = fullStream.match(/(.*?)\$:(.*):#(.*)/); if (!parts) return fullStream; const leadingNoise = parts[1], encodedPart = parts[2], trailingNoise = parts[3]; let decodedContent = ''; for (let i = 0; i < encodedPart.length; i += 2) { const pair = encodedPart.substring(i, i + 2); const char = decodingChart[pair]; if (char && unlockedKeys[char]) { decodedContent += char; } else { decodedContent += pair; } } return `${leadingNoise}$:${decodedContent}:#${trailingNoise}`; }
                 function fullyDecode(fullStream) {
@@ -718,7 +780,6 @@
                     } else if (cmd === 'cat') {
                         if (!isConnected) { typeLine('ERROR: Not connected to a system.', 'error-msg'); return; }
                         
-                        // Create a safe version of the player's input to search the file system
                         const safeArg = argString.replace(/\./g, '·');
                         const fileData = fileSystem[safeArg];
 
@@ -762,20 +823,26 @@
 
                 database.ref('terminal_config').on('value', (snapshot) => {
                     const newConfig = snapshot.val();
-                    const shouldDrawWelcome = isInitialLoad;
-
                     if (newConfig) {
                         config = newConfig;
-                        document.body.className = config.theme || 'relic-theme';
                     } else {
-                        document.body.className = 'relic-theme';
+                        config = {};
                     }
-
-                    if (shouldDrawWelcome) {
+                    applyTheme();
+                    if (isInitialLoad) {
                         drawWelcomeMessage();
                         isInitialLoad = false;
                     }
                 });
+                
+                if(currentUser){
+                    database.ref('users/' + currentUser + '/theme').on('value', (snapshot) => {
+                        if (snapshot.exists()) {
+                            userTheme = snapshot.val();
+                            applyTheme();
+                        }
+                    });
+                }
 
                 database.ref('decryption_keys').on('value', (snapshot) => { unlockedKeys = snapshot.val() || {}; });
                 database.ref('history_cleared_timestamp').on('value', (snapshot) => { if (snapshot.exists() && isConnected) { localStorage.removeItem(RECEIVED_HISTORY_KEY); typeLine('// REMOTE LOGS PURGED BY SOURCE //', 'system-msg'); } });
@@ -811,6 +878,7 @@
             // --- INITIAL PAGE LOAD ---
             const savedUser = localStorage.getItem(SESSION_KEY) || sessionStorage.getItem(SESSION_KEY);
             if (savedUser) {
+                currentUser = savedUser;
                 terminalContainer.style.display = 'flex';
                 initializeTerminal();
             } else {
@@ -820,7 +888,6 @@
 
         async function initializeApp() {
             let config;
-            // For local development, expect a global firebaseConfig object from firebase-config.js
             if (window.location.protocol === 'file:') { 
                 if (typeof firebaseConfig !== 'undefined') {
                     config = firebaseConfig;
@@ -829,7 +896,6 @@
                      return;
                 }
             } else { 
-                // For a deployed site, fetch the config from the /config endpoint.
                 try {
                     const response = await fetch('/config');
                     if (!response.ok) {

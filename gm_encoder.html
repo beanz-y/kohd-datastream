@@ -47,6 +47,7 @@
             color: #E8772E;
         }
 
+        /* Styles for the new File Edit Modal */
         .modal {
             display: none;
             position: fixed;
@@ -455,7 +456,7 @@
             <textarea id="messageInput">COORDINATES RECEIVED. STAND BY.</textarea>
             <label for="noiseSlider">Signal Corruption: <span id="noiseValue">50</span></label>
             <input type="range" id="noiseSlider" min="0" max="200" value="50">
-            <div class="flex-wrap">
+             <div class="flex-wrap">
                 <button id="encodeButton">Transmit Datastream</button>
                 <button id="transmitDecodedButton" class="secondary">Transmit Decoded</button>
             </div>
@@ -583,13 +584,15 @@
                 <div><label>Data Noun</label><input type="text" id="dataNoun" value="Echo"></div>
                 <div><label>Signal Noun</label><input type="text" id="signalNoun" value="Signature"></div>
             </div>
-            <label>Terminal Theme</label>
+            <label>Terminal Theme (GM Override)</label>
             <select id="themeSelect">
+                <option value="">Player's Choice</option>
                 <option value="relic-theme">Horizon (Relic)</option>
                 <option value="green-theme">Terminal (Green)</option>
                 <option value="blue-theme">Vault (Blue)</option>
                 <option value="amber-theme">Retro (Amber)</option>
                 <option value="hologram-theme">Hologram (Blue)</option>
+                <option value="red-theme">Hostile (Red)</option>
             </select>
             <button id="updateConfigButton" class="secondary">Update Terminal Config</button>
 
