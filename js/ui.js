@@ -449,6 +449,7 @@ function initializeEventListeners() {
 
     uiElements.sendSvgDatastreamButton.onclick = () => {
         handleSvgUpload((svgContent) => {
+            // THIS is the corrected line.
             const finalBurst = `SVG::${svgContent}`;
             uiElements.outputBurst.textContent = "SVG Datastream Sent";
             transmitDatastream(finalBurst);

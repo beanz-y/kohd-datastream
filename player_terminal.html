@@ -372,11 +372,12 @@
             left: 0;
             width: 100%;
             /* Use dynamic viewport height (dvh) to adapt to the on-screen keyboard */
-            height: 100dvh; 
+            height: 100dvh;
             background-color: rgba(0, 0, 0, 0.9);
             color: #ff4136;
             z-index: 10000;
-            display: flex; /* Ensure flex properties are explicitly set */
+            display: flex;
+            /* Ensure flex properties are explicitly set */
             justify-content: center;
             align-items: center;
             text-align: center;
@@ -385,7 +386,8 @@
             /* Add padding and box-sizing for better text containment on small screens */
             padding: 20px;
             box-sizing: border-box;
-            overflow-y: auto; /* Allow scrolling if content is too large */
+            overflow-y: auto;
+            /* Allow scrolling if content is too large */
         }
 
         #system-override-overlay.warning {
@@ -405,6 +407,34 @@
             cursor: pointer;
             border-radius: 4px;
             font-size: 16px;
+        }
+
+        /* --- SVG Animation --- */
+        @keyframes draw-line {
+            to {
+                stroke-dashoffset: 0;
+            }
+        }
+
+        @keyframes fade-in {
+            from {
+                opacity: 0;
+            }
+
+            to {
+                opacity: 1;
+            }
+        }
+
+        .svg-draw-path {
+            stroke-dasharray: 1;
+            stroke-dashoffset: 1;
+            animation: draw-line 1s ease-out forwards;
+        }
+
+        .svg-fade-in {
+            opacity: 0;
+            animation: fade-in 0.5s ease-out forwards;
         }
     </style>
 </head>
@@ -470,496 +500,502 @@
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
     <script src="firebase-config.js"></script>
 
-<script>
-    function runApp(database) {
-        const SESSION_KEY = 'daggerheart_session_user';
-        const REMEMBER_ME_KEY = 'daggerheart_remember_me';
+    <script>
+        function runApp(database) {
+            const SESSION_KEY = 'daggerheart_session_user';
+            const REMEMBER_ME_KEY = 'daggerheart_remember_me';
 
-        // --- LOGIN ELEMENTS ---
-        const loginOverlay = document.getElementById('login-overlay');
-        const loginForm = document.getElementById('login-form');
-        const loginUsernameInput = document.getElementById('loginUsername');
-        const loginPasswordInput = document.getElementById('loginPassword');
-        const loginThemeSelect = document.getElementById('loginThemeSelect');
-        const rememberMeCheckbox = document.getElementById('rememberMeCheckbox');
-        const loginButton = document.getElementById('loginButton');
-        const loginError = document.getElementById('login-error');
-        const terminalContainer = document.getElementById('terminal-container');
+            // --- LOGIN ELEMENTS ---
+            const loginOverlay = document.getElementById('login-overlay');
+            const loginForm = document.getElementById('login-form');
+            const loginUsernameInput = document.getElementById('loginUsername');
+            const loginPasswordInput = document.getElementById('loginPassword');
+            const loginThemeSelect = document.getElementById('loginThemeSelect');
+            const rememberMeCheckbox = document.getElementById('rememberMeCheckbox');
+            const loginButton = document.getElementById('loginButton');
+            const loginError = document.getElementById('login-error');
+            const terminalContainer = document.getElementById('terminal-container');
 
-        // --- TERMINAL ELEMENTS ---
-        const terminal = document.getElementById('terminal');
-        const commandInput = document.getElementById('commandInput');
-        const overrideOverlay = document.getElementById('system-override-overlay');
-        const clearButton = document.getElementById('clear-button');
+            // --- TERMINAL ELEMENTS ---
+            const terminal = document.getElementById('terminal');
+            const commandInput = document.getElementById('commandInput');
+            const overrideOverlay = document.getElementById('system-override-overlay');
+            const clearButton = document.getElementById('clear-button');
 
-        // --- STATE & CONFIG ---
-        let isConnected = false, isScanning = false, isTyping = false, isInitialLoad = true;
-        let config = {};
-        let currentUser = null;
-        let userTheme = 'relic-theme';
-        let unlockedKeys = {}, fileSystem = {}, glitches = {}, accessPasswords = {}, customCommands = {}, playerResources = { name: "Resources", count: 0 };
-        let clearanceLevel = 1;
-        let decodingChart = {};
-        const defaultEncodingChart = { 'A': '<>', 'B': '<%', 'C': '<^', 'D': '<&', 'E': '<*', 'F': '<-', 'G': '<+', 'H': '<@', 'I': '><', 'J': '>%', 'K': '>^', 'L': '>&', 'M': '>*', 'N': '>-', 'O': '>+', 'P': '>@', 'Q': '%<', 'R': '%>', 'S': '%^', 'T': '%&', 'U': '%*', 'V': '%-', 'W': '%+', 'X': '%@', 'Y': '^<', 'Z': '^>', '0': '^%', '1': '^&', '2': '^*', '3': '^-', '4': '^+', '5': '^@', '6': '&<', '7': '&>', '8': '&%', '9': '&^' };
-        decodingChart = Object.fromEntries(Object.entries(defaultEncodingChart).map(a => a.reverse()));
-        const doubledSymbols = ['<<', '>>', '%%', '^^', '&&', '**', '--', '++', '@@'];
-        const allSymbols = [...doubledSymbols, '$', ':', '#', '<', '>', '%', '^', '&', '*', '-', '+', '@'];
-        
-        function startLogin() {
-            terminalContainer.style.display = 'none';
-            loginOverlay.style.display = 'flex';
+            // --- STATE & CONFIG ---
+            let isConnected = false, isScanning = false, isTyping = false, isInitialLoad = true;
+            let config = {};
+            let currentUser = null;
+            let userTheme = 'relic-theme';
+            let unlockedKeys = {}, fileSystem = {}, glitches = {}, accessPasswords = {}, customCommands = {}, playerResources = { name: "Resources", count: 0 };
+            let clearanceLevel = 1;
+            let decodingChart = {};
+            const defaultEncodingChart = { 'A': '<>', 'B': '<%', 'C': '<^', 'D': '<&', 'E': '<*', 'F': '<-', 'G': '<+', 'H': '<@', 'I': '><', 'J': '>%', 'K': '>^', 'L': '>&', 'M': '>*', 'N': '>-', 'O': '>+', 'P': '>@', 'Q': '%<', 'R': '%>', 'S': '%^', 'T': '%&', 'U': '%*', 'V': '%-', 'W': '%+', 'X': '%@', 'Y': '^<', 'Z': '^>', '0': '^%', '1': '^&', '2': '^*', '3': '^-', '4': '^+', '5': '^@', '6': '&<', '7': '&>', '8': '&%', '9': '&^' };
+            decodingChart = Object.fromEntries(Object.entries(defaultEncodingChart).map(a => a.reverse()));
+            const doubledSymbols = ['<<', '>>', '%%', '^^', '&&', '**', '--', '++', '@@'];
+            const allSymbols = [...doubledSymbols, '$', ':', '#', '<', '>', '%', '^', '&', '*', '-', '+', '@'];
 
-            const rememberedUser = localStorage.getItem(REMEMBER_ME_KEY);
-            if (rememberedUser) {
-                loginUsernameInput.value = rememberedUser;
-                rememberMeCheckbox.checked = true;
-                database.ref('users/' + rememberedUser).once('value', (snapshot) => {
-                    if(snapshot.exists() && snapshot.val().theme) {
-                        loginThemeSelect.value = snapshot.val().theme;
-                    }
-                });
-                loginPasswordInput.focus();
-            } else {
-                loginUsernameInput.focus();
-            }
-        }
+            function startLogin() {
+                terminalContainer.style.display = 'none';
+                loginOverlay.style.display = 'flex';
 
-        const handleLoginAttempt = (event) => {
-            if (event) event.preventDefault();
-            
-            const username = loginUsernameInput.value.trim().toLowerCase();
-            const password = loginPasswordInput.value.trim();
-            const theme = loginThemeSelect.value;
-            const rememberMe = rememberMeCheckbox.checked;
-
-            if (!username || !password) {
-                loginError.textContent = "CREDENTIALS CANNOT BE BLANK.";
-                loginError.style.display = 'block';
-                return;
-            }
-
-            database.ref('users/' + username).once('value', (snapshot) => {
-                if (snapshot.exists() && snapshot.val().password === password) {
-                    const storage = rememberMe ? localStorage : sessionStorage;
-                    storage.setItem(SESSION_KEY, username);
-                    
-                    database.ref('users/' + username).update({ theme: theme });
-
-                    if (rememberMe) {
-                        localStorage.setItem(REMEMBER_ME_KEY, username);
-                    } else {
-                        localStorage.removeItem(REMEMBER_ME_KEY);
-                    }
-                    
-                    currentUser = username;
-                    userTheme = theme;
-                    loginOverlay.style.display = 'none';
-                    terminalContainer.style.display = 'flex';
-                    initializeTerminal();
+                const rememberedUser = localStorage.getItem(REMEMBER_ME_KEY);
+                if (rememberedUser) {
+                    loginUsernameInput.value = rememberedUser;
+                    rememberMeCheckbox.checked = true;
+                    database.ref('users/' + rememberedUser).once('value', (snapshot) => {
+                        if (snapshot.exists() && snapshot.val().theme) {
+                            loginThemeSelect.value = snapshot.val().theme;
+                        }
+                    });
+                    loginPasswordInput.focus();
                 } else {
-                    loginError.textContent = "ACCESS DENIED. CHECK CREDENTIALS.";
+                    loginUsernameInput.focus();
+                }
+            }
+
+            const handleLoginAttempt = (event) => {
+                if (event) event.preventDefault();
+
+                const username = loginUsernameInput.value.trim().toLowerCase();
+                const password = loginPasswordInput.value.trim();
+                const theme = loginThemeSelect.value;
+                const rememberMe = rememberMeCheckbox.checked;
+
+                if (!username || !password) {
+                    loginError.textContent = "CREDENTIALS CANNOT BE BLANK.";
                     loginError.style.display = 'block';
-                    loginPasswordInput.value = '';
-                }
-            });
-        };
-
-        loginForm.onsubmit = handleLoginAttempt;
-        
-        function initializeTerminal() {
-            function applyTheme() {
-                if (config && config.theme) {
-                    document.body.className = config.theme;
-                } else {
-                    document.body.className = userTheme;
-                }
-            }
-            
-            function partiallyDecode(fullStream) { if (Object.keys(decodingChart).length === 0) return fullStream; const parts = fullStream.match(/(.*?)\$:(.*):#(.*)/); if (!parts) return fullStream; const leadingNoise = parts[1], encodedPart = parts[2], trailingNoise = parts[3]; let decodedContent = ''; for (let i = 0; i < encodedPart.length; i += 2) { const pair = encodedPart.substring(i, i + 2); const char = decodingChart[pair]; if (char && unlockedKeys[char]) { decodedContent += char; } else { decodedContent += pair; } } return `${leadingNoise}$:${decodedContent}:#${trailingNoise}`; }
-            function fullyDecode(fullStream) {
-                const parts = fullStream.match(/(.*?)\$:(.*):#(.*)/);
-                if (!parts) return fullStream;
-                const encodedPart = parts[2];
-                let decodedContent = '';
-                for (let i = 0; i < encodedPart.length; i += 2) {
-                    const pair = encodedPart.substring(i, i + 2);
-                    if (doubledSymbols.includes(pair)) {
-                        decodedContent += ' ';
-                    } else {
-                        const char = decodingChart[pair];
-                        decodedContent += char || '?';
-                    }
-                }
-                return decodedContent;
-            }
-            
-             function renderThemedSvg(svgString) {
-                const container = document.createElement('div');
-                container.className = 'line rendered-svg-container';
-
-                const closeButton = document.createElement('span');
-                closeButton.className = 'svg-close-button';
-                closeButton.textContent = '[x]';
-                closeButton.onclick = () => container.remove();
-                container.appendChild(closeButton);
-
-                const parser = new DOMParser();
-                const svgDoc = parser.parseFromString(svgString, "image/svg+xml");
-                const svgElement = svgDoc.documentElement;
-                
-                if (svgDoc.getElementsByTagName("parsererror").length > 0) {
-                    container.innerHTML += "Error: Invalid SVG data.";
-                    terminal.insertBefore(container, terminal.lastElementChild);
                     return;
                 }
 
-                const primaryColor = getComputedStyle(document.body).getPropertyValue('--theme-primary').trim();
-                
-                const viewBox = svgElement.getAttribute('viewBox');
-                if (viewBox) {
-                    const parts = viewBox.split(' ');
-                    if (parts.length === 4) {
-                        const w = parseFloat(parts[2]);
-                        const h = parseFloat(parts[3]);
-                        if (w > 0 && h > 0) {
-                            svgElement.style.aspectRatio = `${w} / ${h}`;
-                        }
-                    }
-                }
-                
-                svgElement.querySelectorAll('path, polyline, line').forEach(el => {
-                    el.setAttribute('stroke', primaryColor);
-                    el.setAttribute('fill', 'none');
-                });
+                database.ref('users/' + username).once('value', (snapshot) => {
+                    if (snapshot.exists() && snapshot.val().password === password) {
+                        const storage = rememberMe ? localStorage : sessionStorage;
+                        storage.setItem(SESSION_KEY, username);
 
-                svgElement.querySelectorAll('circle, rect, ellipse, polygon').forEach(el => {
-                    el.setAttribute('stroke', primaryColor);
-                    const originalFill = el.getAttribute('fill');
-                    if (!originalFill || originalFill.toLowerCase() === 'black' || originalFill === '#000000' || originalFill === '#000') {
-                        el.setAttribute('fill', primaryColor);
-                    }
-                });
+                        database.ref('users/' + username).update({ theme: theme });
 
-                container.appendChild(svgElement);
-                terminal.insertBefore(container, terminal.lastElementChild);
-                terminal.scrollTop = terminal.scrollHeight;
-            }
-
-            function typeLine(text, className = '', speed = 15, callback = () => { }) {
-                isTyping = true;
-                const line = document.createElement('div');
-                line.className = 'line';
-                if (className) {
-                    className.split(' ').forEach(cls => line.classList.add(cls));
-                }
-                terminal.insertBefore(line, terminal.lastElementChild);
-                let i = 0;
-                const interval = setInterval(() => {
-                    if (i < text.length) {
-                        line.innerHTML += text.charAt(i);
-                        i++;
-                        terminal.scrollTop = terminal.scrollHeight; 
-                    } else {
-                        clearInterval(interval);
-                        isTyping = false;
-                        terminal.scrollTop = terminal.scrollHeight; 
-                        callback();
-                    }
-                }, speed);
-            }
-
-            function printLine(text, className = '') {
-                const line = document.createElement('div');
-                line.innerHTML = text;
-                line.className = 'line';
-                if (className) {
-                    className.split(' ').forEach(cls => line.classList.add(cls));
-                }
-                terminal.insertBefore(line, terminal.lastElementChild);
-                terminal.scrollTop = terminal.scrollHeight;
-            }
-
-            function drawWelcomeMessage() { const welcomeLines = terminal.querySelectorAll('.welcome-line'); welcomeLines.forEach(line => line.remove()); typeLine(`Attempting to interface with the ${config.systemName || 'SYSTEM'}... OK`, 'system-msg welcome-line', 20, () => { typeLine(`${config.osName || 'M-OS'} -- Ready.`, 'system-msg welcome-line', 20, () => { typeLine(`Type 'help' for command list.`, 'welcome-line', 20, () => { printLine('&nbsp;', 'welcome-line'); }); }); }); }
-
-            function handleSpecialCommand(cmd, commandData) {
-                database.ref('player_resources').transaction((resources) => {
-                    if (resources && resources.count > 0) {
-                        if (commandData.special_action === 'bruteforce_decrypt') {
-                            typeLine(`// ${cmd.toUpperCase()} SEQUENCE INITIATED... //`, 'system-msg');
-                            isTyping = true;
-                            let dots = 0;
-                            const interval = setInterval(() => {
-                                printLine('.', 'system-msg');
-                                dots++;
-                                if (dots >= 5) {
-                                    clearInterval(interval);
-                                    database.ref('datastream_history').limitToLast(1).once('value', (snapshot) => {
-                                        if (snapshot.exists()) {
-                                            const lastMessageKey = Object.keys(snapshot.val())[0];
-                                            const lastMessage = snapshot.val()[lastMessageKey];
-                                            const fullyDecoded = fullyDecode(lastMessage);
-                                            typeLine(`// DECRYPTION COMPLETE //`, 'system-msg');
-                                            printLine(fullyDecoded, 'data-msg-body');
-                                        } else {
-                                            typeLine(`// DECRYPTION FAILED: NO MESSAGE IN BUFFER //`, 'error-msg');
-                                        }
-                                        isTyping = false;
-                                    });
-                                }
-                            }, 700);
-                        } else if (commandData.special_action === 'trace_signal') {
-                            typeLine(commandData.response, 'system-msg');
-                        }
-                        resources.count--;
-                        return resources;
-                    } else {
-                        typeLine(`// ACTION FAILED: INSUFFICIENT ${resources?.name.toUpperCase() || 'RESOURCES'} //`, 'error-msg');
-                        return;
-                    }
-                });
-            }
-
-            function handleCommand(fullCmd) {
-                if (glitches.glitched_command && fullCmd.startsWith(glitches.glitched_command)) { printLine(`> ${fullCmd}`, 'prompt-text'); typeLine(`//_COMMAND MALFUNCTION: [${glitches.glitched_command.toUpperCase()}] OFFLINE_//`, 'error-msg'); return; }
-                printLine(`> ${fullCmd}`, 'prompt-text');
-                const [cmd, ...args] = fullCmd.split(' ');
-                const argString = args.join(' ').trim();
-
-                if (customCommands[cmd]) {
-                    const command = customCommands[cmd];
-                    if (command.args && argString !== command.args) {
-                        typeLine(`ERROR: Invalid arguments for command '${cmd}'. Usage: ${cmd} ${command.args}`, 'error-msg');
-                        return;
-                    }
-                    if (command.special_action) {
-                        handleSpecialCommand(cmd, command);
-                        return;
-                    }
-                    if (command.consumesResource) {
-                        database.ref('player_resources').transaction((resources) => {
-                            if (resources && resources.count > 0) {
-                                typeLine(command.response, 'system-msg');
-                                resources.count--;
-                                return resources;
-                            } else {
-                                typeLine(`// ACTION FAILED: INSUFFICIENT ${resources?.name.toUpperCase() || 'RESOURCES'} //`, 'error-msg');
-                                return;
-                            }
-                        });
-                    } else {
-                        typeLine(command.response, 'system-msg');
-                    }
-                    return;
-                }
-
-                if (cmd === 'help') {
-                    typeLine(`${config.systemName} Command List:`, 'system-msg'); typeLine(`  help          - Displays this list`); typeLine(`  logout        - Ends session and returns to login`); typeLine(`  elevate <pass>  - Elevate security clearance`); typeLine(`  ls            - Lists files in the current directory`); typeLine(`  cat <file>    - Displays the content of a file`); typeLine(`  ${(config.scanCommand || 'scan').padEnd(13, ' ')} - Scan for ${(config.signalNoun || 'signal').toLowerCase()}s on the Network`); typeLine(`  ${(config.connectCommand || 'connect').padEnd(13, ' ')} - Connect to a detected ${(config.signalNoun || 'signal').toLowerCase()}`); typeLine(`  reply <msg>   - Sends a message back to source`); typeLine(`  ping          - Checks connection to the source`); typeLine(`  status        - Displays current system status`); typeLine(`  history       - Shows received ${(config.dataNoun || 'data').toLowerCase()} history`); typeLine(`  cls           - Clears the display`);
-                } else if (cmd === 'logout') {
-                    localStorage.removeItem(SESSION_KEY);
-                    sessionStorage.removeItem(SESSION_KEY);
-                    location.reload();
-                } else if (cmd === 'elevate') {
-                    const pass = argString.trim();
-                    if (!pass) { typeLine('ERROR: Missing password. Usage: elevate <password>', 'error-msg'); return; }
-                    if (pass === accessPasswords.level3 && clearanceLevel < 3) {
-                        clearanceLevel = 3;
-                        typeLine(`// ACCESS GRANTED. SECURITY CLEARANCE ELEVATED TO LEVEL 3 //`, 'system-msg');
-                    } else if (pass === accessPasswords.level2 && clearanceLevel < 2) {
-                        clearanceLevel = 2;
-                        typeLine(`// ACCESS GRANTED. SECURITY CLEARANCE ELEVATED TO LEVEL 2 //`, 'system-msg');
-                    } else {
-                        typeLine('Authentication failed: Invalid credentials.', 'error-msg');
-                    }
-                } else if (cmd === 'ls') {
-                    if (!isConnected) { typeLine('ERROR: Not connected to a system.', 'error-msg'); return; }
-                    const fileNames = Object.keys(fileSystem);
-                    if (fileNames.length > 0) {
-                        let output = '';
-                        fileNames.forEach(safeFileName => {
-                            let originalFileName = safeFileName.replace(/·/g, '.');
-                            const fileData = fileSystem[safeFileName];
-                            if (fileData.isSvg) {
-                                let baseName = originalFileName.split('.').slice(0, -1).join('.') || originalFileName;
-                                originalFileName = baseName + '.kohd';
-                            }
-                            if (fileData.level > clearanceLevel) {
-                                output += `<span class="file-locked">${originalFileName} [LEVEL ${fileData.level}]</span>   `;
-                            } else {
-                                output += `${originalFileName}   `;
-                            }
-                        });
-                        printLine(output, 'data-msg-body');
-                    } else {
-                        typeLine('Directory is empty.');
-                    }
-                } else if (cmd === 'cat') {
-                    if (!isConnected) { typeLine('ERROR: Not connected to a system.', 'error-msg'); return; }
-                    
-                    const safeArg = argString.replace(/\./g, '·');
-                    const fileData = fileSystem[safeArg];
-
-                    if (!argString) {
-                        typeLine('ERROR: Missing filename. Usage: cat <filename>', 'error-msg');
-                    } else if (!fileData) {
-                        typeLine(`ERROR: File not found: ${argString}`, 'error-msg');
-                    } else if (fileData.level > clearanceLevel) { 
-                        typeLine(`ERROR: INSUFFICIENT CLEARANCE. ACCESS LEVEL ${fileData.level} REQUIRED.`, 'error-msg');
-                    } else {
-                        typeLine(`--- BEGIN FILE: ${argString} ---`, 'data-msg-header');
-                        if (fileData.isSvg) {
-                            renderThemedSvg(fileData.content);
+                        if (rememberMe) {
+                            localStorage.setItem(REMEMBER_ME_KEY, username);
                         } else {
-                            printLine(fileData.content, 'data-msg-body');
+                            localStorage.removeItem(REMEMBER_ME_KEY);
                         }
-                        typeLine(`--- END FILE: ${argString} ---`, 'data-msg-header');
+
+                        currentUser = username;
+                        userTheme = theme;
+                        loginOverlay.style.display = 'none';
+                        terminalContainer.style.display = 'flex';
+                        initializeTerminal();
+                    } else {
+                        loginError.textContent = "ACCESS DENIED. CHECK CREDENTIALS.";
+                        loginError.style.display = 'block';
+                        loginPasswordInput.value = '';
                     }
-                } else if (cmd === (config.scanCommand || 'scan')) {
-                    typeLine(`Scanning the Network for ${(config.signalNoun || 'signal').toLowerCase()}s from ${config.systemName}...`, '', 30, () => { setTimeout(() => { typeLine(`...Faint ${(config.signalNoun || 'signal')} detected. Source confirmed: ${config.systemName}.`, 'system-msg'); }, 1500); }); isScanning = true;
-                } else if (cmd === (config.connectCommand || 'connect')) {
-                    if (isScanning) { typeLine(`Attempting to synchronize with ${config.systemName}...`, '', 30, () => { isConnected = true; database.ref('player_status').set({ isConnected: true }); typeLine(`Synchronization complete. Interface active. Awaiting ${config.dataNoun || 'Data'}...`, 'system-msg'); }); } else { typeLine(`ERROR: No ${(config.signalNoun || 'signal')} detected. Run ${(config.scanCommand || 'scan').toUpperCase()} first.`, 'error-msg'); }
-                } else if (cmd === 'cls') {
-                    const lines = terminal.querySelectorAll('.line:not(.welcome-line)'); lines.forEach(line => line.remove());
-                } else if (cmd === 'ping') {
-                    if (isConnected) { const latency = Math.floor(Math.random() * (150 - 40 + 1)) + 40; typeLine(`PONG! Received reply from ${config.systemName} in ${latency}ms.`, 'system-msg'); } else { typeLine('ERROR: Not connected. Cannot ping target.', 'error-msg'); }
-                } else if (cmd === 'status') {
-                    typeLine(`SYSTEM STATUS:`, 'system-msg'); typeLine(`  Connection:  ${isConnected ? `CONNECTED to ${config.systemName}` : 'OFFLINE'}`); typeLine(`  Clearance:   LEVEL ${clearanceLevel}`); typeLine(`  ${playerResources.name}:    ${playerResources.count}`);
-                } else if (cmd === 'reply') {
-                    if (isConnected) { if (argString) { database.ref('player_reply').set(argString); typeLine(`Message sent: "${argString}"`, 'system-msg'); } else { typeLine('ERROR: Cannot send an empty message. Usage: reply <message>', 'error-msg'); } } else { typeLine('ERROR: Must be connected to send a reply.', 'error-msg'); }
-                } else if (cmd === 'history') {
-                    typeLine(`Retrieving history...`, 'system-msg');
-                    database.ref('datastream_history').once('value', (snapshot) => {
-                        const history = snapshot.val();
-                        if (history) {
-                            typeLine(`Received ${(config.dataNoun || 'Data')} History:`, 'system-msg', 20, () => {
-                                const messages = Object.values(history);
-                                messages.forEach((msg, i) => {
-                                    const decoded = partiallyDecode(msg);
-                                    printLine(`${(i + 1).toString().padStart(2, ' ')}: ${decoded}`, 'data-msg-body');
-                                });
+                });
+            };
+
+            loginForm.onsubmit = handleLoginAttempt;
+
+            function initializeTerminal() {
+                function applyTheme() {
+                    if (config && config.theme) {
+                        document.body.className = config.theme;
+                    } else {
+                        document.body.className = userTheme;
+                    }
+                }
+
+                function partiallyDecode(fullStream) { if (Object.keys(decodingChart).length === 0) return fullStream; const parts = fullStream.match(/(.*?)\$:(.*):#(.*)/); if (!parts) return fullStream; const leadingNoise = parts[1], encodedPart = parts[2], trailingNoise = parts[3]; let decodedContent = ''; for (let i = 0; i < encodedPart.length; i += 2) { const pair = encodedPart.substring(i, i + 2); const char = decodingChart[pair]; if (char && unlockedKeys[char]) { decodedContent += char; } else { decodedContent += pair; } } return `${leadingNoise}$:${decodedContent}:#${trailingNoise}`; }
+                function fullyDecode(fullStream) {
+                    const parts = fullStream.match(/(.*?)\$:(.*):#(.*)/);
+                    if (!parts) return fullStream;
+                    const encodedPart = parts[2];
+                    let decodedContent = '';
+                    for (let i = 0; i < encodedPart.length; i += 2) {
+                        const pair = encodedPart.substring(i, i + 2);
+                        if (doubledSymbols.includes(pair)) {
+                            decodedContent += ' ';
+                        } else {
+                            const char = decodingChart[pair];
+                            decodedContent += char || '?';
+                        }
+                    }
+                    return decodedContent;
+                }
+
+                function renderThemedSvg(svgString) {
+                    const container = document.createElement('div');
+                    container.className = 'line rendered-svg-container';
+                    container.style.visibility = 'hidden';
+
+                    const closeButton = document.createElement('span');
+                    closeButton.className = 'svg-close-button';
+                    closeButton.textContent = '[x]';
+                    closeButton.onclick = () => container.remove();
+                    container.appendChild(closeButton);
+
+                    const parser = new DOMParser();
+                    const svgDoc = parser.parseFromString(svgString, "image/svg+xml");
+                    const svgElement = svgDoc.documentElement;
+
+                    if (svgDoc.getElementsByTagName("parsererror").length > 0) {
+                        container.innerHTML += "Error: Invalid SVG data.";
+                        terminal.insertBefore(container, terminal.lastElementChild);
+                        container.style.visibility = 'visible';
+                        return;
+                    }
+
+                    container.appendChild(svgElement);
+                    terminal.insertBefore(container, terminal.lastElementChild);
+                    terminal.scrollTop = terminal.scrollHeight;
+
+                    const primaryColor = getComputedStyle(document.body).getPropertyValue('--theme-primary').trim();
+
+                    svgElement.querySelectorAll('path, polyline, line, circle, rect, ellipse, polygon').forEach(el => {
+                        const tagName = el.tagName.toLowerCase();
+                        if (['path', 'polyline', 'line'].includes(tagName)) {
+                            const length = el.getTotalLength();
+                            el.setAttribute('stroke', primaryColor);
+                            el.setAttribute('fill', 'none');
+                            el.style.strokeDasharray = length;
+                            el.style.strokeDashoffset = length;
+                            el.classList.add('svg-draw-path');
+                            el.style.animationDuration = '1.5s';
+                        } else {
+                            const isHollow = el.getAttribute('fill') === 'none' || !el.getAttribute('fill');
+                            el.setAttribute('stroke', primaryColor);
+                            el.setAttribute('fill', isHollow ? 'none' : primaryColor);
+                            el.classList.add('svg-fade-in');
+                            el.style.animationDuration = '1s';
+                        }
+                    });
+                    container.style.visibility = 'visible';
+                }
+
+                function typeLine(text, className = '', speed = 15, callback = () => { }) {
+                    isTyping = true;
+                    const line = document.createElement('div');
+                    line.className = 'line';
+                    if (className) {
+                        className.split(' ').forEach(cls => line.classList.add(cls));
+                    }
+                    terminal.insertBefore(line, terminal.lastElementChild);
+                    let i = 0;
+                    const interval = setInterval(() => {
+                        if (i < text.length) {
+                            line.innerHTML += text.charAt(i);
+                            i++;
+                            terminal.scrollTop = terminal.scrollHeight;
+                        } else {
+                            clearInterval(interval);
+                            isTyping = false;
+                            terminal.scrollTop = terminal.scrollHeight;
+                            callback();
+                        }
+                    }, speed);
+                }
+
+                function printLine(text, className = '') {
+                    const line = document.createElement('div');
+                    line.innerHTML = text;
+                    line.className = 'line';
+                    if (className) {
+                        className.split(' ').forEach(cls => line.classList.add(cls));
+                    }
+                    terminal.insertBefore(line, terminal.lastElementChild);
+                    terminal.scrollTop = terminal.scrollHeight;
+                }
+
+                function drawWelcomeMessage() { const welcomeLines = terminal.querySelectorAll('.welcome-line'); welcomeLines.forEach(line => line.remove()); typeLine(`Attempting to interface with the ${config.systemName || 'SYSTEM'}... OK`, 'system-msg welcome-line', 20, () => { typeLine(`${config.osName || 'M-OS'} -- Ready.`, 'system-msg welcome-line', 20, () => { typeLine(`Type 'help' for command list.`, 'welcome-line', 20, () => { printLine('&nbsp;', 'welcome-line'); }); }); }); }
+
+                function handleSpecialCommand(cmd, commandData) {
+                    database.ref('player_resources').transaction((resources) => {
+                        if (resources && resources.count > 0) {
+                            if (commandData.special_action === 'bruteforce_decrypt') {
+                                typeLine(`// ${cmd.toUpperCase()} SEQUENCE INITIATED... //`, 'system-msg');
+                                isTyping = true;
+                                let dots = 0;
+                                const interval = setInterval(() => {
+                                    printLine('.', 'system-msg');
+                                    dots++;
+                                    if (dots >= 5) {
+                                        clearInterval(interval);
+                                        database.ref('datastream_history').limitToLast(1).once('value', (snapshot) => {
+                                            if (snapshot.exists()) {
+                                                const lastMessageKey = Object.keys(snapshot.val())[0];
+                                                const lastMessage = snapshot.val()[lastMessageKey];
+                                                const fullyDecoded = fullyDecode(lastMessage);
+                                                typeLine(`// DECRYPTION COMPLETE //`, 'system-msg');
+                                                printLine(fullyDecoded, 'data-msg-body');
+                                            } else {
+                                                typeLine(`// DECRYPTION FAILED: NO MESSAGE IN BUFFER //`, 'error-msg');
+                                            }
+                                            isTyping = false;
+                                        });
+                                    }
+                                }, 700);
+                            } else if (commandData.special_action === 'trace_signal') {
+                                typeLine(commandData.response, 'system-msg');
+                            }
+                            resources.count--;
+                            return resources;
+                        } else {
+                            typeLine(`// ACTION FAILED: INSUFFICIENT ${resources?.name.toUpperCase() || 'RESOURCES'} //`, 'error-msg');
+                            return;
+                        }
+                    });
+                }
+
+                function handleCommand(fullCmd) {
+                    if (glitches.glitched_command && fullCmd.startsWith(glitches.glitched_command)) { printLine(`> ${fullCmd}`, 'prompt-text'); typeLine(`//_COMMAND MALFUNCTION: [${glitches.glitched_command.toUpperCase()}] OFFLINE_//`, 'error-msg'); return; }
+                    printLine(`> ${fullCmd}`, 'prompt-text');
+                    const [cmd, ...args] = fullCmd.split(' ');
+                    const argString = args.join(' ').trim();
+
+                    if (customCommands[cmd]) {
+                        const command = customCommands[cmd];
+                        if (command.args && argString !== command.args) {
+                            typeLine(`ERROR: Invalid arguments for command '${cmd}'. Usage: ${cmd} ${command.args}`, 'error-msg');
+                            return;
+                        }
+                        if (command.special_action) {
+                            handleSpecialCommand(cmd, command);
+                            return;
+                        }
+                        if (command.consumesResource) {
+                            database.ref('player_resources').transaction((resources) => {
+                                if (resources && resources.count > 0) {
+                                    typeLine(command.response, 'system-msg');
+                                    resources.count--;
+                                    return resources;
+                                } else {
+                                    typeLine(`// ACTION FAILED: INSUFFICIENT ${resources?.name.toUpperCase() || 'RESOURCES'} //`, 'error-msg');
+                                    return;
+                                }
                             });
                         } else {
-                            typeLine(`No ${(config.dataNoun || 'data').toLowerCase()} history found.`);
+                            typeLine(command.response, 'system-msg');
                         }
-                    });
-                } else {
-                    typeLine('//_UNAUTHORIZED COMMAND. LOGGING ATTEMPT..._//', 'error-msg');
-                }
-            }
-
-            commandInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') { if (isTyping) return; const cmd = commandInput.value.trim().toLowerCase(); if (cmd) { handleCommand(cmd); } commandInput.value = ''; } });
-            clearButton.onclick = () => { handleCommand('cls'); };
-            terminal.addEventListener('click', (e) => { if (e.target !== commandInput) { commandInput.focus(); } });
-
-            database.ref('terminal_config').on('value', (snapshot) => {
-                const newConfig = snapshot.val();
-                if (newConfig) {
-                    config = newConfig;
-                } else {
-                    config = {};
-                }
-                applyTheme();
-                if (isInitialLoad) {
-                    drawWelcomeMessage();
-                    isInitialLoad = false;
-                }
-            });
-            
-            if(currentUser){
-                database.ref('users/' + currentUser + '/theme').on('value', (snapshot) => {
-                    if (snapshot.exists()) {
-                        userTheme = snapshot.val();
-                        applyTheme();
-                    }
-                });
-            }
-
-            database.ref('decryption_keys').on('value', (snapshot) => { unlockedKeys = snapshot.val() || {}; });
-            database.ref('history_cleared_timestamp').on('value', (snapshot) => { if (snapshot.exists() && isConnected) { typeLine('// REMOTE LOGS PURGED BY SOURCE //', 'system-msg'); } });
-            database.ref('file_system').on('value', (snapshot) => { fileSystem = snapshot.val() || {}; });
-            database.ref('access_control').on('value', (snapshot) => { accessPasswords = snapshot.val() || {}; });
-            database.ref('cipher_config').on('value', (snapshot) => { if (snapshot.exists()) { decodingChart = Object.fromEntries(Object.entries(snapshot.val()).map(a => a.reverse())); if (isConnected) typeLine('// Cipher matrix re-initialized by source //', 'system-msg'); } });
-            database.ref('custom_commands').on('value', (snapshot) => { customCommands = snapshot.val() || {}; });
-            database.ref('player_resources').on('value', (snapshot) => { playerResources = snapshot.val() || { name: "Resources", count: 0 }; });
-            database.ref('glitches').on('value', (snapshot) => { glitches = snapshot.val() || {}; const override = glitches.override_state; if (override) { overrideOverlay.textContent = override.message; overrideOverlay.className = override.type; overrideOverlay.style.display = 'flex'; } else { overrideOverlay.style.display = 'none'; } if (glitches.reset_access_timestamp && isConnected) { clearanceLevel = 1; typeLine('// SECURITY CREDENTIALS INVALIDATED. ACCESS LEVEL RESET BY SOURCE. //', 'error-msg'); database.ref('glitches/reset_access_timestamp').remove(); } });
-            
-            database.ref('kohd_datastream').on('value', (snapshot) => {
-                const data = snapshot.val();
-                if (isConnected && data) {
-                    if (data.startsWith('SVG::')) {
-                        const svgContent = data.substring(5);
-                        printLine(`\n>>> INCOMING VISUAL DATA FROM ${config.systemName} <<<`, 'data-msg-header');
-                        renderThemedSvg(svgContent);
-                        printLine(`>>> END OF VISUAL DATA <<<`, 'data-msg-header');
                         return;
                     }
 
-                    if (glitches.scramble_next) { 
-                        let scrambled = ''; 
-                        for (let i = 0; i < data.length; i++) { scrambled += allSymbols[Math.floor(Math.random() * allSymbols.length)]; } 
-                        printLine(`\n>>> INCOMING ${(config.dataNoun || 'Data').toUpperCase()} FROM ${config.systemName} <<<`, 'data-msg-header'); 
-                        printLine(scrambled, 'data-msg-body'); 
-                        printLine(`>>> ${(config.signalNoun || 'Signal').toUpperCase()} CORRUPTED <<<`, 'data-msg-header'); 
-                        database.ref('glitches/scramble_next').remove(); 
-                        return; 
-                    }
-                    
-                    // *** NEW: Stylized message display logic ***
-                    const partiallyDecodedMessage = partiallyDecode(data);
-                    printLine('&nbsp;'); // Add a space for visual separation
-                    
-                    // Type out the header, then the body, then the footer in sequence.
-                    typeLine(`>>> INCOMING ${(config.dataNoun || 'Data').toUpperCase()} FROM ${config.systemName} <<<`, 'data-msg-header', 20, () => {
-                        typeLine(partiallyDecodedMessage, 'data-msg-body', 15, () => {
-                            typeLine(`>>> END OF ${(config.dataNoun || 'Data').toUpperCase()} <<<`, 'data-msg-header');
+                    if (cmd === 'help') {
+                        typeLine(`${config.systemName} Command List:`, 'system-msg'); typeLine(`  help          - Displays this list`); typeLine(`  logout        - Ends session and returns to login`); typeLine(`  elevate <pass>  - Elevate security clearance`); typeLine(`  ls            - Lists files in the current directory`); typeLine(`  cat <file>    - Displays the content of a file`); typeLine(`  ${(config.scanCommand || 'scan').padEnd(13, ' ')} - Scan for ${(config.signalNoun || 'signal').toLowerCase()}s on the Network`); typeLine(`  ${(config.connectCommand || 'connect').padEnd(13, ' ')} - Connect to a detected ${(config.signalNoun || 'signal').toLowerCase()}`); typeLine(`  reply <msg>   - Sends a message back to source`); typeLine(`  ping          - Checks connection to the source`); typeLine(`  status        - Displays current system status`); typeLine(`  history       - Shows received ${(config.dataNoun || 'data').toLowerCase()} history`); typeLine(`  cls           - Clears the display`);
+                    } else if (cmd === 'logout') {
+                        localStorage.removeItem(SESSION_KEY);
+                        sessionStorage.removeItem(SESSION_KEY);
+                        location.reload();
+                    } else if (cmd === 'elevate') {
+                        const pass = argString.trim();
+                        if (!pass) { typeLine('ERROR: Missing password. Usage: elevate <password>', 'error-msg'); return; }
+                        if (pass === accessPasswords.level3 && clearanceLevel < 3) {
+                            clearanceLevel = 3;
+                            typeLine(`// ACCESS GRANTED. SECURITY CLEARANCE ELEVATED TO LEVEL 3 //`, 'system-msg');
+                        } else if (pass === accessPasswords.level2 && clearanceLevel < 2) {
+                            clearanceLevel = 2;
+                            typeLine(`// ACCESS GRANTED. SECURITY CLEARANCE ELEVATED TO LEVEL 2 //`, 'system-msg');
+                        } else {
+                            typeLine('Authentication failed: Invalid credentials.', 'error-msg');
+                        }
+                    } else if (cmd === 'ls') {
+                        if (!isConnected) { typeLine('ERROR: Not connected to a system.', 'error-msg'); return; }
+                        const fileNames = Object.keys(fileSystem);
+                        if (fileNames.length > 0) {
+                            let output = '';
+                            fileNames.forEach(safeFileName => {
+                                let originalFileName = safeFileName.replace(/·/g, '.');
+                                const fileData = fileSystem[safeFileName];
+                                if (fileData.isSvg) {
+                                    let baseName = originalFileName.split('.').slice(0, -1).join('.') || originalFileName;
+                                    originalFileName = baseName + '.kohd';
+                                }
+                                if (fileData.level > clearanceLevel) {
+                                    output += `<span class="file-locked">${originalFileName} [LEVEL ${fileData.level}]</span>   `;
+                                } else {
+                                    output += `${originalFileName}   `;
+                                }
+                            });
+                            printLine(output, 'data-msg-body');
+                        } else {
+                            typeLine('Directory is empty.');
+                        }
+                    } else if (cmd === 'cat') {
+                        if (!isConnected) { typeLine('ERROR: Not connected to a system.', 'error-msg'); return; }
+
+                        const safeArg = argString.replace(/\./g, '·');
+                        const fileData = fileSystem[safeArg];
+
+                        if (!argString) {
+                            typeLine('ERROR: Missing filename. Usage: cat <filename>', 'error-msg');
+                        } else if (!fileData) {
+                            typeLine(`ERROR: File not found: ${argString}`, 'error-msg');
+                        } else if (fileData.level > clearanceLevel) {
+                            typeLine(`ERROR: INSUFFICIENT CLEARANCE. ACCESS LEVEL ${fileData.level} REQUIRED.`, 'error-msg');
+                        } else {
+                            typeLine(`--- BEGIN FILE: ${argString} ---`, 'data-msg-header');
+                            if (fileData.isSvg) {
+                                renderThemedSvg(fileData.content);
+                            } else {
+                                printLine(fileData.content, 'data-msg-body');
+                            }
+                            typeLine(`--- END FILE: ${argString} ---`, 'data-msg-header');
+                        }
+                    } else if (cmd === (config.scanCommand || 'scan')) {
+                        typeLine(`Scanning the Network for ${(config.signalNoun || 'signal').toLowerCase()}s from ${config.systemName}...`, '', 30, () => { setTimeout(() => { typeLine(`...Faint ${(config.signalNoun || 'signal')} detected. Source confirmed: ${config.systemName}.`, 'system-msg'); }, 1500); }); isScanning = true;
+                    } else if (cmd === (config.connectCommand || 'connect')) {
+                        if (isScanning) { typeLine(`Attempting to synchronize with ${config.systemName}...`, '', 30, () => { isConnected = true; database.ref('player_status').set({ isConnected: true }); typeLine(`Synchronization complete. Interface active. Awaiting ${config.dataNoun || 'Data'}...`, 'system-msg'); }); } else { typeLine(`ERROR: No ${(config.signalNoun || 'signal')} detected. Run ${(config.scanCommand || 'scan').toUpperCase()} first.`, 'error-msg'); }
+                    } else if (cmd === 'cls') {
+                        const lines = terminal.querySelectorAll('.line:not(.welcome-line)'); lines.forEach(line => line.remove());
+                    } else if (cmd === 'ping') {
+                        if (isConnected) { const latency = Math.floor(Math.random() * (150 - 40 + 1)) + 40; typeLine(`PONG! Received reply from ${config.systemName} in ${latency}ms.`, 'system-msg'); } else { typeLine('ERROR: Not connected. Cannot ping target.', 'error-msg'); }
+                    } else if (cmd === 'status') {
+                        typeLine(`SYSTEM STATUS:`, 'system-msg'); typeLine(`  Connection:  ${isConnected ? `CONNECTED to ${config.systemName}` : 'OFFLINE'}`); typeLine(`  Clearance:   LEVEL ${clearanceLevel}`); typeLine(`  ${playerResources.name}:    ${playerResources.count}`);
+                    } else if (cmd === 'reply') {
+                        if (isConnected) { if (argString) { database.ref('player_reply').set(argString); typeLine(`Message sent: "${argString}"`, 'system-msg'); } else { typeLine('ERROR: Cannot send an empty message. Usage: reply <message>', 'error-msg'); } } else { typeLine('ERROR: Must be connected to send a reply.', 'error-msg'); }
+                    } else if (cmd === 'history') {
+                        typeLine(`Retrieving history...`, 'system-msg');
+                        database.ref('datastream_history').once('value', (snapshot) => {
+                            const history = snapshot.val();
+                            if (history) {
+                                typeLine(`Received ${(config.dataNoun || 'Data')} History:`, 'system-msg', 20, () => {
+                                    const messages = Object.values(history);
+                                    messages.forEach((msg, i) => {
+                                        const messageStr = String(msg);
+                                        if (messageStr.startsWith('SVG::')) {
+                                            const svgContent = messageStr.substring(5);
+                                            printLine(`${(i + 1).toString().padStart(2, ' ')}: [VISUAL DATA]`, 'data-msg-body');
+                                            renderThemedSvg(svgContent);
+                                        } else {
+                                            const decoded = partiallyDecode(messageStr);
+                                            printLine(`${(i + 1).toString().padStart(2, ' ')}: ${decoded}`, 'data-msg-body');
+                                        }
+                                    });
+                                });
+                            } else {
+                                typeLine(`No ${(config.dataNoun || 'data').toLowerCase()} history found.`);
+                            }
                         });
+                    } else {
+                        typeLine('//_UNAUTHORIZED COMMAND. LOGGING ATTEMPT..._//', 'error-msg');
+                    }
+                }
+
+                commandInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') { if (isTyping) return; const cmd = commandInput.value.trim().toLowerCase(); if (cmd) { handleCommand(cmd); } commandInput.value = ''; } });
+                clearButton.onclick = () => { handleCommand('cls'); };
+                terminal.addEventListener('click', (e) => { if (e.target !== commandInput) { commandInput.focus(); } });
+
+                database.ref('terminal_config').on('value', (snapshot) => {
+                    const newConfig = snapshot.val();
+                    if (newConfig) {
+                        config = newConfig;
+                    } else {
+                        config = {};
+                    }
+                    applyTheme();
+                    if (isInitialLoad) {
+                        drawWelcomeMessage();
+                        isInitialLoad = false;
+                    }
+                });
+
+                if (currentUser) {
+                    database.ref('users/' + currentUser + '/theme').on('value', (snapshot) => {
+                        if (snapshot.exists()) {
+                            userTheme = snapshot.val();
+                            applyTheme();
+                        }
                     });
                 }
-            });
-            window.addEventListener('beforeunload', () => { if (isConnected) { database.ref('player_status').set({ isConnected: false }); } });
-        }
 
-        // --- INITIAL PAGE LOAD ---
-        const savedUser = localStorage.getItem(SESSION_KEY) || sessionStorage.getItem(SESSION_KEY);
-        if (savedUser) {
-            currentUser = savedUser;
-            terminalContainer.style.display = 'flex';
-            initializeTerminal();
-        } else {
-            startLogin();
-        }
-    }
+                database.ref('decryption_keys').on('value', (snapshot) => { unlockedKeys = snapshot.val() || {}; });
+                database.ref('history_cleared_timestamp').on('value', (snapshot) => { if (snapshot.exists() && isConnected) { typeLine('// REMOTE LOGS PURGED BY SOURCE //', 'system-msg'); } });
+                database.ref('file_system').on('value', (snapshot) => { fileSystem = snapshot.val() || {}; });
+                database.ref('access_control').on('value', (snapshot) => { accessPasswords = snapshot.val() || {}; });
+                database.ref('cipher_config').on('value', (snapshot) => { if (snapshot.exists()) { decodingChart = Object.fromEntries(Object.entries(snapshot.val()).map(a => a.reverse())); if (isConnected) typeLine('// Cipher matrix re-initialized by source //', 'system-msg'); } });
+                database.ref('custom_commands').on('value', (snapshot) => { customCommands = snapshot.val() || {}; });
+                database.ref('player_resources').on('value', (snapshot) => { playerResources = snapshot.val() || { name: "Resources", count: 0 }; });
+                database.ref('glitches').on('value', (snapshot) => { glitches = snapshot.val() || {}; const override = glitches.override_state; if (override) { overrideOverlay.textContent = override.message; overrideOverlay.className = override.type; overrideOverlay.style.display = 'flex'; } else { overrideOverlay.style.display = 'none'; } if (glitches.reset_access_timestamp && isConnected) { clearanceLevel = 1; typeLine('// SECURITY CREDENTIALS INVALIDATED. ACCESS LEVEL RESET BY SOURCE. //', 'error-msg'); database.ref('glitches/reset_access_timestamp').remove(); } });
 
-    async function initializeApp() {
-        let config;
-        const isLocal = window.location.protocol === 'file:' || window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+                // *** THE FIX IS HERE ***
+                database.ref('kohd_datastream').on('value', (snapshot) => {
+                    // Safely convert the incoming data to a string to prevent errors.
+                    const data = String(snapshot.val() || '');
 
-        if (isLocal) { 
-            if (typeof firebaseConfig !== 'undefined') {
-                config = firebaseConfig;
+                    if (isConnected && data) {
+                        // This check will now work reliably.
+                        if (data.startsWith('SVG::')) {
+                            const svgContent = data.substring(5);
+                            printLine(`\n>>> INCOMING VISUAL DATA FROM ${config.systemName} <<<`, 'data-msg-header');
+                            renderThemedSvg(svgContent);
+                            printLine(`>>> END OF VISUAL DATA <<<`, 'data-msg-header');
+                            return;
+                        }
+
+                        if (glitches.scramble_next) {
+                            let scrambled = '';
+                            for (let i = 0; i < data.length; i++) { scrambled += allSymbols[Math.floor(Math.random() * allSymbols.length)]; }
+                            printLine(`\n>>> INCOMING ${(config.dataNoun || 'Data').toUpperCase()} FROM ${config.systemName} <<<`, 'data-msg-header');
+                            printLine(scrambled, 'data-msg-body');
+                            printLine(`>>> ${(config.signalNoun || 'Signal').toUpperCase()} CORRUPTED <<<`, 'data-msg-header');
+                            database.ref('glitches/scramble_next').remove();
+                            return;
+                        }
+
+                        const partiallyDecodedMessage = partiallyDecode(data);
+                        printLine('&nbsp;');
+
+                        typeLine(`>>> INCOMING ${(config.dataNoun || 'Data').toUpperCase()} FROM ${config.systemName} <<<`, 'data-msg-header', 20, () => {
+                            typeLine(partiallyDecodedMessage, 'data-msg-body', 15, () => {
+                                typeLine(`>>> END OF ${(config.dataNoun || 'Data').toUpperCase()} <<<`, 'data-msg-header');
+                            });
+                        });
+                    }
+                });
+                window.addEventListener('beforeunload', () => { if (isConnected) { database.ref('player_status').set({ isConnected: false }); } });
+            }
+
+            // --- INITIAL PAGE LOAD ---
+            const savedUser = localStorage.getItem(SESSION_KEY) || sessionStorage.getItem(SESSION_KEY);
+            if (savedUser) {
+                currentUser = savedUser;
+                terminalContainer.style.display = 'flex';
+                initializeTerminal();
             } else {
-                 document.body.innerHTML = '<h1>FATAL ERROR: firebase-config.js not found. This file is required for local development and must be created manually.</h1>';
-                 return;
-            }
-        } else { 
-            try {
-                const response = await fetch('/config');
-                if (!response.ok) {
-                    throw new Error(`Network response was not ok (${response.status})`);
-                }
-                config = await response.json();
-            } catch (error) {
-                console.error("FATAL: Could not fetch configuration from the /config endpoint.", error);
-                document.body.innerHTML = '<h1>FATAL ERROR: Could not load server configuration. Ensure the /config function is deployed and working correctly.</h1>';
-                return;
+                startLogin();
             }
         }
-        firebase.initializeApp(config);
-        const database = firebase.database();
-        runApp(database);
-    }
 
-    initializeApp();
-</script>
+        async function initializeApp() {
+            let config;
+            const isLocal = window.location.protocol === 'file:' || window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+
+            if (isLocal) {
+                if (typeof firebaseConfig !== 'undefined') {
+                    config = firebaseConfig;
+                } else {
+                    document.body.innerHTML = '<h1>FATAL ERROR: firebase-config.js not found. This file is required for local development and must be created manually.</h1>';
+                    return;
+                }
+            } else {
+                try {
+                    const response = await fetch('/config');
+                    if (!response.ok) {
+                        throw new Error(`Network response was not ok (${response.status})`);
+                    }
+                    config = await response.json();
+                } catch (error) {
+                    console.error("FATAL: Could not fetch configuration from the /config endpoint.", error);
+                    document.body.innerHTML = '<h1>FATAL ERROR: Could not load server configuration. Ensure the /config function is deployed and working correctly.</h1>';
+                    return;
+                }
+            }
+            firebase.initializeApp(config);
+            const database = firebase.database();
+            runApp(database);
+        }
+
+        initializeApp();
+    </script>
 </body>
 
 </html>
