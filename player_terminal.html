@@ -371,15 +371,21 @@
             top: 0;
             left: 0;
             width: 100%;
-            height: 100%;
+            /* Use dynamic viewport height (dvh) to adapt to the on-screen keyboard */
+            height: 100dvh; 
             background-color: rgba(0, 0, 0, 0.9);
             color: #ff4136;
             z-index: 10000;
+            display: flex; /* Ensure flex properties are explicitly set */
             justify-content: center;
             align-items: center;
             text-align: center;
             font-size: 2.5em;
             text-transform: uppercase;
+            /* Add padding and box-sizing for better text containment on small screens */
+            padding: 20px;
+            box-sizing: border-box;
+            overflow-y: auto; /* Allow scrolling if content is too large */
         }
 
         #system-override-overlay.warning {
