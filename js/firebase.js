@@ -11,7 +11,8 @@ import {
     updatePlayerResources,
     displayUsers,
     handleSystemOverride,
-    handleAccessReset
+    handleAccessReset,
+    displayHistory 
 } from './ui.js';
 
 /**
@@ -21,6 +22,8 @@ function initializeFirebaseListeners() {
     appState.dbRefs = {
         config: appState.database.ref('terminal_config'),
         datastream: appState.database.ref('kohd_datastream'),
+        datastreamHistory: appState.database.ref('datastream_history'),
+        datastreamHistory: appState.database.ref('datastream_history'),
         playerReply: appState.database.ref('player_reply'),
         keys: appState.database.ref('decryption_keys'),
         historyClear: appState.database.ref('history_cleared_timestamp'),
@@ -37,6 +40,10 @@ function initializeFirebaseListeners() {
     // --- Set up listeners ---
     appState.dbRefs.playerStatus.on('value', updatePlayerStatus);
     appState.dbRefs.playerReply.on('value', displayPlayerMessage);
+
+    appState.dbRefs.datastreamHistory.on('value', (snapshot) => { // <-- ADD THIS BLOCK
+        displayHistory(snapshot.val());
+    });
 
     appState.dbRefs.cipher.on('value', (snapshot) => {
         if (snapshot.exists()) {
@@ -91,6 +98,7 @@ function initializeFirebaseListeners() {
  */
 function transmitDatastream(datastream) {
     appState.dbRefs.datastream.set(datastream);
+    appState.dbRefs.datastreamHistory.push(datastream);
 }
 
 /**

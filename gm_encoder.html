@@ -25,9 +25,9 @@
             padding: 10px;
             margin: 0;
         }
-        
+
         #system-override-overlay {
-            display: none; 
+            display: none;
             position: fixed;
             top: 0;
             left: 0;
@@ -42,7 +42,7 @@
             font-size: 2.5em;
             text-transform: uppercase;
         }
-        
+
         #system-override-overlay.warning {
             color: #E8772E;
         }
@@ -57,8 +57,9 @@
             width: 100%;
             height: 100%;
             overflow: auto;
-            background-color: rgba(0,0,0,0.7);
+            background-color: rgba(0, 0, 0, 0.7);
         }
+
         .modal-content {
             background-color: var(--background-color);
             margin: 10% auto;
@@ -68,9 +69,11 @@
             max-width: 700px;
             border-radius: 4px;
         }
+
         .modal-content h2 {
             margin-top: 0;
         }
+
         .modal-content textarea {
             height: 250px;
             font-size: 0.9em;
@@ -124,14 +127,14 @@
             font-size: 1em;
             border-radius: 4px;
         }
-        
+
         input[type="file"] {
-             background: transparent;
-             border: none;
-             padding: 10px 0;
-             color: var(--text-color);
+            background: transparent;
+            border: none;
+            padding: 10px 0;
+            color: var(--text-color);
         }
-        
+
         input::file-selector-button {
             background-color: var(--secondary-color);
             color: var(--dark-element-bg);
@@ -144,7 +147,7 @@
             border-radius: 4px;
             transition: filter 0.2s;
         }
-        
+
         input::file-selector-button:hover {
             filter: brightness(1.2);
         }
@@ -353,11 +356,11 @@
             padding: 15px;
             margin-bottom: 10px;
         }
-        
+
         .key-switch {
             display: flex;
             align-items: center;
-            justify-content: flex-start; 
+            justify-content: flex-start;
             gap: 8px;
         }
 
@@ -456,7 +459,7 @@
             <textarea id="messageInput">COORDINATES RECEIVED. STAND BY.</textarea>
             <label for="noiseSlider">Signal Corruption: <span id="noiseValue">50</span></label>
             <input type="range" id="noiseSlider" min="0" max="200" value="50">
-             <div class="flex-wrap">
+            <div class="flex-wrap">
                 <button id="encodeButton">Transmit Datastream</button>
                 <button id="transmitDecodedButton" class="secondary">Transmit Decoded</button>
             </div>
@@ -537,7 +540,7 @@
 
             <h2>File System Management</h2>
             <fieldset>
-                 <legend>Text File</legend>
+                <legend>Text File</legend>
                 <label for="newFileName">Filename (e.g., log.txt)</label>
                 <input type="text" id="newFileName" placeholder="Enter filename...">
                 <label for="fileAccessLevel">Required Access Level</label>
@@ -550,8 +553,8 @@
                 <textarea id="newFileContent" rows="4" placeholder="Enter file content..."></textarea>
                 <button id="createFileButton">Create File</button>
             </fieldset>
-            
-             <fieldset>
+
+            <fieldset>
                 <legend>SVG Graphic</legend>
                 <label for="svgFileInput">Upload SVG File</label>
                 <input type="file" id="svgFileInput" accept=".svg">
@@ -622,7 +625,7 @@
 
             <h2>Transmission History</h2>
             <div id="historyContainer"></div>
-            <button id="clearHistoryButton" class="secondary">Clear History</button>
+            <button id="clearHistoryButton" class="secondary">Clear All History</button>
         </div>
 
         <div id="admin" class="tab-content">
@@ -641,7 +644,7 @@
             </ul>
         </div>
     </div>
-    
+
     <div id="fileEditModal" class="modal">
         <div class="modal-content">
             <h2 id="editModalTitle">Edit File</h2>

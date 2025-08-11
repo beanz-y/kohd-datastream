@@ -119,37 +119,54 @@ function cacheDOMElements() {
     };
 }
 
-/**
- * Saves a message to the GM's local history and updates the display.
- * @param {string} message - The message to save.
- */
-function saveToHistory(message) {
-    let history = JSON.parse(localStorage.getItem(appState.GM_HISTORY_KEY)) || [];
-    if (!history.includes(message)) {
-        history.unshift(message);
-    }
-    if (history.length > 20) history.pop();
-    localStorage.setItem(appState.GM_HISTORY_KEY, JSON.stringify(history));
-    displayHistory();
-}
 
 /**
  * Renders the GM's message history in the UI.
  */
-function displayHistory() {
-    let history = JSON.parse(localStorage.getItem(appState.GM_HISTORY_KEY)) || [];
+function displayHistory(history) { // <-- Function now accepts the history object
     uiElements.historyContainer.innerHTML = '';
-    if (history.length === 0) {
+    if (!history) {
         uiElements.historyContainer.innerHTML = 'No history yet.';
-    } else {
-        history.forEach(message => {
-            const item = document.createElement('div');
-            item.className = 'historyItem';
-            item.textContent = message;
-            item.onclick = () => { uiElements.messageInput.value = message; };
-            uiElements.historyContainer.appendChild(item);
-        });
+        return;
     }
+
+    // Create a list to hold the history items
+    const historyList = document.createElement('ul');
+    historyList.style.paddingLeft = '0';
+    historyList.style.listStyle = 'none';
+
+    Object.entries(history).forEach(([key, message]) => {
+        const item = document.createElement('li');
+        item.style.display = 'flex';
+        item.style.justifyContent = 'space-between';
+        item.style.alignItems = 'center';
+        item.style.marginBottom = '5px';
+        item.style.padding = '5px';
+        item.style.border = '1px solid var(--border-color)';
+        item.style.borderRadius = '3px';
+
+        const messageText = document.createElement('span');
+        messageText.textContent = message.length > 50 ? message.substring(0, 50) + '...' : message;
+        messageText.style.cursor = 'pointer';
+        messageText.onclick = () => { uiElements.messageInput.value = message; };
+
+        const deleteButton = document.createElement('button');
+        deleteButton.textContent = 'Delete';
+        deleteButton.className = 'critical';
+        deleteButton.style.padding = '2px 8px';
+        deleteButton.style.fontSize = '0.8em';
+        deleteButton.onclick = () => {
+            if (confirm('Are you sure you want to delete this message?')) {
+                appState.dbRefs.datastreamHistory.child(key).remove();
+            }
+        };
+
+        item.appendChild(messageText);
+        item.appendChild(deleteButton);
+        historyList.appendChild(item);
+    });
+
+    uiElements.historyContainer.appendChild(historyList);
 }
 
 /**
@@ -160,7 +177,6 @@ function initializeEventListeners() {
     uiElements.encodeButton.onclick = () => {
         const message = uiElements.messageInput.value;
         if (!message) return;
-        saveToHistory(message);
         const noiseLength = parseInt(uiElements.noiseSlider.value, 10);
         const encodedPart = encodeMessage(message);
         const leadingNoise = generateNoise(Math.floor(noiseLength / 2));
@@ -173,7 +189,6 @@ function initializeEventListeners() {
     uiElements.transmitDecodedButton.onclick = () => {
         const message = uiElements.messageInput.value;
         if (!message) return;
-        saveToHistory(message);
         const noiseLength = parseInt(uiElements.noiseSlider.value, 10);
         const leadingNoise = generateNoise(Math.floor(noiseLength / 2));
         const trailingNoise = generateNoise(Math.ceil(noiseLength / 2));
@@ -207,7 +222,7 @@ function initializeEventListeners() {
         updateTerminalConfig(config);
         alert('Terminal configuration updated!');
     };
-    
+
     uiElements.savePresetButton.onclick = () => {
         const name = uiElements.presetNameInput.value.trim();
         if (!name) {
@@ -237,15 +252,15 @@ function initializeEventListeners() {
             alert('Player access has been reset.');
         }
     };
-    
+
     uiElements.clearHistoryButton.onclick = () => {
-        if (confirm('Are you sure you want to clear the transmission history for yourself and all players?')) {
-            localStorage.removeItem(appState.GM_HISTORY_KEY);
-            displayHistory();
+        if (confirm('Are you sure you want to clear the ENTIRE transmission history for yourself and all players?')) {
+            // This now correctly targets the database path for history
+            appState.dbRefs.datastreamHistory.remove(); // <-- UPDATED LINE
             appState.dbRefs.historyClear.set(firebase.database.ServerValue.TIMESTAMP);
         }
     };
-    
+
     uiElements.savePasswordsButton.onclick = () => {
         const pass2 = uiElements.level2PasswordInput.value.trim();
         const pass3 = uiElements.level3PasswordInput.value.trim();
@@ -255,7 +270,7 @@ function initializeEventListeners() {
         appState.dbRefs.access.set(updates);
         alert('Access passwords saved.');
     };
-    
+
     uiElements.resetCipherButton.onclick = () => {
         if (!confirm('This will reset the cipher to its default state. Continue?')) return;
         appState.dbRefs.cipher.set(appState.defaultEncodingChart);
@@ -332,7 +347,7 @@ function initializeEventListeners() {
         const commandToGlitch = uiElements.glitchCommandSelect.value;
         appState.dbRefs.glitches.child('glitched_command').set(commandToGlitch);
         alert(`Command '${commandToGlitch}' will now appear offline for the player for 30 seconds.`);
-        
+
         // Set a timer to remove the glitch after 30 seconds
         setTimeout(() => {
             appState.dbRefs.glitches.child('glitched_command').remove();
@@ -359,7 +374,7 @@ function initializeEventListeners() {
             message: 'SYSTEM LOCKOUT IN EFFECT'
         });
     };
-    
+
     uiElements.triggerWarningButton.onclick = () => {
         const message = uiElements.customWarningInput.value.trim() || 'SECURITY ALERT: UNUSUAL ACTIVITY DETECTED';
         appState.dbRefs.glitches.child('override_state').set({
@@ -367,7 +382,7 @@ function initializeEventListeners() {
             message: message
         });
     };
-    
+
     uiElements.clearOverrideButton.onclick = () => {
         appState.dbRefs.glitches.child('override_state').remove();
     };
@@ -408,7 +423,7 @@ function initializeEventListeners() {
             if (!newFileName) {
                 newFileName = originalFileName;
             }
-            
+
             if (newFileName.toLowerCase().includes('.')) {
                 newFileName = newFileName.substring(0, newFileName.lastIndexOf('.')) + '.kohd';
             } else {
@@ -420,11 +435,11 @@ function initializeEventListeners() {
             appState.dbRefs.fileSystem.child(safeFileName).set({
                 content: svgContent,
                 level: accessLevel,
-                isSvg: true 
+                isSvg: true
             });
             alert(`SVG file "${newFileName}" created successfully.`);
-            uiElements.svgFileInput.value = ''; 
-            uiElements.svgFileNameInput.value = ''; 
+            uiElements.svgFileInput.value = '';
+            uiElements.svgFileNameInput.value = '';
         });
     };
 
@@ -471,14 +486,14 @@ function initializeEventListeners() {
         const newSafeName = newFileName.replace(/\./g, '·');
         const newContent = uiElements.editModalTextarea.value;
         const newLevel = parseInt(uiElements.editModalAccessLevel.value, 10);
-        
+
         appState.dbRefs.fileSystem.child(originalSafeName).once('value', (snapshot) => {
             const originalData = snapshot.val();
             if (!originalData) {
                 alert('Error: Original file not found!');
                 return;
             }
-            
+
             const updatedFile = {
                 ...originalData,
                 content: newContent,
@@ -497,8 +512,6 @@ function initializeEventListeners() {
         });
     };
 
-
-    displayHistory();
     displayPresets();
 }
 
@@ -570,11 +583,11 @@ function displayFiles(files) {
             const originalFileName = safeFileName.replace(/·/g, '.');
             const fileData = files[safeFileName];
             const li = document.createElement('li');
-            
+
             const textSpan = document.createElement('span');
             textSpan.style.flexGrow = '1';
             let displayText = originalFileName;
-            
+
             if (fileData.isSvg) {
                 let baseName = originalFileName.split('.').slice(0, -1).join('.') || originalFileName;
                 displayText = baseName + '.kohd';
@@ -610,7 +623,7 @@ function displayFiles(files) {
                 }
             };
             buttonContainer.appendChild(deleteButton);
-            
+
             li.appendChild(buttonContainer);
             uiElements.fileList.appendChild(li);
         });
@@ -689,6 +702,7 @@ function handleAccessReset(timestamp) {
 export {
     cacheDOMElements,
     initializeEventListeners,
+    displayHistory,
     displayPlayerMessage,
     updatePlayerStatus,
     displayCipherKey,
