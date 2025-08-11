@@ -112,6 +112,9 @@ function cacheDOMElements() {
         newPasswordInput: document.getElementById('newPassword'),
         createUserButton: document.getElementById('createUserButton'),
         userList: document.getElementById('userList'),
+        resetUserSelect: document.getElementById('resetUserSelect'),
+        resetNewPasswordInput: document.getElementById('resetNewPassword'),
+        resetPasswordButton: document.getElementById('resetPasswordButton'),
         // Global
         playerStatus: document.getElementById('playerStatus'),
         tabs: document.querySelectorAll('.tab-link'),
@@ -467,6 +470,32 @@ function initializeEventListeners() {
         uiElements.newPasswordInput.value = '';
     };
 
+    uiElements.resetPasswordButton.onclick = () => {
+        const username = uiElements.resetUserSelect.value;
+        const newPassword = uiElements.resetNewPasswordInput.value.trim();
+
+        if (!username || username === 'Select a user...') {
+            alert('Please select a user.');
+            return;
+        }
+        if (!newPassword) {
+            alert('Please enter a new password.');
+            return;
+        }
+
+        // Update the password in Firebase
+        appState.dbRefs.users.child(username).child('password').set(newPassword)
+            .then(() => {
+                alert(`Password for "${username}" has been successfully updated.`);
+                uiElements.resetNewPasswordInput.value = '';
+                uiElements.resetUserSelect.selectedIndex = 0;
+            })
+            .catch((error) => {
+                alert('An error occurred while resetting the password.');
+                console.error('Password reset error:', error);
+            });
+    };
+
     // File Edit Modal Listeners
     uiElements.editModalCancel.onclick = () => {
         uiElements.fileEditModal.style.display = 'none';
@@ -659,8 +688,18 @@ function updatePlayerResources(resources) {
 
 function displayUsers(users) {
     uiElements.userList.innerHTML = '';
+    uiElements.resetUserSelect.innerHTML = ''; // Clear the dropdown first
+
     if (users) {
+        // Add a default, disabled option to the dropdown
+        const defaultOption = document.createElement('option');
+        defaultOption.textContent = 'Select a user...';
+        defaultOption.disabled = true;
+        defaultOption.selected = true;
+        uiElements.resetUserSelect.appendChild(defaultOption);
+
         Object.keys(users).forEach(username => {
+            // This part populates the existing user list
             const li = document.createElement('li');
             li.textContent = username;
             const deleteButton = document.createElement('button');
@@ -673,6 +712,12 @@ function displayUsers(users) {
             };
             li.appendChild(deleteButton);
             uiElements.userList.appendChild(li);
+
+            // This new part populates the password reset dropdown
+            const option = document.createElement('option');
+            option.value = username;
+            option.textContent = username;
+            uiElements.resetUserSelect.appendChild(option);
         });
     }
 }
