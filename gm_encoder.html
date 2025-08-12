@@ -436,7 +436,6 @@
     <div class="container">
         <h1>
             <span>Motherboard Encoder</span>
-            <span id="playerStatus" class="offline">OFFLINE</span>
         </h1>
 
         <div class="tab-bar">
@@ -447,23 +446,50 @@
         </div>
 
         <div id="transmit" class="tab-content active">
-            <h2>Incoming Terminal Reply</h2>
-            <div id="playerMessageDisplay" class="live-display">Awaiting reply from player terminal...</div>
+            <div class="grid">
+                <fieldset>
+                    <legend>Connected Players</legend>
+                    <ul id="connectedPlayersList" style="list-style: none; padding: 0; margin: 0;">
+                        <li style="color: #6c7a7d;">No players connected.</li>
+                    </ul>
+                </fieldset>
+
+                <fieldset>
+                    <legend>Player Replies</legend>
+                    <label for="playerRepliesSelect">View chat history for:</label>
+                    <select id="playerRepliesSelect">
+                        <option>Select a player...</option>
+                    </select>
+                    <div id="playerRepliesDisplay" class="live-display"
+                        style="max-height: 150px; overflow-y: auto; min-height: 100px;">
+                        Select a player to view their messages.
+                    </div>
+                </fieldset>
+            </div>
 
             <h2>Network Transmission</h2>
+            <label for="messageTargetSelect">Target:</label>
+            <select id="messageTargetSelect">
+                <option value="all">All Players (Broadcast)</option>
+            </select>
+
+            <label for="messageInput">Data Fragment:</label>
+            <textarea id="messageInput">COORDINATES RECEIVED. STAND BY.</textarea>
+
             <fieldset>
                 <legend>Message Templates</legend>
                 <div id="templateButtons" class="flex-wrap"></div>
             </fieldset>
-            <label for="messageInput">Data Fragment:</label>
-            <textarea id="messageInput">COORDINATES RECEIVED. STAND BY.</textarea>
+
             <label for="noiseSlider">Signal Corruption: <span id="noiseValue">50</span></label>
             <input type="range" id="noiseSlider" min="0" max="200" value="50">
+
             <div class="flex-wrap">
                 <button id="encodeButton">Transmit Datastream</button>
                 <button id="transmitDecodedButton" class="secondary">Transmit Decoded</button>
             </div>
-            <h3>Transmitted Datastream:</h3>
+
+            <h3>Last Transmitted Datastream:</h3>
             <div id="outputBurst" class="live-display"></div>
         </div>
 

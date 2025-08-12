@@ -35,7 +35,10 @@ function displayPresets() {
 function cacheDOMElements() {
     uiElements = {
         // Transmit Tab
-        playerMessageDisplay: document.getElementById('playerMessageDisplay'),
+        messageTargetSelect: document.getElementById('messageTargetSelect'),
+        connectedPlayersList: document.getElementById('connectedPlayersList'),
+        playerRepliesSelect: document.getElementById('playerRepliesSelect'),
+        playerRepliesDisplay: document.getElementById('playerRepliesDisplay'),
         messageInput: document.getElementById('messageInput'),
         noiseSlider: document.getElementById('noiseSlider'),
         noiseValue: document.getElementById('noiseValue'),
@@ -115,29 +118,22 @@ function cacheDOMElements() {
         resetUserSelect: document.getElementById('resetUserSelect'),
         resetNewPasswordInput: document.getElementById('resetNewPassword'),
         resetPasswordButton: document.getElementById('resetPasswordButton'),
-        // Global
-        playerStatus: document.getElementById('playerStatus'),
-        tabs: document.querySelectorAll('.tab-link'),
-        tabContents: document.querySelectorAll('.tab-content'),
     };
 }
 
 
 /**
- * Renders the GM's message history in the UI.
+ * Renders the GM's broadcast message history in the UI.
  */
-function displayHistory(history) { // <-- Function now accepts the history object
+function displayHistory(history) {
     uiElements.historyContainer.innerHTML = '';
     if (!history) {
-        uiElements.historyContainer.innerHTML = 'No history yet.';
+        uiElements.historyContainer.innerHTML = 'No broadcast history yet.';
         return;
     }
-
-    // Create a list to hold the history items
     const historyList = document.createElement('ul');
     historyList.style.paddingLeft = '0';
     historyList.style.listStyle = 'none';
-
     Object.entries(history).forEach(([key, message]) => {
         const item = document.createElement('li');
         item.style.display = 'flex';
@@ -147,12 +143,10 @@ function displayHistory(history) { // <-- Function now accepts the history objec
         item.style.padding = '5px';
         item.style.border = '1px solid var(--border-color)';
         item.style.borderRadius = '3px';
-
         const messageText = document.createElement('span');
         messageText.textContent = message.length > 50 ? message.substring(0, 50) + '...' : message;
         messageText.style.cursor = 'pointer';
         messageText.onclick = () => { uiElements.messageInput.value = message; };
-
         const deleteButton = document.createElement('button');
         deleteButton.textContent = 'Delete';
         deleteButton.className = 'critical';
@@ -163,12 +157,10 @@ function displayHistory(history) { // <-- Function now accepts the history objec
                 appState.dbRefs.datastreamHistory.child(key).remove();
             }
         };
-
         item.appendChild(messageText);
         item.appendChild(deleteButton);
         historyList.appendChild(item);
     });
-
     uiElements.historyContainer.appendChild(historyList);
 }
 
@@ -180,24 +172,32 @@ function initializeEventListeners() {
     uiElements.encodeButton.onclick = () => {
         const message = uiElements.messageInput.value;
         if (!message) return;
+        const target = uiElements.messageTargetSelect.value;
         const noiseLength = parseInt(uiElements.noiseSlider.value, 10);
         const encodedPart = encodeMessage(message);
         const leadingNoise = generateNoise(Math.floor(noiseLength / 2));
         const trailingNoise = generateNoise(Math.ceil(noiseLength / 2));
         const finalBurst = `${leadingNoise}$:${encodedPart}:#${trailingNoise}`;
         uiElements.outputBurst.textContent = finalBurst;
-        transmitDatastream(finalBurst);
+        transmitDatastream(finalBurst, target);
     };
 
     uiElements.transmitDecodedButton.onclick = () => {
         const message = uiElements.messageInput.value;
         if (!message) return;
+        const target = uiElements.messageTargetSelect.value;
         const noiseLength = parseInt(uiElements.noiseSlider.value, 10);
         const leadingNoise = generateNoise(Math.floor(noiseLength / 2));
         const trailingNoise = generateNoise(Math.ceil(noiseLength / 2));
         const finalBurst = `${leadingNoise}$:${message}:#${trailingNoise}`;
         uiElements.outputBurst.textContent = `DECODED: ${finalBurst}`;
-        transmitDatastream(finalBurst);
+        transmitDatastream(finalBurst, target);
+    };
+
+    // UPDATED: This listener now simply applies the filter
+    uiElements.playerRepliesSelect.onchange = () => {
+        // When the filter changes, just re-render the view using the data we already have.
+        updatePlayerRepliesView(appState.allPlayerReplies);
     };
 
     uiElements.noiseSlider.oninput = () => {
@@ -210,6 +210,8 @@ function initializeEventListeners() {
         btn.onclick = () => uiElements.messageInput.value = template;
         uiElements.templateButtons.appendChild(btn);
     });
+
+    // ... (rest of the event listeners are the same)
 
     // Setup Tab Listeners
     uiElements.updateConfigButton.onclick = () => {
@@ -258,8 +260,7 @@ function initializeEventListeners() {
 
     uiElements.clearHistoryButton.onclick = () => {
         if (confirm('Are you sure you want to clear the ENTIRE transmission history for yourself and all players?')) {
-            // This now correctly targets the database path for history
-            appState.dbRefs.datastreamHistory.remove(); // <-- UPDATED LINE
+            appState.dbRefs.datastreamHistory.remove();
             appState.dbRefs.historyClear.set(firebase.database.ServerValue.TIMESTAMP);
         }
     };
@@ -350,8 +351,6 @@ function initializeEventListeners() {
         const commandToGlitch = uiElements.glitchCommandSelect.value;
         appState.dbRefs.glitches.child('glitched_command').set(commandToGlitch);
         alert(`Command '${commandToGlitch}' will now appear offline for the player for 30 seconds.`);
-
-        // Set a timer to remove the glitch after 30 seconds
         setTimeout(() => {
             appState.dbRefs.glitches.child('glitched_command').remove();
         }, 30000);
@@ -426,13 +425,11 @@ function initializeEventListeners() {
             if (!newFileName) {
                 newFileName = originalFileName;
             }
-
             if (newFileName.toLowerCase().includes('.')) {
                 newFileName = newFileName.substring(0, newFileName.lastIndexOf('.')) + '.kohd';
             } else {
                 newFileName = newFileName + '.kohd';
             }
-
             const safeFileName = newFileName.replace(/\./g, '·');
             const accessLevel = parseInt(uiElements.fileAccessLevelSelect.value, 10);
             appState.dbRefs.fileSystem.child(safeFileName).set({
@@ -449,10 +446,10 @@ function initializeEventListeners() {
 
     uiElements.sendSvgDatastreamButton.onclick = () => {
         handleSvgUpload((svgContent) => {
-            // THIS is the corrected line.
+            const target = uiElements.messageTargetSelect.value;
             const finalBurst = `SVG::${svgContent}`;
             uiElements.outputBurst.textContent = "SVG Datastream Sent";
-            transmitDatastream(finalBurst);
+            transmitDatastream(finalBurst, target);
             uiElements.svgFileInput.value = '';
             uiElements.svgFileNameInput.value = '';
         });
@@ -474,7 +471,6 @@ function initializeEventListeners() {
     uiElements.resetPasswordButton.onclick = () => {
         const username = uiElements.resetUserSelect.value;
         const newPassword = uiElements.resetNewPasswordInput.value.trim();
-
         if (!username || username === 'Select a user...') {
             alert('Please select a user.');
             return;
@@ -483,8 +479,6 @@ function initializeEventListeners() {
             alert('Please enter a new password.');
             return;
         }
-
-        // Update the password in Firebase
         appState.dbRefs.users.child(username).child('password').set(newPassword)
             .then(() => {
                 alert(`Password for "${username}" has been successfully updated.`);
@@ -506,37 +500,31 @@ function initializeEventListeners() {
     uiElements.editModalSave.onclick = () => {
         const originalSafeName = uiElements.editModalSave.getAttribute('data-editing-file');
         if (!originalSafeName) return;
-
         const newFileName = uiElements.editModalFileName.value.trim();
         if (!newFileName) {
             alert('Filename cannot be empty.');
             return;
         }
-
         const newSafeName = newFileName.replace(/\./g, '·');
         const newContent = uiElements.editModalTextarea.value;
         const newLevel = parseInt(uiElements.editModalAccessLevel.value, 10);
-
         appState.dbRefs.fileSystem.child(originalSafeName).once('value', (snapshot) => {
             const originalData = snapshot.val();
             if (!originalData) {
                 alert('Error: Original file not found!');
                 return;
             }
-
             const updatedFile = {
                 ...originalData,
                 content: newContent,
                 level: newLevel,
             };
-
             if (originalSafeName === newSafeName) {
                 appState.dbRefs.fileSystem.child(originalSafeName).update(updatedFile);
             } else {
                 appState.dbRefs.fileSystem.child(newSafeName).set(updatedFile);
                 appState.dbRefs.fileSystem.child(originalSafeName).remove();
             }
-
             uiElements.fileEditModal.style.display = 'none';
             uiElements.editModalSave.removeAttribute('data-editing-file');
         });
@@ -547,21 +535,101 @@ function initializeEventListeners() {
 
 // --- Functions to update UI from Firebase state ---
 
-function displayPlayerMessage(snapshot) {
-    const message = snapshot.val();
-    uiElements.playerMessageDisplay.textContent = message || 'Awaiting message from player terminal...';
+// UPDATED: Displays the list of currently connected players and updates dropdowns
+function displayConnectedPlayers(players) {
+    const playerNames = players ? Object.keys(players) : [];
+
+    // Update the connected players list
+    uiElements.connectedPlayersList.innerHTML = '';
+    if (playerNames.length === 0) {
+        const li = document.createElement('li');
+        li.textContent = 'No players connected.';
+        li.style.color = '#6c7a7d';
+        uiElements.connectedPlayersList.appendChild(li);
+    } else {
+        playerNames.forEach(name => {
+            const li = document.createElement('li');
+            li.textContent = name;
+            uiElements.connectedPlayersList.appendChild(li);
+        });
+    }
+
+    // Update the message target dropdown
+    const currentTarget = uiElements.messageTargetSelect.value;
+    uiElements.messageTargetSelect.innerHTML = '<option value="all">All Players (Broadcast)</option>';
+    playerNames.forEach(name => {
+        const option = document.createElement('option');
+        option.value = name;
+        option.textContent = name;
+        uiElements.messageTargetSelect.appendChild(option);
+    });
+    uiElements.messageTargetSelect.value = playerNames.includes(currentTarget) ? currentTarget : 'all';
+
+    // Update the player replies dropdown
+    const currentReplyTarget = uiElements.playerRepliesSelect.value;
+    uiElements.playerRepliesSelect.innerHTML = '<option value="all">All Players</option>';
+    playerNames.forEach(name => {
+        const option = document.createElement('option');
+        option.value = name;
+        option.textContent = name;
+        uiElements.playerRepliesSelect.appendChild(option);
+    });
+
+    if (playerNames.includes(currentReplyTarget) || currentReplyTarget === 'all') {
+        uiElements.playerRepliesSelect.value = currentReplyTarget;
+    } else {
+        uiElements.playerRepliesSelect.value = 'all';
+    }
+    // Trigger a redraw of the chat view in case the selected player disconnected
+    updatePlayerRepliesView(appState.allPlayerReplies, uiElements.playerRepliesSelect.value);
 }
 
-function updatePlayerStatus(snapshot) {
-    const status = snapshot.val();
-    if (status && status.isConnected) {
-        uiElements.playerStatus.textContent = 'ONLINE';
-        uiElements.playerStatus.className = 'online';
-    } else {
-        uiElements.playerStatus.textContent = 'OFFLINE';
-        uiElements.playerStatus.className = 'offline';
+// NEW: Renders the unified, filterable chat log
+function updatePlayerRepliesView(allRepliesData) {
+    // Store the latest data in our app's state
+    appState.allPlayerReplies = allRepliesData || {};
+    // Get the current filter from the dropdown inside this function
+    const filterPlayer = uiElements.playerRepliesSelect.value;
+    const display = uiElements.playerRepliesDisplay;
+    display.innerHTML = '';
+
+    const messagesToShow = [];
+
+    // Collate all messages into a single array with metadata
+    Object.entries(appState.allPlayerReplies).forEach(([playerName, messages]) => {
+        if (filterPlayer === 'all' || filterPlayer === playerName) {
+            Object.entries(messages).forEach(([msgId, msgContent]) => {
+                messagesToShow.push({
+                    key: msgId,
+                    name: playerName,
+                    text: msgContent
+                });
+            });
+        }
+    });
+
+    // Sort messages chronologically by their Firebase push key
+    messagesToShow.sort((a, b) => a.key.localeCompare(b.key));
+
+    if (messagesToShow.length === 0) {
+        display.innerHTML = (filterPlayer === 'all' || !filterPlayer)
+            ? 'No messages from any player yet.'
+            : `No messages from ${filterPlayer} yet.`;
+        return;
     }
+
+    // Render the sorted messages
+    messagesToShow.forEach(msg => {
+        const msgDiv = document.createElement('div');
+        msgDiv.textContent = `${msg.name}: ${msg.text}`;
+        msgDiv.style.borderBottom = '1px solid var(--border-color)';
+        msgDiv.style.padding = '4px 0';
+        display.appendChild(msgDiv);
+    });
+
+    display.scrollTop = display.scrollHeight;
 }
+
 
 function displayCipherKey(chart) {
     const symbols = ['<', '>', '%', '^', '&', '*', '-', '+', '@'];
@@ -692,7 +760,6 @@ function displayUsers(users) {
     uiElements.resetUserSelect.innerHTML = ''; // Clear the dropdown first
 
     if (users) {
-        // Add a default, disabled option to the dropdown
         const defaultOption = document.createElement('option');
         defaultOption.textContent = 'Select a user...';
         defaultOption.disabled = true;
@@ -700,7 +767,6 @@ function displayUsers(users) {
         uiElements.resetUserSelect.appendChild(defaultOption);
 
         Object.keys(users).forEach(username => {
-            // This part populates the existing user list
             const li = document.createElement('li');
             li.textContent = username;
             const deleteButton = document.createElement('button');
@@ -714,7 +780,6 @@ function displayUsers(users) {
             li.appendChild(deleteButton);
             uiElements.userList.appendChild(li);
 
-            // This new part populates the password reset dropdown
             const option = document.createElement('option');
             option.value = username;
             option.textContent = username;
@@ -749,8 +814,8 @@ export {
     cacheDOMElements,
     initializeEventListeners,
     displayHistory,
-    displayPlayerMessage,
-    updatePlayerStatus,
+    displayConnectedPlayers,
+    updatePlayerRepliesView, // REPLACED displayPlayerChatHistory
     displayCipherKey,
     generateKeySwitches,
     displayFiles,

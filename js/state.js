@@ -5,6 +5,8 @@
 const appState = {
     // Firebase database object, initialized in main.js
     database: null,
+    // All player replies, keyed by username
+    allPlayerReplies: {},
     // References to specific database paths for easy access
     dbRefs: {},
     // Configuration for the player terminal (theme, system names, etc.)
