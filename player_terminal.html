@@ -536,6 +536,12 @@
         const allSymbols = [...doubledSymbols, '$', ':', '#', '<', '>', '%', '^', '&', '*', '-', '+', '@'];
         let playerConnectionRef = null; // To hold the reference to the player's connection status
 
+        // --- NEW: Command History State ---
+        let commandHistory = [];
+        let historyIndex = -1;
+        const COMMAND_HISTORY_KEY = 'command_history_session';
+
+
         function startLogin() {
             terminalContainer.style.display = 'none';
             loginOverlay.style.display = 'flex';
@@ -706,8 +712,7 @@
                 terminal.insertBefore(line, terminal.lastElementChild);
                 terminal.scrollTop = terminal.scrollHeight;
             }
-            
-            // NEW: Function to process any incoming datastream (broadcast or direct)
+
             function processDatastream(data) {
                 const dataString = String(data || '');
                 if (isConnected && dataString) {
@@ -739,7 +744,6 @@
                     });
                 }
             }
-
 
             function drawWelcomeMessage() { const welcomeLines = terminal.querySelectorAll('.welcome-line'); welcomeLines.forEach(line => line.remove()); typeLine(`Attempting to interface with the ${config.systemName || 'SYSTEM'}... OK`, 'system-msg welcome-line', 20, () => { typeLine(`${config.osName || 'M-OS'} -- Ready.`, 'system-msg welcome-line', 20, () => { typeLine(`Type 'help' for command list.`, 'welcome-line', 20, () => { printLine('&nbsp;', 'welcome-line'); }); }); }); }
 
@@ -782,6 +786,12 @@
             }
 
             function handleCommand(fullCmd) {
+                if (fullCmd) {
+                    commandHistory.push(fullCmd);
+                    sessionStorage.setItem(COMMAND_HISTORY_KEY, JSON.stringify(commandHistory));
+                }
+                historyIndex = commandHistory.length;
+
                 if (glitches.glitched_command && fullCmd.startsWith(glitches.glitched_command)) { printLine(`> ${fullCmd}`, 'prompt-text'); typeLine(`//_COMMAND MALFUNCTION: [${glitches.glitched_command.toUpperCase()}] OFFLINE_//`, 'error-msg'); return; }
                 printLine(`> ${fullCmd}`, 'prompt-text');
                 const [cmd, ...args] = fullCmd.split(' ');
@@ -819,6 +829,7 @@
                 } else if (cmd === 'logout') {
                     localStorage.removeItem(SESSION_KEY);
                     sessionStorage.removeItem(SESSION_KEY);
+                    sessionStorage.removeItem(COMMAND_HISTORY_KEY);
                     location.reload();
                 } else if (cmd === 'elevate') {
                     const pass = argString.trim();
@@ -878,7 +889,8 @@
                 } else if (cmd === (config.scanCommand || 'scan')) {
                     typeLine(`Scanning the Network for ${(config.signalNoun || 'signal').toLowerCase()}s from ${config.systemName}...`, '', 30, () => { setTimeout(() => { typeLine(`...Faint ${(config.signalNoun || 'signal')} detected. Source confirmed: ${config.systemName}.`, 'system-msg'); }, 1500); }); isScanning = true;
                 } else if (cmd === (config.connectCommand || 'connect')) {
-                    if (isScanning) { typeLine(`Attempting to synchronize with ${config.systemName}...`, '', 30, () => { isConnected = true; database.ref('player_status').set({ isConnected: true }); typeLine(`Synchronization complete. Interface active. Awaiting ${config.dataNoun || 'Data'}...`, 'system-msg'); }); } else { typeLine(`ERROR: No ${(config.signalNoun || 'signal')} detected. Run ${(config.scanCommand || 'scan').toUpperCase()} first.`, 'error-msg'); }
+                    // UPDATED: Removed the write to the obsolete /player_status path
+                    if (isScanning) { typeLine(`Attempting to synchronize with ${config.systemName}...`, '', 30, () => { isConnected = true; typeLine(`Synchronization complete. Interface active. Awaiting ${config.dataNoun || 'Data'}...`, 'system-msg'); }); } else { typeLine(`ERROR: No ${(config.signalNoun || 'signal')} detected. Run ${(config.scanCommand || 'scan').toUpperCase()} first.`, 'error-msg'); }
                 } else if (cmd === 'cls') {
                     const lines = terminal.querySelectorAll('.line:not(.welcome-line)'); lines.forEach(line => line.remove());
                 } else if (cmd === 'ping') {
@@ -886,7 +898,6 @@
                 } else if (cmd === 'status') {
                     typeLine(`SYSTEM STATUS:`, 'system-msg'); typeLine(`  Connection:  ${isConnected ? `CONNECTED to ${config.systemName}` : 'OFFLINE'}`); typeLine(`  Clearance:   LEVEL ${clearanceLevel}`); typeLine(`  ${playerResources.name}:    ${playerResources.count}`);
                 } else if (cmd === 'reply') {
-                    // UPDATED: Send reply to a user-specific path
                     if (isConnected) { if (argString) { database.ref('player_replies/' + currentUser).push(argString); typeLine(`Message sent: "${argString}"`, 'system-msg'); } else { typeLine('ERROR: Cannot send an empty message. Usage: reply <message>', 'error-msg'); } } else { typeLine('ERROR: Must be connected to send a reply.', 'error-msg'); }
                 } else if (cmd === 'history') {
                     typeLine(`Retrieving history...`, 'system-msg');
@@ -915,12 +926,45 @@
                     typeLine('//_UNAUTHORIZED COMMAND. LOGGING ATTEMPT..._//', 'error-msg');
                 }
             }
+            
+            const savedHistory = sessionStorage.getItem(COMMAND_HISTORY_KEY);
+            if (savedHistory) {
+                commandHistory = JSON.parse(savedHistory);
+            }
+            historyIndex = commandHistory.length;
 
-            commandInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') { if (isTyping) return; const cmd = commandInput.value.trim().toLowerCase(); if (cmd) { handleCommand(cmd); } commandInput.value = ''; } });
+            commandInput.addEventListener('keydown', (e) => {
+                if (isTyping) return;
+
+                if (e.key === 'Enter') {
+                    const cmd = commandInput.value.trim(); 
+                    if (cmd) {
+                        handleCommand(cmd.toLowerCase());
+                    }
+                    commandInput.value = '';
+                } else if (e.key === 'ArrowUp') {
+                    e.preventDefault();
+                    if (historyIndex > 0) {
+                        historyIndex--;
+                        commandInput.value = commandHistory[historyIndex];
+                    }
+                } else if (e.key === 'ArrowDown') {
+                    e.preventDefault();
+                    if (historyIndex < commandHistory.length - 1) {
+                        historyIndex++;
+                        commandInput.value = commandHistory[historyIndex];
+                    } else {
+                        historyIndex = commandHistory.length;
+                        commandInput.value = '';
+                    }
+                } else {
+                    historyIndex = commandHistory.length;
+                }
+            });
+
             clearButton.onclick = () => { handleCommand('cls'); };
             terminal.addEventListener('click', (e) => { if (e.target !== commandInput) { commandInput.focus(); } });
             
-            // --- NEW: Set up player connection status ---
             playerConnectionRef = database.ref('player_connections/' + currentUser);
             database.ref('.info/connected').on('value', (snapshot) => {
                 if (snapshot.val() === true) {
@@ -929,14 +973,9 @@
                 }
             });
 
-
             database.ref('terminal_config').on('value', (snapshot) => {
                 const newConfig = snapshot.val();
-                if (newConfig) {
-                    config = newConfig;
-                } else {
-                    config = {};
-                }
+                if (newConfig) { config = newConfig; } else { config = {}; }
                 applyTheme();
                 if (isInitialLoad) {
                     drawWelcomeMessage();
@@ -946,10 +985,7 @@
 
             if (currentUser) {
                 database.ref('users/' + currentUser + '/theme').on('value', (snapshot) => {
-                    if (snapshot.exists()) {
-                        userTheme = snapshot.val();
-                        applyTheme();
-                    }
+                    if (snapshot.exists()) { userTheme = snapshot.val(); applyTheme(); }
                 });
             }
 
@@ -962,30 +998,22 @@
             database.ref('player_resources').on('value', (snapshot) => { playerResources = snapshot.val() || { name: "Resources", count: 0 }; });
             database.ref('glitches').on('value', (snapshot) => { glitches = snapshot.val() || {}; const override = glitches.override_state; if (override) { overrideOverlay.textContent = override.message; overrideOverlay.className = override.type; overrideOverlay.style.display = 'flex'; } else { overrideOverlay.style.display = 'none'; } if (glitches.reset_access_timestamp && isConnected) { clearanceLevel = 1; typeLine('// SECURITY CREDENTIALS INVALIDATED. ACCESS LEVEL RESET BY SOURCE. //', 'error-msg'); database.ref('glitches/reset_access_timestamp').remove(); } });
 
-            // Listener for broadcast messages
-            database.ref('kohd_datastream').on('value', (snapshot) => {
-                processDatastream(snapshot.val());
-            });
+            database.ref('kohd_datastream').on('value', (snapshot) => { processDatastream(snapshot.val()); });
             
-            // NEW: Listener for direct messages
             database.ref('direct_messages/' + currentUser).on('value', (snapshot) => {
                 const message = snapshot.val();
                 if (message) {
                     processDatastream(message);
-                    // Clear the message after processing to prevent it from re-appearing on refresh
                     snapshot.ref.remove();
                 }
             });
             
+            // UPDATED: Removed the write to the obsolete /player_status path
             window.addEventListener('beforeunload', () => { 
-                database.ref('player_status').set({ isConnected: false }); 
-                if(playerConnectionRef) {
-                    playerConnectionRef.remove();
-                }
+                if(playerConnectionRef) { playerConnectionRef.remove(); }
             });
         }
 
-        // --- INITIAL PAGE LOAD ---
         const savedUser = localStorage.getItem(SESSION_KEY) || sessionStorage.getItem(SESSION_KEY);
         if (savedUser) {
             currentUser = savedUser;
