@@ -26,6 +26,7 @@
             margin: 0;
         }
 
+        /* Note: The GM encoder does not display the overlay itself, but we keep the styles for potential future use or consistency */
         #system-override-overlay {
             display: none;
             position: fixed;
@@ -45,6 +46,9 @@
 
         #system-override-overlay.warning {
             color: #E8772E;
+        }
+         #system-override-overlay.info {
+            color: var(--primary-color);
         }
 
         /* Styles for the new File Edit Modal */
@@ -426,10 +430,132 @@
             gap: 5px;
             align-items: center;
         }
+
+        /* New Styles for Override Configuration */
+        .override-config {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 15px;
+            margin-top: 15px;
+        }
+        .override-config fieldset {
+            margin-bottom: 0;
+        }
+        #overrideSvgPreview {
+            max-height: 150px;
+            overflow: auto;
+            border: 1px dashed var(--secondary-color);
+            padding: 10px;
+            background-color: var(--dark-element-bg);
+            margin-top: 10px;
+            border-radius: 4px;
+            color: var(--text-color); /* Ensure default text is visible */
+        }
+        #overrideSvgPreview svg {
+            max-width: 100%;
+            height: auto;
+        }
     </style>
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
     <script src="firebase-config.js"></script>
+    
+    <!-- UPDATED: SVG Processing Script for Themed Preview -->
+    <script>
+    // SVG Processing Function (Adapted for GM Preview)
+    // This function mirrors the logic used in the player terminal to ensure an accurate preview.
+    function processAndThemeSVG(svgContent, primaryColor, backgroundColor) {
+        if (!svgContent) return '';
+
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(svgContent, "image/svg+xml");
+        const svg = doc.documentElement;
+
+        if (svg.tagName.toLowerCase() === 'parsererror' || svg.querySelector('parsererror')) {
+            console.error("Error parsing SVG content.");
+            return svgContent;
+        }
+
+        // Handle scaling attributes (viewBox, width, height)
+        if (!svg.getAttribute('viewBox')) {
+            const width = svg.getAttribute('width');
+            const height = svg.getAttribute('height');
+            if (width && height) {
+                const cleanWidth = parseFloat(width);
+                const cleanHeight = parseFloat(height);
+                if (!isNaN(cleanWidth) && !isNaN(cleanHeight)) {
+                    svg.setAttribute('viewBox', `0 0 ${cleanWidth} ${cleanHeight}`);
+                }
+            }
+        }
+        svg.setAttribute('width', '100%');
+        svg.setAttribute('height', 'auto'); // Changed to auto for preview container
+
+
+        // Theming and Negative Space Handling
+        const whiteKeywords = ['white', '#ffffff', '#fff'];
+        const whiteRgbRegex = /^rgb\(\s*255\s*,\s*255\s*,\s*255\s*\)$/i;
+        const elements = svg.getElementsByTagName('*');
+
+        for (const element of elements) {
+            const tagName = element.tagName.toLowerCase();
+            let isNegativeSpace = false;
+
+            // 1. Identify and replace negative space (white) with background color.
+            // REFINED LOGIC: We primarily target 'line' and 'path' for automatic negative space conversion when white.
+            // Shapes like 'circle', 'rect', 'ellipse', 'polygon' are less likely to be negative space when white.
+            
+            if (tagName === 'line' || tagName === 'path') {
+                const strokeAttr = element.getAttribute('stroke');
+                if (strokeAttr) {
+                    const normalizedStroke = strokeAttr.trim().toLowerCase();
+                    if (whiteKeywords.includes(normalizedStroke) || whiteRgbRegex.test(normalizedStroke)) {
+                        element.setAttribute('stroke', backgroundColor);
+                        isNegativeSpace = true;
+                    }
+                }
+                // Check fill for paths (as they can represent cutouts)
+                 const fillAttr = element.getAttribute('fill');
+                // We check fill even if stroke was negative space, as a path might have both.
+                if (fillAttr) {
+                    const normalizedFill = fillAttr.trim().toLowerCase();
+                    if (whiteKeywords.includes(normalizedFill) || whiteRgbRegex.test(normalizedFill)) {
+                        element.setAttribute('fill', backgroundColor);
+                        isNegativeSpace = true;
+                    }
+                }
+            }
+
+            // 2. Apply primary theme color to non-negative space elements
+            if (!isNegativeSpace) {
+                 if (element.hasAttribute('stroke') && element.getAttribute('stroke') !== 'none') {
+                    // This will also catch white strokes on circles/rects and turn them primaryColor
+                    element.setAttribute('stroke', primaryColor);
+                }
+                if (element.hasAttribute('fill') && element.getAttribute('fill') !== 'none') {
+                    // This catches black fills (common default) AND white fills (e.g., white circles) and turns them primaryColor.
+                    const fillAttr = element.getAttribute('fill');
+                    if (fillAttr) {
+                         const normalizedFill = fillAttr.trim().toLowerCase();
+                         // Check against black or white variations
+                         if (normalizedFill === 'black' || normalizedFill === '#000000' || normalizedFill === '#000' || whiteKeywords.includes(normalizedFill) || whiteRgbRegex.test(normalizedFill)) {
+                             element.setAttribute('fill', primaryColor);
+                         } else {
+                            // For consistency, force primaryColor for other colors too if applyTheme is intended.
+                             element.setAttribute('fill', primaryColor);
+                        }
+                    } else {
+                         // Handle cases where fill attribute exists but might be empty string
+                         element.setAttribute('fill', primaryColor);
+                    }
+                }
+            }
+        }
+
+        const serializer = new XMLSerializer();
+        return serializer.serializeToString(svg);
+    }
+    </script>
 </head>
 
 <body>
@@ -553,15 +679,64 @@
                     </select>
                 </div>
             </fieldset>
+            
+            <!-- Updated System Override Fieldset -->
             <fieldset>
                 <legend>System Override</legend>
-                <div class="flex-wrap">
-                    <button id="triggerLockoutButton" class="critical">Trigger Lockout</button>
-                    <button id="triggerWarningButton" class="critical">Send Warning</button>
-                    <input type="text" id="customWarningInput" placeholder="Or send a custom warning..."
-                        class="flex-grow">
+                
+                <div class="flex-wrap" style="margin-bottom: 15px;">
+                    <button id="triggerOverrideButton" class="critical">Activate Override</button>
+                    <button id="clearOverrideButton" class="secondary">Clear Override</button>
                 </div>
-                <button id="clearOverrideButton" style="margin-top:10px;">Clear Override</button>
+
+                <div class="override-config">
+                    <fieldset>
+                        <legend>Display Content</legend>
+                        <label for="overrideContentType">Content Type:</label>
+                        <select id="overrideContentType">
+                            <option value="text">Text Message</option>
+                            <option value="svg">SVG Graphic</option>
+                        </select>
+
+                        <div id="overrideTextConfig">
+                            <label for="overrideTextInput">Message:</label>
+                            <textarea id="overrideTextInput" rows="3">SYSTEM LOCKOUT IN EFFECT</textarea>
+                        </div>
+                        
+                        <div id="overrideSvgConfig" style="display: none;">
+                            <label for="overrideSvgUpload">Upload SVG:</label>
+                            <input type="file" id="overrideSvgUpload" accept=".svg">
+                            <div id="overrideSvgPreview">SVG Preview...</div>
+                        </div>
+                    </fieldset>
+
+                    <fieldset>
+                        <legend>Configuration</legend>
+                        <label for="overrideType">Style:</label>
+                        <select id="overrideType">
+                            <option value="lockout">Lockout (Red)</option>
+                            <option value="warning">Warning (Orange/Yellow)</option>
+                            <option value="info">Info (Blue/Cyan)</option>
+                            <option value="themed">Themed (Uses Player/GM Theme)</option>
+                        </select>
+
+                        <label for="overrideGlitchEffect">Glitch Effect:</label>
+                        <select id="overrideGlitchEffect">
+                            <option value="none">None</option>
+                            <option value="vhs">VHS (Scanlines & Offset)</option>
+                            <option value="vr">VR (Chromatic Aberration)</option>
+                            <option value="fractal">Fractal Noise (Digital Corruption)</option>
+                        </select>
+
+                        <label for="overrideTimer">Auto-Clear Timer (seconds, 0 = disabled):</label>
+                        <input type="number" id="overrideTimer" value="0" min="0">
+
+                        <div style="margin-top: 15px; display: none;" id="overrideThemeSvgWrapper">
+                             <input type="checkbox" id="overrideApplyThemeToSvg" checked>
+                             <label for="overrideApplyThemeToSvg" style="display: inline;">Apply Theme Colors to SVG?</label>
+                        </div>
+                    </fieldset>
+                </div>
             </fieldset>
 
             <h2>File System Management</h2>
@@ -699,6 +874,124 @@
         </div>
     </div>
 
+    <!-- JavaScript for System Override UI Logic and Themed Preview -->
+    <script>
+        // Handles the UI logic for the System Override configuration
+        document.addEventListener('DOMContentLoaded', () => {
+            const contentTypeSelect = document.getElementById('overrideContentType');
+            const textConfig = document.getElementById('overrideTextConfig');
+            const svgConfig = document.getElementById('overrideSvgConfig');
+            const svgUpload = document.getElementById('overrideSvgUpload');
+            const svgPreview = document.getElementById('overrideSvgPreview');
+            const themeSvgWrapper = document.getElementById('overrideThemeSvgWrapper');
+            const overrideTypeSelect = document.getElementById('overrideType');
+            const applyThemeCheckbox = document.getElementById('overrideApplyThemeToSvg');
+
+            // Define colors based on CSS variables for preview
+            const styles = getComputedStyle(document.documentElement);
+            const COLOR_PRIMARY = styles.getPropertyValue('--primary-color').trim(); // Cyan/Blue (Default/Themed)
+            const COLOR_SECONDARY = styles.getPropertyValue('--secondary-color').trim(); // Orange (Warning fallback)
+            const COLOR_CRITICAL = styles.getPropertyValue('--critical-color').trim(); // Red (Lockout)
+            // Use the dark element background for the preview box background
+            const COLOR_BACKGROUND = styles.getPropertyValue('--dark-element-bg').trim(); 
+
+            const updateVisibility = () => {
+                const isText = contentTypeSelect.value === 'text';
+                textConfig.style.display = isText ? 'block' : 'none';
+                svgConfig.style.display = isText ? 'none' : 'block';
+                if (themeSvgWrapper) {
+                    themeSvgWrapper.style.display = isText ? 'none' : 'block';
+                }
+                // Trigger preview update when switching to SVG view, in case settings changed
+                if (!isText) {
+                    updateSvgPreview();
+                }
+            };
+            
+            contentTypeSelect.addEventListener('change', updateVisibility);
+
+            // Function to update the SVG preview visualization with theming
+            const updateSvgPreview = () => {
+                // data-raw-svg-content holds the original uploaded SVG
+                const rawSvg = svgPreview.getAttribute('data-raw-svg-content');
+                if (!rawSvg) {
+                    // Only reset the text if there's no SVG content and it's not already the placeholder text
+                    if (svgPreview.innerHTML !== 'SVG Preview...') {
+                         svgPreview.innerHTML = 'SVG Preview...';
+                    }
+                    return;
+                }
+
+                const applyTheme = applyThemeCheckbox.checked;
+                let primaryColor = COLOR_PRIMARY;
+
+                if (applyTheme) {
+                    // Determine the color based on the selected style if theme is applied
+                    switch (overrideTypeSelect.value) {
+                        case 'lockout':
+                            primaryColor = COLOR_CRITICAL;
+                            break;
+                        case 'warning':
+                            // Using a specific yellow for warning, fallback to orange if preferred
+                            primaryColor = '#FFDC00'; 
+                            break;
+                        case 'info':
+                        case 'themed':
+                        default:
+                            primaryColor = COLOR_PRIMARY;
+                            break;
+                    }
+                    // Process the SVG string with the determined colors
+                    const themedSvg = processAndThemeSVG(rawSvg, primaryColor, COLOR_BACKGROUND);
+                    svgPreview.innerHTML = themedSvg;
+                } else {
+                    // If theme is not applied, display the raw SVG but ensure scaling for the preview box
+                    const parser = new DOMParser();
+                    const doc = parser.parseFromString(rawSvg, "image/svg+xml");
+                    const svg = doc.documentElement;
+                    // Ensure basic scaling attributes are set for the preview
+                    svg.setAttribute('width', '100%');
+                    svg.setAttribute('height', 'auto');
+                    const serializer = new XMLSerializer();
+                    svgPreview.innerHTML = serializer.serializeToString(svg);
+                }
+            };
+
+            // Update preview when style or checkbox changes
+            if (overrideTypeSelect) overrideTypeSelect.addEventListener('change', updateSvgPreview);
+            if (applyThemeCheckbox) applyThemeCheckbox.addEventListener('change', updateSvgPreview);
+
+            // Handle SVG upload and initial preview
+            if (svgUpload) {
+                svgUpload.addEventListener('change', () => {
+                    const file = svgUpload.files[0];
+                    if (file) {
+                        const reader = new FileReader();
+                        reader.onload = (e) => {
+                            if (e.target.result.includes('<svg')) {
+                                // Store the raw SVG content. This is used both for theming (as the source) 
+                                // and for transmission (ui.js reads this attribute).
+                                svgPreview.setAttribute('data-raw-svg-content', e.target.result);
+                                // Update the preview visualization with the current theme settings
+                                updateSvgPreview();
+                            } else {
+                                svgPreview.innerHTML = 'Invalid SVG file format.';
+                                svgPreview.removeAttribute('data-raw-svg-content');
+                            }
+                        };
+                        reader.readAsText(file);
+                    } else {
+                        svgPreview.removeAttribute('data-raw-svg-content');
+                        updateSvgPreview();
+                    }
+                });
+            }
+
+            // Initialize display state
+            updateVisibility();
+        });
+    </script>
+
     <script>
         function openTab(event, tabName) {
             const tabContents = document.getElementsByClassName("tab-content");
@@ -712,8 +1005,23 @@
             }
 
             document.getElementById(tabName).style.display = "block";
-            event.currentTarget.className += " active";
+            if (event && event.currentTarget) {
+                 event.currentTarget.className += " active";
+            }
         }
+        
+        // Ensure the active tab content is displayed on load
+         document.addEventListener('DOMContentLoaded', () => {
+             const activeContent = document.querySelector('.tab-content.active');
+             if (activeContent) {
+                 activeContent.style.display = "block";
+             } else {
+                 // Fallback if no tab is marked active in HTML
+                 openTab(null, 'transmit');
+                 const firstTab = document.querySelector('.tab-link');
+                 if (firstTab) firstTab.classList.add('active');
+             }
+         });
     </script>
     <script type="module" src="js/main.js"></script>
 </body>

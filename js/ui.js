@@ -6,6 +6,8 @@ import { transmitDatastream, updateTerminalConfig } from './firebase.js';
 
 // --- DOM Element References ---
 let uiElements;
+// NEW: Variable to track the override auto-clear timeout
+let overrideClearTimeout = null;
 
 // --- Helper function for Presets ---
 function displayPresets() {
@@ -64,10 +66,19 @@ function cacheDOMElements() {
         scrambleMessageButton: document.getElementById('scrambleMessageButton'),
         glitchCommandButton: document.getElementById('glitchCommandButton'),
         glitchCommandSelect: document.getElementById('glitchCommandSelect'),
-        triggerLockoutButton: document.getElementById('triggerLockoutButton'),
-        triggerWarningButton: document.getElementById('triggerWarningButton'),
-        customWarningInput: document.getElementById('customWarningInput'),
+        
+        // System Override (New/Updated)
+        triggerOverrideButton: document.getElementById('triggerOverrideButton'),
         clearOverrideButton: document.getElementById('clearOverrideButton'),
+        overrideContentType: document.getElementById('overrideContentType'),
+        overrideTextInput: document.getElementById('overrideTextInput'),
+        overrideSvgUpload: document.getElementById('overrideSvgUpload'),
+        overrideSvgPreview: document.getElementById('overrideSvgPreview'),
+        overrideType: document.getElementById('overrideType'),
+        overrideGlitchEffect: document.getElementById('overrideGlitchEffect'),
+        overrideTimer: document.getElementById('overrideTimer'),
+        overrideApplyThemeToSvg: document.getElementById('overrideApplyThemeToSvg'),
+
         newFileNameInput: document.getElementById('newFileName'),
         fileAccessLevelSelect: document.getElementById('fileAccessLevel'),
         newFileContentInput: document.getElementById('newFileContent'),
@@ -369,23 +380,73 @@ function initializeEventListeners() {
         uiElements.newFileContentInput.value = '';
     };
 
-    // System Override Listeners
-    uiElements.triggerLockoutButton.onclick = () => {
-        appState.dbRefs.glitches.child('override_state').set({
-            type: 'lockout',
-            message: 'SYSTEM LOCKOUT IN EFFECT'
-        });
-    };
+    // System Override Listeners (Updated)
+    uiElements.triggerOverrideButton.onclick = () => {
+        const contentType = uiElements.overrideContentType.value;
+        const type = uiElements.overrideType.value;
+        const glitchEffect = uiElements.overrideGlitchEffect.value;
+        const timer = parseInt(uiElements.overrideTimer.value, 10);
+        const applyThemeToSvg = uiElements.overrideApplyThemeToSvg.checked;
 
-    uiElements.triggerWarningButton.onclick = () => {
-        const message = uiElements.customWarningInput.value.trim() || 'SECURITY ALERT: UNUSUAL ACTIVITY DETECTED';
-        appState.dbRefs.glitches.child('override_state').set({
-            type: 'warning',
-            message: message
-        });
+        let contentData = {};
+
+        if (contentType === 'text') {
+            const message = uiElements.overrideTextInput.value.trim();
+            if (!message) {
+                alert('Text message cannot be empty.');
+                return;
+            }
+            contentData = { message: message };
+        } else if (contentType === 'svg') {
+            // Retrieve the RAW SVG content stored in the data attribute by the gm_encoder.html script
+            // Note: The attribute name was changed in gm_encoder.html to 'data-raw-svg-content'
+            const svgContent = uiElements.overrideSvgPreview.getAttribute('data-raw-svg-content');
+            if (!svgContent) {
+                alert('Please upload a valid SVG file first.');
+                return;
+            }
+            // Note: We send the raw SVG content and the theme flag. The player terminal will handle the theming and animation.
+            contentData = { svgContent: svgContent, applyTheme: applyThemeToSvg, animate: true };
+        }
+
+        const overrideState = {
+            type: type,
+            glitch: glitchEffect,
+            ...contentData
+        };
+
+        // Clear any existing timer before setting a new one
+        if (overrideClearTimeout) {
+            clearTimeout(overrideClearTimeout);
+            overrideClearTimeout = null;
+        }
+
+        appState.dbRefs.glitches.child('override_state').set(overrideState)
+            .then(() => {
+                if (timer > 0) {
+                    // Set a client-side timeout (on the GM's browser) to clear the override from Firebase
+                    overrideClearTimeout = setTimeout(() => {
+                        appState.dbRefs.glitches.child('override_state').remove();
+                        // Notify the GM that the auto-clear executed
+                        console.log(`Override auto-cleared after ${timer} seconds.`);
+                        overrideClearTimeout = null;
+                    }, timer * 1000);
+                    alert(`Override activated. It will auto-clear in ${timer} seconds.`);
+                } else {
+                    alert('Override activated.');
+                }
+            });
     };
 
     uiElements.clearOverrideButton.onclick = () => {
+        // If there is an active timer, clear it
+        if (overrideClearTimeout) {
+            clearTimeout(overrideClearTimeout);
+            overrideClearTimeout = null;
+            alert('Override cleared and auto-clear timer cancelled.');
+        } else {
+            alert('Override cleared.');
+        }
         appState.dbRefs.glitches.child('override_state').remove();
     };
 
@@ -788,18 +849,21 @@ function displayUsers(users) {
     }
 }
 
+// Updated: Handle System Override (GM Preview and Timer Management)
 function handleSystemOverride(override) {
-    const overlay = document.getElementById('system-override-overlay');
-    if (!overlay) {
-        return;
-    }
+    // This function primarily handles the GM's awareness of the override state.
+    // The player terminal handles the actual rendering of SVG, text, and glitches.
+    
+    // Note: The GM interface does not typically display the full overlay.
+    // We only use this function to manage the timer if it was cleared remotely.
 
-    if (override) {
-        overlay.textContent = override.message;
-        overlay.className = override.type;
-        overlay.style.display = 'flex';
-    } else {
-        overlay.style.display = 'none';
+    if (!override) {
+        // If an override is cleared (e.g., by another GM or the timer finishing), ensure our local timer is also cancelled.
+        if (overrideClearTimeout) {
+            clearTimeout(overrideClearTimeout);
+            overrideClearTimeout = null;
+            console.log('Override cleared remotely or timer finished.');
+        }
     }
 }
 
