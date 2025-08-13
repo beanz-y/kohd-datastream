@@ -13,6 +13,7 @@
         body {
             height: 100%;
             margin: 0;
+            overflow: hidden; 
         }
 
         body {
@@ -21,23 +22,29 @@
             transition: background-color 0.3s, color 0.3s;
         }
 
+        #terminal-container {
+            display: none; 
+            height: 100%; 
+            flex-direction: column;
+        }
+
         #terminal {
             flex-grow: 1;
             overflow-y: auto;
             padding: 10px;
             cursor: text;
             position: relative;
+            box-sizing: border-box; 
         }
 
         #qol-buttons {
-            /* Start with fixed position for desktop */
             position: fixed;
             bottom: 10px;
             right: 10px;
             z-index: 5000;
             display: flex;
             gap: 8px;
-            transition: bottom 0.2s ease-out; /* Smooth transition for when it moves */
+            transition: bottom 0.2s ease-out;
         }
 
         #qol-buttons button {
@@ -87,17 +94,13 @@
             background-color: rgba(0,0,0,0.2);
             border: 1px solid;
             margin: 10px 0;
-            max-height: 70vh; 
-            overflow-y: auto; 
-            resize: vertical; 
+            box-sizing: border-box;
         }
 
         .rendered-svg-container svg {
+            display: block; 
             width: 100%;
-            max-width: 500px;
-            height: auto;
-            display: block;
-            margin: auto;
+            height: 100%; 
         }
         
         .svg-close-button {
@@ -112,7 +115,20 @@
         .svg-close-button:hover {
             opacity: 0.7;
         }
-
+        
+        /* --- Animation Classes --- */
+        @keyframes draw-line { to { stroke-dashoffset: 0; } }
+        @keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
+        
+        .svg-draw-path {
+            stroke-dasharray: 1; /* Placeholder */
+            stroke-dashoffset: 1; /* Placeholder */
+            animation: draw-line 1.5s ease-out forwards;
+        }
+        .svg-fade-in {
+            opacity: 0;
+            animation: fade-in 1s ease-out forwards;
+        }
 
         body.relic-theme {
             background-color: #1a2123;
@@ -380,17 +396,6 @@
             color: #FFDC00;
         }
         
-        @keyframes draw-line { to { stroke-dashoffset: 0; } }
-        @keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
-        .svg-draw-path {
-            stroke-dasharray: 1;
-            stroke-dashoffset: 1;
-            animation: draw-line 1s ease-out forwards;
-        }
-        .svg-fade-in {
-            opacity: 0;
-            animation: fade-in 0.5s ease-out forwards;
-        }
     </style>
 </head>
 
@@ -431,9 +436,9 @@
 
     <div id="system-override-overlay"></div>
 
-    <div id="terminal-container" style="display: none; height: 100%; flex-direction: column;">
+    <div id="terminal-container">
         <div id="terminal">
-            <div class="prompt"><span class="prompt-text">>&nbsp;</span><input type="text" id="commandInput" autofocus></div>
+            <div class="prompt prompt-wrapper"><span class="prompt-text">>&nbsp;</span><input type="text" id="commandInput" autofocus></div>
         </div>
         <div id="qol-buttons">
             <button id="history-up-button">▲</button>
@@ -465,9 +470,9 @@
         const commandInput = document.getElementById('commandInput');
         const overrideOverlay = document.getElementById('system-override-overlay');
         const clearButton = document.getElementById('clear-button');
-        const qolButtons = document.getElementById('qol-buttons'); // Get the button container
+        const qolButtons = document.getElementById('qol-buttons');
 
-        let isConnected = false, isScanning = false, isTyping = false, isInitialLoad = true;
+        let isConnected = false, isScanning = false, isTyping = false;
         let config = {};
         let currentUser = null;
         let userTheme = 'relic-theme';
@@ -483,6 +488,70 @@
         let commandHistory = [];
         let historyIndex = -1;
         const COMMAND_HISTORY_KEY = 'command_history_session';
+
+        // --- STATE FOR RACE CONDITION FIX ---
+        let isConfigLoaded = false;
+        let messageQueue = [];
+
+        /**
+         * Processes SVG content to enable dynamic scaling and applies player theming.
+         */
+        function processSVG(svgContent, themeBackgroundColor) {
+            const parser = new DOMParser();
+            const doc = parser.parseFromString(svgContent, "image/svg+xml");
+            const svg = doc.documentElement;
+
+            if (svg.tagName.toLowerCase() === 'parsererror' || svg.querySelector('parsererror')) {
+                console.error("Error parsing SVG content.");
+                return svgContent;
+            }
+
+            if (!svg.getAttribute('viewBox')) {
+                const width = svg.getAttribute('width');
+                const height = svg.getAttribute('height');
+                if (width && height) {
+                    const cleanWidth = parseFloat(width);
+                    const cleanHeight = parseFloat(height);
+                    if (!isNaN(cleanWidth) && !isNaN(cleanHeight)) {
+                        svg.setAttribute('viewBox', `0 0 ${cleanWidth} ${cleanHeight}`);
+                    }
+                }
+            }
+            svg.setAttribute('width', '100%');
+            svg.setAttribute('height', '100%');
+            if (!svg.getAttribute('preserveAspectRatio')) {
+                svg.setAttribute('preserveAspectRatio', 'xMidYMid meet');
+            }
+
+            const whiteKeywords = ['white', '#ffffff', '#fff'];
+            const whiteRgbRegex = /^rgb\(\s*255\s*,\s*255\s*,\s*255\s*\)$/i;
+            const elements = svg.getElementsByTagName('*');
+            for (const element of elements) {
+                const tagName = element.tagName.toLowerCase();
+                
+                if (tagName === 'line' || tagName === 'path') {
+                    const strokeAttr = element.getAttribute('stroke');
+                    if (strokeAttr) {
+                        const normalizedStroke = strokeAttr.trim().toLowerCase();
+                        if (whiteKeywords.includes(normalizedStroke) || whiteRgbRegex.test(normalizedStroke)) {
+                            element.setAttribute('stroke', themeBackgroundColor);
+                        }
+                    }
+
+                    const styleAttr = element.getAttribute('style');
+                    if (styleAttr && styleAttr.includes('stroke')) {
+                        let updatedStyle = styleAttr;
+                        const styleRegex = /((stroke)\s*:\s*)(white|#ffffff|#fff|rgb\(\s*255\s*,\s*255\s*,\s*255\s*\))/gi;
+                        updatedStyle = updatedStyle.replace(styleRegex, `$1${themeBackgroundColor}`);
+                        if (updatedStyle !== styleAttr) {
+                            element.setAttribute('style', updatedStyle);
+                        }
+                    }
+                }
+            }
+            const serializer = new XMLSerializer();
+            return serializer.serializeToString(svg);
+        }
 
         function startLogin() {
             terminalContainer.style.display = 'none';
@@ -539,16 +608,13 @@
         loginForm.onsubmit = handleLoginAttempt;
 
         function initializeTerminal() {
-            // --- NEW: Mobile Keyboard Adjustment Logic ---
             if (window.visualViewport) {
                 const initialHeight = window.innerHeight;
                 window.visualViewport.addEventListener('resize', () => {
                     const keyboardHeight = initialHeight - window.visualViewport.height;
-                    // If the keyboard is likely visible, move the buttons up.
-                    if (keyboardHeight > 150) { // 150px is a reasonable threshold for a keyboard
+                    if (keyboardHeight > 150) { 
                         qolButtons.style.bottom = `${keyboardHeight + 10}px`;
                     } else {
-                        // Otherwise, reset to default position
                         qolButtons.style.bottom = '10px';
                     }
                 });
@@ -578,47 +644,60 @@
                 }
                 return decodedContent;
             }
-            function renderThemedSvg(svgString) {
+            function renderThemedSvg(svgContent) {
                 const container = document.createElement('div');
                 container.className = 'line rendered-svg-container';
-                container.style.visibility = 'hidden';
+
                 const closeButton = document.createElement('span');
                 closeButton.className = 'svg-close-button';
                 closeButton.textContent = '[x]';
                 closeButton.onclick = () => container.remove();
                 container.appendChild(closeButton);
-                const parser = new DOMParser();
-                const svgDoc = parser.parseFromString(svgString, "image/svg+xml");
-                const svgElement = svgDoc.documentElement;
-                if (svgDoc.getElementsByTagName("parsererror").length > 0) {
-                    container.innerHTML += "Error: Invalid SVG data.";
-                    terminal.insertBefore(container, terminal.lastElementChild);
-                    container.style.visibility = 'visible';
-                    return;
-                }
-                container.appendChild(svgElement);
-                terminal.insertBefore(container, terminal.lastElementChild);
-                terminal.scrollTop = terminal.scrollHeight;
+
                 const primaryColor = getComputedStyle(document.body).getPropertyValue('--theme-primary').trim();
-                svgElement.querySelectorAll('path, polyline, line, circle, rect, ellipse, polygon').forEach(el => {
-                    const tagName = el.tagName.toLowerCase();
-                    if (['path', 'polyline', 'line'].includes(tagName)) {
-                        const length = el.getTotalLength();
-                        el.setAttribute('stroke', primaryColor);
-                        el.setAttribute('fill', 'none');
-                        el.style.strokeDasharray = length;
-                        el.style.strokeDashoffset = length;
-                        el.classList.add('svg-draw-path');
-                        el.style.animationDuration = '1.5s';
-                    } else {
-                        const isHollow = el.getAttribute('fill') === 'none' || !el.getAttribute('fill');
-                        el.setAttribute('stroke', primaryColor);
-                        el.setAttribute('fill', isHollow ? 'none' : primaryColor);
-                        el.classList.add('svg-fade-in');
-                        el.style.animationDuration = '1s';
-                    }
-                });
-                container.style.visibility = 'visible';
+                const backgroundColor = getComputedStyle(document.body).getPropertyValue('background-color').trim();
+
+                const processedSvgString = processSVG(svgContent, backgroundColor);
+                
+                const tempWrapper = document.createElement('div');
+                tempWrapper.innerHTML = processedSvgString;
+                const svgElement = tempWrapper.firstChild;
+
+                if (svgElement) {
+                    container.appendChild(svgElement);
+                    terminal.insertBefore(container, terminal.lastElementChild);
+                    terminal.scrollTop = terminal.scrollHeight;
+                    
+                    requestAnimationFrame(() => {
+                        svgElement.querySelectorAll('path, polyline, line, circle, rect, ellipse, polygon').forEach(el => {
+                            const tagName = el.tagName.toLowerCase();
+                            const isNegativeSpace = el.getAttribute('stroke') === backgroundColor;
+
+                            if (!isNegativeSpace) {
+                                if (el.hasAttribute('stroke') && el.getAttribute('stroke') !== 'none') {
+                                    el.setAttribute('stroke', primaryColor);
+                                }
+                                if (el.hasAttribute('fill') && el.getAttribute('fill') !== 'none') {
+                                    el.setAttribute('fill', primaryColor);
+                                }
+
+                                if (['path', 'polyline', 'line'].includes(tagName)) {
+                                    if (typeof el.getTotalLength === 'function' && el.getTotalLength() > 0) {
+                                        const length = el.getTotalLength();
+                                        el.style.strokeDasharray = length;
+                                        el.style.strokeDashoffset = length;
+                                        el.classList.add('svg-draw-path');
+                                    }
+                                } else {
+                                    el.classList.add('svg-fade-in');
+                                }
+                            }
+                        });
+                    });
+                } else {
+                    container.innerHTML += "Error: Could not render processed SVG.";
+                    terminal.insertBefore(container, terminal.lastElementChild);
+                }
             }
             function typeLine(text, className = '', speed = 15, callback = () => { }) {
                 isTyping = true;
@@ -657,9 +736,13 @@
                 if (isConnected && dataString) {
                     if (dataString.startsWith('SVG::')) {
                         const svgContent = dataString.substring(5);
-                        printLine(`\n>>> INCOMING VISUAL DATA FROM ${config.systemName} <<<`, 'data-msg-header');
-                        renderThemedSvg(svgContent);
-                        printLine(`>>> END OF VISUAL DATA <<<`, 'data-msg-header');
+                        printLine('&nbsp;');
+                        typeLine(`>>> INCOMING ${(config.dataNoun || 'Data').toUpperCase()} FROM ${config.systemName} <<<`, 'data-msg-header', 20, () => {
+                            renderThemedSvg(svgContent);
+                            setTimeout(() => {
+                                typeLine(`>>> END OF ${(config.dataNoun || 'Data').toUpperCase()} <<<`, 'data-msg-header');
+                            }, 1600); 
+                        });
                         return;
                     }
                     if (glitches.scramble_next) {
@@ -747,8 +830,13 @@
                 }
                 historyIndex = commandHistory.length;
                 if (glitches.glitched_command && fullCmd.startsWith(glitches.glitched_command)) { printLine(`> ${fullCmd}`, 'prompt-text'); typeLine(`//_COMMAND MALFUNCTION: [${glitches.glitched_command.toUpperCase()}] OFFLINE_//`, 'error-msg'); return; }
-                printLine(`> ${fullCmd}`, 'prompt-text');
+                
                 const [cmd, ...args] = fullCmd.split(' ');
+                
+                if (cmd !== 'cls') {
+                    printLine(`> ${fullCmd}`, 'prompt-text');
+                }
+
                 const argString = args.join(' ').trim();
                 if (customCommands[cmd]) {
                     const command = customCommands[cmd];
@@ -841,8 +929,13 @@
                 } else if (cmd === (config.connectCommand || 'connect')) {
                     if (isScanning) { typeLine(`Attempting to synchronize with ${config.systemName}...`, '', 30, () => { isConnected = true; typeLine(`Synchronization complete. Interface active. Awaiting ${config.dataNoun || 'Data'}...`, 'system-msg'); }); } else { typeLine(`ERROR: No ${(config.signalNoun || 'signal')} detected. Run ${(config.scanCommand || 'scan').toUpperCase()} first.`, 'error-msg'); }
                 } else if (cmd === 'cls') {
-                    const lines = terminal.querySelectorAll('.line'); 
-                    lines.forEach(line => line.remove());
+                    const lines = Array.from(terminal.children);
+                    lines.forEach(line => {
+                        if (!line.classList.contains('prompt-wrapper')) {
+                            line.remove();
+                        }
+                    });
+                    drawWelcomeMessage();
                 } else if (cmd === 'ping') {
                     if (isConnected) { const latency = Math.floor(Math.random() * (150 - 40 + 1)) + 40; typeLine(`PONG! Received reply from ${config.systemName} in ${latency}ms.`, 'system-msg'); } else { typeLine('ERROR: Not connected. Cannot ping target.', 'error-msg'); }
                 } else if (cmd === 'status') {
@@ -935,9 +1028,12 @@
                 const newConfig = snapshot.val();
                 if (newConfig) { config = newConfig; } else { config = {}; }
                 applyTheme();
-                if (isInitialLoad) {
+                if (!isConfigLoaded) {
                     drawWelcomeMessage();
-                    isInitialLoad = false;
+                    isConfigLoaded = true;
+                    // Process any queued messages
+                    messageQueue.forEach(data => processDatastream(data));
+                    messageQueue = []; // Clear the queue
                 }
             });
             if (currentUser) {
@@ -953,11 +1049,25 @@
             database.ref('custom_commands').on('value', (snapshot) => { customCommands = snapshot.val() || {}; });
             database.ref('player_resources').on('value', (snapshot) => { playerResources = snapshot.val() || { name: "Resources", count: 0 }; });
             database.ref('glitches').on('value', (snapshot) => { glitches = snapshot.val() || {}; const override = glitches.override_state; if (override) { overrideOverlay.textContent = override.message; overrideOverlay.className = override.type; overrideOverlay.style.display = 'flex'; } else { overrideOverlay.style.display = 'none'; } if (glitches.reset_access_timestamp && isConnected) { clearanceLevel = 1; typeLine('// SECURITY CREDENTIALS INVALIDATED. ACCESS LEVEL RESET BY SOURCE. //', 'error-msg'); database.ref('glitches/reset_access_timestamp').remove(); } });
-            database.ref('kohd_datastream').on('value', (snapshot) => { processDatastream(snapshot.val()); });
+            
+            // Modified listener to handle the queue
+            database.ref('kohd_datastream').on('value', (snapshot) => {
+                const data = snapshot.val();
+                if (data === null) return; // Ignore null data on startup
+                if (!isConfigLoaded) {
+                    messageQueue.push(data);
+                } else {
+                    processDatastream(data);
+                }
+            });
             database.ref('direct_messages/' + currentUser).on('value', (snapshot) => {
                 const message = snapshot.val();
                 if (message) {
-                    processDatastream(message);
+                    if (!isConfigLoaded) {
+                         messageQueue.push(message);
+                    } else {
+                        processDatastream(message);
+                    }
                     snapshot.ref.remove();
                 }
             });
