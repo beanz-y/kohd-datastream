@@ -90,34 +90,70 @@
             outline: none;
         }
         
-        .rendered-svg-container {
-            position: relative;
-            padding: 15px;
-            padding-top: 30px; 
-            background-color: rgba(0,0,0,0.2);
-            border: 1px solid;
-            margin: 10px 0;
-            box-sizing: border-box;
+        /* --- DEPRECATED Inline SVG Styles (Removed) --- */
+        /* The .rendered-svg-container, .svg-close-button and associated styles are removed as we now use an overlay */
+
+        
+        /* --- New SVG Fullscreen Overlay Styles --- */
+        #svg-fullscreen-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            /* Use dvh for better mobile compatibility */
+            height: 100dvh; 
+            /* Background color handled by theme-specific overrides below */
+            z-index: 9000; /* Below system override (10000), above terminal */
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
         }
 
-        .rendered-svg-container svg {
-            display: block; 
-            width: 100%;
-            height: 100%; 
+        .svg-responsive-wrapper {
+          /* 1. Define the boundaries.
+             Allow space for the close button (approx 50px) and padding (e.g., 20px top/bottom, 40px left/right) */
+          width: calc(100vw - 40px);
+          height: calc(100dvh - 90px); /* 50px for button + 40px vertical padding */
+
+          /* 2. Use Flexbox to center the SVG within the boundaries */
+          display: flex;
+          justify-content: center; /* Center horizontally */
+          align-items: center;     /* Center vertically */
+
+          box-sizing: border-box;
+          overflow: hidden;
         }
-        
-        .svg-close-button {
-            position: absolute;
-            top: 2px;
-            right: 5px;
+
+        /* Styling for the SVG element itself */
+        /* This applies to both the new overlay AND the System Override overlay SVGs */
+        .svg-responsive-wrapper svg,
+        #system-override-overlay svg {
+          /* 3. The crucial constraints */
+          max-width: 100%;
+          max-height: 100%;
+
+          /* 4. Allow the browser to calculate the size while maintaining aspect ratio */
+          width: auto;
+          height: auto;
+        }
+
+        .svg-overlay-close-button {
             cursor: pointer;
             font-size: 1.2em;
-            font-family: monospace;
-            padding: 2px 5px;
+            padding: 10px 20px;
+            margin-top: 15px;
+            border: 1px solid currentColor;
+            text-align: center;
+            font-family: inherit;
+            /* Ensure button uses the secondary color */
+            color: var(--theme-secondary); 
         }
-        .svg-close-button:hover {
+
+        .svg-overlay-close-button:hover {
             opacity: 0.7;
         }
+
         
         /* --- Animation Classes --- */
         @keyframes draw-line { to { stroke-dashoffset: 0; } }
@@ -146,8 +182,7 @@
         .relic-theme .prompt-text,
         .relic-theme .error-msg,
         .relic-theme .data-msg-header,
-        .relic-theme .file-locked,
-        .relic-theme .svg-close-button {
+        .relic-theme .file-locked {
             color: var(--theme-secondary);
         }
 
@@ -156,8 +191,9 @@
             color: var(--theme-primary);
         }
         
-        .relic-theme .rendered-svg-container {
-            border-color: var(--theme-secondary);
+        /* NEW: Theme the overlay background */
+        .relic-theme #svg-fullscreen-overlay {
+             background-color: rgba(26, 33, 35, 0.95);
         }
 
         .relic-theme #qol-buttons button {
@@ -175,9 +211,9 @@
             --theme-secondary: #3f3;
         }
         
-        .green-theme .rendered-svg-container,
-        .green-theme .svg-close-button {
-            border-color: var(--theme-primary);
+        /* NEW */
+        .green-theme #svg-fullscreen-overlay {
+             background-color: rgba(10, 10, 10, 0.95);
         }
 
 
@@ -224,9 +260,9 @@
             --theme-secondary: #51a6ff;
         }
         
-        .blue-theme .rendered-svg-container,
-        .blue-theme .svg-close-button {
-            border-color: var(--theme-secondary);
+        /* NEW */
+        .blue-theme #svg-fullscreen-overlay {
+             background-color: rgba(11, 17, 42, 0.95);
         }
 
 
@@ -261,9 +297,9 @@
             --theme-secondary: #ffb000;
         }
         
-        .amber-theme .rendered-svg-container,
-        .amber-theme .svg-close-button {
-            border-color: var(--theme-primary);
+        /* NEW */
+        .amber-theme #svg-fullscreen-overlay {
+             background-color: rgba(26, 16, 0, 0.95);
         }
 
         .amber-theme #terminal {
@@ -297,9 +333,9 @@
             --theme-secondary: #8effff;
         }
         
-        .hologram-theme .rendered-svg-container,
-        .hologram-theme .svg-close-button {
-            border-color: var(--theme-secondary);
+        /* NEW */
+        .hologram-theme #svg-fullscreen-overlay {
+             background-color: rgba(3, 4, 9, 0.90);
         }
 
         .hologram-theme #terminal {
@@ -343,17 +379,19 @@
         .red-theme .prompt-text,
         .red-theme .error-msg,
         .red-theme .data-msg-header,
-        .red-theme .file-locked,
-        .red-theme .svg-close-button {
+        .red-theme .file-locked {
             color: var(--theme-secondary);
         }
         .red-theme .system-msg,
         .red-theme .data-msg-body {
             color: var(--theme-primary);
         }
-        .red-theme .rendered-svg-container {
-            border-color: var(--theme-secondary);
+
+        /* NEW */
+        .red-theme #svg-fullscreen-overlay {
+             background-color: rgba(28, 5, 5, 0.95);
         }
+
         .red-theme #qol-buttons button {
             background-color: rgba(255, 65, 54, 0.15);
             border: 1px solid rgba(255, 65, 54, 0.4);
@@ -504,22 +542,22 @@
 </head>
 
 <body class="relic-theme">
-    <!-- SVG Filters Definition (Hidden) -->
+    <div id="svg-fullscreen-overlay" style="display: none;">
+        <div id="svg-display-container" class="svg-responsive-wrapper">
+            </div>
+        <div class="svg-overlay-close-button">[ CLOSE VISUAL DATA ]</div>
+    </div>
+
     <svg xmlns="http://www.w3.org/2000/svg" version="1.1" style="display:none;">
         <defs>
-            <!-- Chromatic Aberration Filter for VR Glitch -->
             <filter id="chromatic-aberration-filter">
                 <feOffset in="SourceGraphic" dx="2" dy="0" result="red-shift" />
                 <feOffset in="SourceGraphic" dx="-2" dy="0" result="blue-shift" />
-                <!-- Create a red-only version -->
                 <feColorMatrix in="red-shift" type="matrix" values="1 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 1 0" result="red" />
-                <!-- Create a cyan (green+blue) version -->
                 <feColorMatrix in="blue-shift" type="matrix" values="0 0 0 0 0 0 1 0 0 0 0 0 1 0 0 0 0 0 1 0" result="cyan" />
-                <!-- Blend them back together -->
                 <feBlend in="red" in2="cyan" mode="screen" />
             </filter>
 
-            <!-- Fractal Noise Filters for Digital Corruption (Different intensities) -->
             <filter id="fractal-noise-filter-low">
                 <feTurbulence type="fractalNoise" baseFrequency="0.05" numOctaves="2" result="noise" />
                 <feDisplacementMap in="SourceGraphic" in2="noise" scale="5" xChannelSelector="R" yChannelSelector="G" />
@@ -619,6 +657,8 @@
         decodingChart = Object.fromEntries(Object.entries(defaultEncodingChart).map(a => a.reverse()));
         const doubledSymbols = ['<<', '>>', '%%', '^^', '&&', '**', '--', '++', '@@'];
         const allSymbols = [...doubledSymbols, '$', ':', '#', '<', '>', '%', '^', '&', '*', '-', '+', '@'];
+        
+        // Initialize playerConnectionRef
         let playerConnectionRef = null;
 
         let commandHistory = [];
@@ -631,38 +671,49 @@
 
 
         /**
-         * UPDATED: Processes SVG content for scaling and negative space replacement.
-         * Negative space replacement (white to background color) is now restricted to 'line' and 'path' elements.
+         * Processes SVG content for scaling preparation and negative space replacement.
+         * Prepares SVG for CSS responsive scaling by ensuring viewBox and removing fixed dimensions.
+         * Negative space replacement (white to background color) is restricted to 'line' and 'path' elements.
          */
         function processSVG(svgContent, themeBackgroundColor) {
             const parser = new DOMParser();
-            const doc = parser.parseFromString(svgContent, "image/svg+xml");
+            // Ensure svgContent is treated as a string and trimmed
+            const doc = parser.parseFromString(String(svgContent).trim(), "image/svg+xml");
             const svg = doc.documentElement;
 
-            if (svg.tagName.toLowerCase() === 'parsererror' || svg.querySelector('parsererror')) {
+            // Check for parsing errors
+            if (!svg || svg.tagName.toLowerCase() === 'parsererror' || doc.getElementsByTagName("parsererror").length > 0) {
                 console.error("Error parsing SVG content.");
-                return svgContent;
+                // Return original content if parsing fails critically, or an empty string if input was invalid
+                return svgContent || ''; 
             }
 
             // Handle scaling (viewBox, width, height)
+            // 1. Ensure 'viewBox' is present (essential for aspect ratio).
             if (!svg.getAttribute('viewBox')) {
                 const width = svg.getAttribute('width');
                 const height = svg.getAttribute('height');
                 if (width && height) {
                     const cleanWidth = parseFloat(width);
                     const cleanHeight = parseFloat(height);
-                    if (!isNaN(cleanWidth) && !isNaN(cleanHeight)) {
+                    // Ensure valid dimensions before creating viewBox
+                    if (!isNaN(cleanWidth) && !isNaN(cleanHeight) && cleanWidth > 0 && cleanHeight > 0) {
                         svg.setAttribute('viewBox', `0 0 ${cleanWidth} ${cleanHeight}`);
                     }
                 }
             }
-            svg.setAttribute('width', '100%');
-            svg.setAttribute('height', '100%');
+            
+            // 2. CRITICAL: Remove fixed 'width' and 'height' attributes for CSS scaling.
+            svg.removeAttribute('width');
+            svg.removeAttribute('height');
+
+            // 3. Ensure the SVG scales uniformly
             if (!svg.getAttribute('preserveAspectRatio')) {
                 svg.setAttribute('preserveAspectRatio', 'xMidYMid meet');
             }
 
             // Handle Negative Space Replacement (Replace white with the background color)
+            // This helps handle SVGs that use white lines/shapes as cutouts.
             const whiteKeywords = ['white', '#ffffff', '#fff'];
             const whiteRgbRegex = /^rgb\(\s*255\s*,\s*255\s*,\s*255\s*\)$/i;
             const elements = svg.getElementsByTagName('*');
@@ -768,14 +819,25 @@
         function initializeTerminal() {
              // (Viewport Listener, applyTheme, partiallyDecode, fullyDecode)
              if (window.visualViewport) {
-                const initialHeight = window.innerHeight;
+                // Use window.visualViewport.height if available for initial height, otherwise fallback to innerHeight
+                const initialHeight = window.visualViewport.height || window.innerHeight;
+
                 window.visualViewport.addEventListener('resize', () => {
-                    const keyboardHeight = initialHeight - window.visualViewport.height;
+                    const viewportHeight = window.visualViewport.height;
+                    
+                    // Calculate keyboard height approximation based on the change from the initial state
+                    const keyboardHeight = initialHeight - viewportHeight;
+
+                    // A threshold (e.g., 150px) helps determine if the difference is likely a keyboard
                     if (keyboardHeight > 150) { 
+                        // Keyboard is likely open
                         qolButtons.style.bottom = `${keyboardHeight + 10}px`;
                     } else {
+                        // Keyboard is closed or height difference is minimal
                         qolButtons.style.bottom = '10px';
                     }
+                    // Ensure terminal scrolls to bottom when layout changes
+                    terminal.scrollTop = terminal.scrollHeight;
                 });
             }
 
@@ -786,9 +848,11 @@
                     document.body.className = userTheme;
                 }
             }
-            function partiallyDecode(fullStream) { if (Object.keys(decodingChart).length === 0) return fullStream; const parts = fullStream.match(/(.*?)\$:(.*):#(.*)/); if (!parts) return fullStream; const leadingNoise = parts[1], encodedPart = parts[2], trailingNoise = parts[3]; let decodedContent = ''; for (let i = 0; i < encodedPart.length; i += 2) { const pair = encodedPart.substring(i, i + 2); const char = decodingChart[pair]; if (char && unlockedKeys[char]) { decodedContent += char; } else { decodedContent += pair; } } return `${leadingNoise}$:${decodedContent}:#${trailingNoise}`; }
+            
+            // Added String() casting to handle potential non-string values from history
+            function partiallyDecode(fullStream) { if (Object.keys(decodingChart).length === 0) return fullStream; const parts = String(fullStream).match(/(.*?)\$:(.*):#(.*)/); if (!parts) return fullStream; const leadingNoise = parts[1], encodedPart = parts[2], trailingNoise = parts[3]; let decodedContent = ''; for (let i = 0; i < encodedPart.length; i += 2) { const pair = encodedPart.substring(i, i + 2); const char = decodingChart[pair]; if (char && unlockedKeys[char]) { decodedContent += char; } else { decodedContent += pair; } } return `${leadingNoise}$:${decodedContent}:#${trailingNoise}`; }
             function fullyDecode(fullStream) {
-                const parts = fullStream.match(/(.*?)\$:(.*):#(.*)/);
+                const parts = String(fullStream).match(/(.*?)\$:(.*):#(.*)/);
                 if (!parts) return fullStream;
                 const encodedPart = parts[2];
                 let decodedContent = '';
@@ -805,9 +869,9 @@
             }
 
 
-            // UPDATED: Helper function to apply theming and animation.
-            // This now ensures that elements preserved as white by processSVG (like circles) are correctly themed.
-            function applySvgEnhancements(svgElement, backgroundColor, primaryColor, applyTheme, animate) {
+            // FIXED: Helper function to apply theming and animation.
+            // Note: 'themingColor' can be the terminal's primary color OR the override's specific color.
+            function applySvgEnhancements(svgElement, backgroundColor, themingColor, applyTheme, animate) {
                  if (!svgElement) return;
 
                  // Define white keywords here as they are needed for comparison
@@ -823,6 +887,7 @@
                         const fillAttr = el.getAttribute('fill');
                         
                         let isNegativeSpace = false;
+                        // We check against the specific backgroundColor passed in, as processSVG used that exact value.
                         if (strokeAttr && strokeAttr === backgroundColor) {
                             isNegativeSpace = true;
                         }
@@ -832,21 +897,30 @@
 
                         if (!isNegativeSpace) {
                             // Apply Theming (Coloring) - Positive Space
-                            if (applyTheme && primaryColor) {
+                            // We check applyTheme AND themingColor (themingColor might be null if theming is off)
+                            if (applyTheme && themingColor) {
                                 if (el.hasAttribute('stroke') && el.getAttribute('stroke') !== 'none') {
                                     // This will theme strokes, including white strokes preserved by processSVG
-                                    el.setAttribute('stroke', primaryColor);
+                                    el.setAttribute('stroke', themingColor);
                                 }
+                                
+                                // Handle fill attributes
                                 if (el.hasAttribute('fill') && el.getAttribute('fill') !== 'none') {
                                      // If the fill is currently black OR white (preserved by processSVG), replace it
                                     const currentFill = el.getAttribute('fill').toLowerCase();
                                     
                                     if (currentFill === 'black' || currentFill === '#000000' || currentFill === '#000' || whiteKeywords.includes(currentFill)) {
-                                         el.setAttribute('fill', primaryColor);
+                                         el.setAttribute('fill', themingColor);
                                     } else {
-                                        // Otherwise, force the primary color for strict theming
-                                        el.setAttribute('fill', primaryColor);
+                                        // Otherwise, force the theming color for strict theming
+                                        el.setAttribute('fill', themingColor);
                                     }
+                                }
+                                
+                                // Ensure elements (especially paths) default to 'none' fill if not specified, so they don't block the background if they only have a stroke
+                                if (!el.hasAttribute('fill') && ['path', 'polyline', 'polygon', 'rect', 'circle', 'ellipse'].includes(tagName)) {
+                                    // If it has a stroke, default fill to none. If it has no stroke and no fill, it's invisible anyway.
+                                     el.setAttribute('fill', 'none');
                                 }
                             }
                             
@@ -871,47 +945,74 @@
                             }
                         }
                     });
+                    
+                     // Handle text color separately if theming is applied
+                    if (applyTheme && themingColor) {
+                        svgElement.querySelectorAll('text').forEach(el => {
+                            el.setAttribute('fill', themingColor);
+                        });
+                    }
                 });
             }
 
-            // Updated: Renders SVG into the terminal output (used for 'cat' command and datastreams)
+            // Renders SVG into the fullscreen overlay (used for 'cat' command and datastreams)
             function renderThemedSvg(svgContent) {
-                // (Container and Close Button Setup)
-                 const container = document.createElement('div');
-                container.className = 'line rendered-svg-container';
+                // Get references to the overlay elements
+                const overlay = document.getElementById('svg-fullscreen-overlay');
+                const container = document.getElementById('svg-display-container');
+                const closeButton = overlay.querySelector('.svg-overlay-close-button');
 
-                const closeButton = document.createElement('span');
-                closeButton.className = 'svg-close-button';
-                closeButton.textContent = '[x]';
-                closeButton.onclick = () => container.remove();
-                container.appendChild(closeButton);
+                if (!overlay || !container) {
+                    printLine("ERROR: Failed to initialize visual data display.", "error-msg");
+                    return;
+                }
 
+                // Clear previous content
+                container.innerHTML = '';
 
                 // Get current theme colors
                 const primaryColor = getComputedStyle(document.body).getPropertyValue('--theme-primary').trim();
-                const backgroundColor = getComputedStyle(document.body).getPropertyValue('background-color').trim();
+                // Get the actual computed background color of the body for negative space replacement
+                const backgroundColor = getComputedStyle(document.body).backgroundColor.trim();
 
-                // Process SVG (scaling and negative space replacement)
+                // Process SVG (scaling prep and negative space replacement)
+                // This also handles the initial parsing validation within processSVG.
                 const processedSvgString = processSVG(svgContent, backgroundColor);
                 
-                const tempWrapper = document.createElement('div');
-                tempWrapper.innerHTML = processedSvgString;
-                const svgElement = tempWrapper.firstChild;
+                // We need to re-parse the processed string to get the element for appending and enhancements
+                const parser = new DOMParser();
+                const doc = parser.parseFromString(processedSvgString, "image/svg+xml");
+                const svgElement = doc.documentElement;
 
-                // Check if parsing resulted in a valid SVG element
-                if (svgElement && svgElement.tagName && svgElement.tagName.toLowerCase() === 'svg') {
-                    container.appendChild(svgElement);
-                    terminal.insertBefore(container, terminal.lastElementChild);
-                    terminal.scrollTop = terminal.scrollHeight;
+                // Check if parsing resulted in a valid SVG element after processing
+                if (svgElement && svgElement.tagName && svgElement.tagName.toLowerCase() === 'svg' && doc.getElementsByTagName("parsererror").length === 0) {
+                    
+                    // Import the node into the current document before appending
+                    const importedSvgElement = document.importNode(svgElement, true);
+                    container.appendChild(importedSvgElement);
                     
                     // Apply enhancements (theming colors and animation)
-                    // For terminal output, we always apply the theme and animation.
-                    applySvgEnhancements(svgElement, backgroundColor, primaryColor, true, true);
+                    // For standard viewing, we always apply the theme and animation.
+                    applySvgEnhancements(importedSvgElement, backgroundColor, primaryColor, true, true);
+
+                    // Setup close button event listener
+                    const closeOverlay = () => {
+                        overlay.style.display = 'none';
+                        container.innerHTML = ''; // Clear SVG when closed
+                        commandInput.focus(); // Refocus terminal input
+                    };
+                    
+                    closeButton.onclick = closeOverlay;
+
+                    // Display the overlay
+                    overlay.style.display = 'flex';
+                    
+                    // Scroll terminal to bottom
+                    terminal.scrollTop = terminal.scrollHeight;
 
                 } else {
-                    console.error("Failed to render SVG in terminal.", svgElement);
-                    container.innerHTML += "Error: Could not render processed SVG.";
-                    terminal.insertBefore(container, terminal.lastElementChild);
+                    console.error("Failed to render SVG in overlay after processing.", processedSvgString);
+                    printLine("Error: Could not render visual data.", "error-msg");
                 }
             }
 
@@ -954,11 +1055,10 @@
                     if (dataString.startsWith('SVG::')) {
                         const svgContent = dataString.substring(5);
                         printLine('&nbsp;');
-                        typeLine(`>>> INCOMING ${(config.dataNoun || 'Data').toUpperCase()} FROM ${config.systemName} <<<`, 'data-msg-header', 20, () => {
+                        // Updated: SVGs now open in the overlay.
+                        typeLine(`>>> INCOMING VISUAL DATASTREAM. OPENING VIEWER... <<<`, 'data-msg-header', 20, () => {
                             renderThemedSvg(svgContent);
-                            setTimeout(() => {
-                                typeLine(`>>> END OF ${(config.dataNoun || 'Data').toUpperCase()} <<<`, 'data-msg-header');
-                            }, 1600); 
+                            // We don't need the "END OF DATA" message when using the overlay viewer.
                         });
                         return;
                     }
@@ -1027,34 +1127,58 @@
                     const baseCommands = ['help', 'logout', 'elevate', 'ls', 'cat', 'reply', 'ping', 'status', 'history', 'cls', config.scanCommand, config.connectCommand].filter(Boolean);
                     const allCommands = [...baseCommands, ...Object.keys(customCommands)];
                     potentialCompletions = allCommands.filter(cmd => cmd.startsWith(currentPart));
-                }
-                else if (parts.length === 2 && parts[0].toLowerCase() === 'cat' && isConnected) {
-                    const allFiles = Object.keys(fileSystem).map(safeName => safeName.replace(/·/g, '.'));
-                    potentialCompletions = allFiles.filter(file => file.startsWith(currentPart));
-                }
-                if (potentialCompletions.length === 1) {
-                    parts[parts.length - 1] = potentialCompletions[0];
-                    commandInput.value = parts.join(' ') + (parts.length === 1 ? ' ' : '');
-                } else if (potentialCompletions.length > 1) {
-                    printLine(`> ${input}`, 'prompt-text');
-                    printLine(potentialCompletions.join('   '));
-                }
-            }
-            function handleCommand(fullCmd) {
-                if (fullCmd) {
-                    commandHistory.push(fullCmd);
-                    sessionStorage.setItem(COMMAND_HISTORY_KEY, JSON.stringify(commandHistory));
-                }
-                historyIndex = commandHistory.length;
-                if (glitches.glitched_command && fullCmd.startsWith(glitches.glitched_command)) { printLine(`> ${fullCmd}`, 'prompt-text'); typeLine(`//_COMMAND MALFUNCTION: [${glitches.glitched_command.toUpperCase()}] OFFLINE_//`, 'error-msg'); return; }
-                
-                const [cmd, ...args] = fullCmd.split(' ');
-                
-                if (cmd !== 'cls') {
-                    printLine(`> ${fullCmd}`, 'prompt-text');
+                } else if (parts[0] === 'cat' || parts[0] === 'ls') {
+                    potentialCompletions = Object.keys(fileSystem).map(safeName => {
+                        let originalFileName = safeName.replace(/·/g, '.');
+                        if (fileSystem[safeName].isSvg) {
+                             let baseName = originalFileName.split('.').slice(0, -1).join('.') || originalFileName;
+                             originalFileName = baseName + '.kohd';
+                        }
+                        return originalFileName;
+                    }).filter(name => name.startsWith(currentPart));
                 }
 
+                if (potentialCompletions.length === 1) {
+                    const completion = potentialCompletions[0];
+                    if (parts.length === 1) {
+                        commandInput.value = completion;
+                    } else {
+                        parts[parts.length - 1] = completion;
+                        commandInput.value = parts.join(' ');
+                    }
+                } else if (potentialCompletions.length > 1 && currentPart.length > 0) {
+                    printLine(`> ${input}`, 'prompt-text');
+                    printLine(potentialCompletions.join('   '), 'system-msg');
+                }
+            }
+
+            function loadCommandHistory() {
+                const history = sessionStorage.getItem(COMMAND_HISTORY_KEY);
+                if (history) {
+                    commandHistory = JSON.parse(history);
+                    historyIndex = commandHistory.length;
+                }
+            }
+
+            function saveCommandHistory() {
+                sessionStorage.setItem(COMMAND_HISTORY_KEY, JSON.stringify(commandHistory));
+            }
+
+            function handleCommand(fullCmd) {
+                if (glitches.glitched_command && fullCmd.startsWith(glitches.glitched_command)) { printLine(`> ${fullCmd}`, 'prompt-text'); typeLine(`//_COMMAND MALFUNCTION: [${glitches.glitched_command.toUpperCase()}] OFFLINE_//`, 'error-msg'); return; }
+                
+                // Add command to history
+                if (commandHistory.length === 0 || commandHistory[commandHistory.length - 1] !== fullCmd) {
+                    commandHistory.push(fullCmd);
+                    saveCommandHistory();
+                }
+                historyIndex = commandHistory.length;
+
+
+                printLine(`> ${fullCmd}`, 'prompt-text');
+                const [cmd, ...args] = fullCmd.split(' ');
                 const argString = args.join(' ').trim();
+
                 if (customCommands[cmd]) {
                     const command = customCommands[cmd];
                     if (command.args && argString !== command.args) {
@@ -1081,12 +1205,18 @@
                     }
                     return;
                 }
+
                 if (cmd === 'help') {
-                    typeLine(`${config.systemName} Command List:`, 'system-msg'); typeLine(`  help          - Displays this list`); typeLine(`  logout        - Ends session and returns to login`); typeLine(`  elevate <pass>  - Elevate security clearance`); typeLine(`  ls            - Lists files in the current directory`); typeLine(`  cat <file>    - Displays the content of a file`); typeLine(`  ${(config.scanCommand || 'scan').padEnd(13, ' ')} - Scan for ${(config.signalNoun || 'signal').toLowerCase()}s on the Network`); typeLine(`  ${(config.connectCommand || 'connect').padEnd(13, ' ')} - Connect to a detected ${(config.signalNoun || 'signal').toLowerCase()}`); typeLine(`  reply <msg>   - Sends a message back to source`); typeLine(`  ping          - Checks connection to the source`); typeLine(`  status        - Displays current system status`); typeLine(`  history       - Shows received ${(config.dataNoun || 'data').toLowerCase()} history`); typeLine(`  cls           - Clears the display`);
+                    typeLine(`${config.systemName} Command List:`, 'system-msg'); typeLine(`  help          - Displays this list`); typeLine(`  logout        - Ends session and returns to login`); typeLine(`  elevate <pass>  - Elevate security clearance`); typeLine(`  ls            - Lists files in the current directory`); typeLine(`  cat <file>    - Displays the content of a file`); typeLine(`  ${(config.scanCommand || 'scan').padEnd(13, ' ')} - Scan for ${(config.signalNoun || 'signal').toLowerCase()}s on the Network`); typeLine(`  ${(config.connectCommand || 'connect').padEnd(13, ' ')} - Connect to a detected ${(config.signalNoun || 'signal').toLowerCase()}`); typeLine(`  reply <msg>   - Sends a message back to source`); typeLine(`  ping          - Checks connection to the source`); typeLine(`  status        - Displays current system status`); typeLine(`  history       - Shows recent broadcast history`); typeLine(`  cls           - Clears the display`);
                 } else if (cmd === 'logout') {
+                    // FIX: Ensure player connection tracker is removed on logout
+                    if (playerConnectionRef) {
+                        playerConnectionRef.onDisconnect().cancel(); // Cancel pending disconnect operations
+                        playerConnectionRef.remove(); // Remove immediately
+                        playerConnectionRef = null;
+                    }
                     localStorage.removeItem(SESSION_KEY);
                     sessionStorage.removeItem(SESSION_KEY);
-                    sessionStorage.removeItem(COMMAND_HISTORY_KEY);
                     location.reload();
                 } else if (cmd === 'elevate') {
                     const pass = argString.trim();
@@ -1124,144 +1254,202 @@
                     }
                 } else if (cmd === 'cat') {
                     if (!isConnected) { typeLine('ERROR: Not connected to a system.', 'error-msg'); return; }
-                    const safeArg = argString.replace(/\./g, '·');
-                    const fileData = fileSystem[safeArg];
+                    
+                    // Handle potential .kohd extension for SVGs
+                    let safeArg = argString.replace(/\./g, '·');
+                    let fileData = fileSystem[safeArg];
+
+                    // If the file isn't found directly, try looking for the base name if it's an SVG request
+                    if (!fileData && argString.toLowerCase().endsWith('.kohd')) {
+                        const baseName = argString.substring(0, argString.length - 5);
+                        // Check common patterns for how the SVG might be stored internally
+                        const potentialSvgNames = [
+                            baseName.replace(/\./g, '·') + '·svg',
+                            baseName.replace(/\./g, '·')
+                        ];
+                        
+                        for (const potentialName of potentialSvgNames) {
+                            if (fileSystem[potentialName] && fileSystem[potentialName].isSvg) {
+                                fileData = fileSystem[potentialName];
+                                break;
+                            }
+                        }
+                    }
+
+
                     if (!argString) {
                         typeLine('ERROR: Missing filename. Usage: cat <filename>', 'error-msg');
                     } else if (!fileData) {
                         typeLine(`ERROR: File not found: ${argString}`, 'error-msg');
-                    } else if (fileData.level > clearanceLevel) {
+                    } else if (fileData.level > clearanceLevel) { 
                         typeLine(`ERROR: INSUFFICIENT CLEARANCE. ACCESS LEVEL ${fileData.level} REQUIRED.`, 'error-msg');
                     } else {
-                        typeLine(`--- BEGIN FILE: ${argString} ---`, 'data-msg-header');
+                        // UPDATED: For SVGs, we open the overlay instead of printing inline
                         if (fileData.isSvg) {
+                            typeLine(`// Rendering visual data file: ${argString} //`, 'system-msg');
                             renderThemedSvg(fileData.content);
                         } else {
+                            typeLine(`--- BEGIN FILE: ${argString} ---`, 'data-msg-header');
                             printLine(fileData.content, 'data-msg-body');
+                            typeLine(`--- END FILE: ${argString} ---`, 'data-msg-header');
                         }
-                        typeLine(`--- END FILE: ${argString} ---`, 'data-msg-header');
                     }
                 } else if (cmd === (config.scanCommand || 'scan')) {
                     typeLine(`Scanning the Network for ${(config.signalNoun || 'signal').toLowerCase()}s from ${config.systemName}...`, '', 30, () => { setTimeout(() => { typeLine(`...Faint ${(config.signalNoun || 'signal')} detected. Source confirmed: ${config.systemName}.`, 'system-msg'); }, 1500); }); isScanning = true;
                 } else if (cmd === (config.connectCommand || 'connect')) {
-                    if (isScanning) { typeLine(`Attempting to synchronize with ${config.systemName}...`, '', 30, () => { isConnected = true; typeLine(`Synchronization complete. Interface active. Awaiting ${config.dataNoun || 'Data'}...`, 'system-msg'); }); } else { typeLine(`ERROR: No ${(config.signalNoun || 'signal')} detected. Run ${(config.scanCommand || 'scan').toUpperCase()} first.`, 'error-msg'); }
+                    if (isScanning) { 
+                        typeLine(`Attempting to synchronize with ${config.systemName}...`, '', 30, () => { 
+                            isConnected = true; 
+                            // FIX: Establish presence tracking (Connected Player Tracker)
+                            if (currentUser) {
+                                // Ensure we don't create multiple references if 'connect' is run again
+                                if (!playerConnectionRef) {
+                                     playerConnectionRef = database.ref('connected_players/' + currentUser);
+                                }
+                                playerConnectionRef.set(true);
+                                // Set up the removal on disconnect (browser close, network loss)
+                                playerConnectionRef.onDisconnect().remove();
+                            }
+                            typeLine(`Synchronization complete. Interface active. Awaiting ${config.dataNoun || 'Data'}...`, 'system-msg'); 
+                        }); 
+                    } else { 
+                        typeLine(`ERROR: No ${(config.signalNoun || 'signal')} detected. Run ${(config.scanCommand || 'scan').toUpperCase()} first.`, 'error-msg'); 
+                    }
                 } else if (cmd === 'cls') {
-                    const lines = Array.from(terminal.children);
-                    lines.forEach(line => {
-                        if (!line.classList.contains('prompt-wrapper')) {
-                            line.remove();
-                        }
-                    });
-                    drawWelcomeMessage();
+                    const lines = terminal.querySelectorAll('.line:not(.welcome-line)'); lines.forEach(line => line.remove());
                 } else if (cmd === 'ping') {
                     if (isConnected) { const latency = Math.floor(Math.random() * (150 - 40 + 1)) + 40; typeLine(`PONG! Received reply from ${config.systemName} in ${latency}ms.`, 'system-msg'); } else { typeLine('ERROR: Not connected. Cannot ping target.', 'error-msg'); }
                 } else if (cmd === 'status') {
                     typeLine(`SYSTEM STATUS:`, 'system-msg'); typeLine(`  Connection:  ${isConnected ? `CONNECTED to ${config.systemName}` : 'OFFLINE'}`); typeLine(`  Clearance:   LEVEL ${clearanceLevel}`); typeLine(`  ${playerResources.name}:    ${playerResources.count}`);
                 } else if (cmd === 'reply') {
-                    if (isConnected) { if (argString) { database.ref('player_replies/' + currentUser).push(argString); typeLine(`Message sent: "${argString}"`, 'system-msg'); } else { typeLine('ERROR: Cannot send an empty message. Usage: reply <message>', 'error-msg'); } } else { typeLine('ERROR: Must be connected to send a reply.', 'error-msg'); }
+                    if (isConnected) { 
+                        if (argString) { 
+                            // Updated to use the multi-user reply structure
+                            if (currentUser) {
+                                database.ref('player_replies').push({
+                                    user: currentUser,
+                                    message: argString,
+                                    timestamp: firebase.database.ServerValue.TIMESTAMP
+                                });
+                            }
+                            typeLine(`Message sent: "${argString}"`, 'system-msg'); 
+                        } else { 
+                            typeLine('ERROR: Cannot send an empty message. Usage: reply <message>', 'error-msg'); 
+                        } 
+                    } else { 
+                        typeLine('ERROR: Must be connected to send a reply.', 'error-msg'); 
+                    }
                 } else if (cmd === 'history') {
-                    typeLine(`Retrieving history...`, 'system-msg');
-                    database.ref('datastream_history').once('value', (snapshot) => {
+                    // Fetch the last 10 messages from the history
+                    database.ref('datastream_history').limitToLast(10).once('value', (snapshot) => {
                         const history = snapshot.val();
                         if (history) {
-                            typeLine(`Received ${(config.dataNoun || 'Data')} History:`, 'system-msg', 20, () => {
-                                const messages = Object.values(history);
-                                messages.forEach((msg, i) => {
-                                    const messageStr = String(msg);
-                                    if (messageStr.startsWith('SVG::')) {
-                                        const svgContent = messageStr.substring(5);
-                                        printLine(`${(i + 1).toString().padStart(2, ' ')}: [VISUAL DATA]`, 'data-msg-body');
-                                        renderThemedSvg(svgContent);
-                                    } else {
-                                        const decoded = partiallyDecode(messageStr);
-                                        printLine(`${(i + 1).toString().padStart(2, ' ')}: ${decoded}`, 'data-msg-body');
-                                    }
+                            typeLine(`Recent Broadcast History:`, 'system-msg', 20, () => {
+                                Object.values(history).forEach((msg, i) => {
+                                    // Don't show SVG history in the text history
+                                    if (typeof msg === 'string' && msg.startsWith('SVG::')) return; 
+                                    const decoded = partiallyDecode(msg);
+                                    printLine(`- ${decoded}`, 'data-msg-body');
                                 });
                             });
                         } else {
-                            typeLine(`No ${(config.dataNoun || 'data').toLowerCase()} history found.`);
+                            typeLine(`No recent broadcast history found.`);
                         }
                     });
                 } else {
                     typeLine('//_UNAUTHORIZED COMMAND. LOGGING ATTEMPT..._//', 'error-msg');
                 }
             }
-            
-            
-            // (Event Listeners)
-            const savedHistory = sessionStorage.getItem(COMMAND_HISTORY_KEY);
-            if (savedHistory) {
-                commandHistory = JSON.parse(savedHistory);
-            }
-            historyIndex = commandHistory.length;
 
+            // (Event Listeners: keydown, buttons, click)
             commandInput.addEventListener('keydown', (e) => {
                 if (isTyping) return;
+
                 if (e.key === 'Enter') {
-                    const cmd = commandInput.value.trim();
-                    if (cmd) { handleCommand(cmd.toLowerCase()); }
+                    const cmd = commandInput.value.trim().toLowerCase();
+                    if (cmd) {
+                        handleCommand(cmd);
+                    }
                     commandInput.value = '';
+                } else if (e.key === 'Tab') {
+                    e.preventDefault();
+                    handleAutocomplete();
                 } else if (e.key === 'ArrowUp') {
                     e.preventDefault();
-                    if (historyIndex > 0) { historyIndex--; commandInput.value = commandHistory[historyIndex]; }
+                    if (historyIndex > 0) {
+                        historyIndex--;
+                        commandInput.value = commandHistory[historyIndex];
+                    }
                 } else if (e.key === 'ArrowDown') {
                     e.preventDefault();
-                    if (historyIndex < commandHistory.length - 1) { historyIndex++; commandInput.value = commandHistory[historyIndex]; }
-                    else { historyIndex = commandHistory.length; commandInput.value = ''; }
-                } else if (e.key === 'Tab') {
-                    e.preventDefault(); handleAutocomplete();
-                } else {
-                    historyIndex = commandHistory.length;
+                    if (historyIndex < commandHistory.length - 1) {
+                        historyIndex++;
+                        commandInput.value = commandHistory[historyIndex];
+                    } else if (historyIndex === commandHistory.length - 1) {
+                        historyIndex++;
+                        commandInput.value = '';
+                    }
                 }
             });
 
-            clearButton.onclick = () => { handleCommand('cls'); };
-
-            const historyUpButton = document.getElementById('history-up-button');
-            const historyDownButton = document.getElementById('history-down-button');
-            const autocompleteButton = document.getElementById('autocomplete-button');
-            historyUpButton.onclick = () => {
-                if (historyIndex > 0) { historyIndex--; commandInput.value = commandHistory[historyIndex]; }
-                commandInput.focus();
-            };
-            historyDownButton.onclick = () => {
-                if (historyIndex < commandHistory.length - 1) { historyIndex++; commandInput.value = commandHistory[historyIndex]; }
-                else { historyIndex = commandHistory.length; commandInput.value = ''; }
-                commandInput.focus();
-            };
-            autocompleteButton.onclick = () => {
-                handleAutocomplete();
-                commandInput.focus();
-            };
-            
-            terminal.addEventListener('click', (e) => { if (e.target !== commandInput) { commandInput.focus(); } });
-            
-            
-            // (Database Refs Initialization)
-            playerConnectionRef = database.ref('player_connections/' + currentUser);
-            database.ref('.info/connected').on('value', (snapshot) => {
-                if (snapshot.val() === true) {
-                    playerConnectionRef.set(true);
-                    playerConnectionRef.onDisconnect().remove();
+            clearButton.onclick = () => { handleCommand('cls'); commandInput.focus(); };
+            document.getElementById('autocomplete-button').onclick = () => { handleAutocomplete(); commandInput.focus(); };
+            document.getElementById('history-up-button').onclick = () => {
+                if (historyIndex > 0) {
+                    historyIndex--;
+                    commandInput.value = commandHistory[historyIndex];
                 }
+                commandInput.focus();
+            };
+            document.getElementById('history-down-button').onclick = () => {
+                 if (historyIndex < commandHistory.length - 1) {
+                    historyIndex++;
+                    commandInput.value = commandHistory[historyIndex];
+                } else if (historyIndex === commandHistory.length - 1) {
+                    historyIndex++;
+                    commandInput.value = '';
+                }
+                commandInput.focus();
+            };
+
+            terminal.addEventListener('click', (e) => { 
+                // Since inline SVGs are gone, we don't need to check for specific elements, just ensure focus returns to input.
+                if (e.target !== commandInput && !e.target.closest('button')) { 
+                    commandInput.focus(); 
+                } 
             });
+
+            // (Firebase Listeners)
             database.ref('terminal_config').on('value', (snapshot) => {
                 const newConfig = snapshot.val();
-                if (newConfig) { config = newConfig; } else { config = {}; }
+                if (newConfig) {
+                    config = newConfig;
+                } else {
+                    config = {};
+                }
                 applyTheme();
+                
+                // Handle initialization and message queue
                 if (!isConfigLoaded) {
-                    drawWelcomeMessage();
                     isConfigLoaded = true;
-                    // Process any queued messages
-                    messageQueue.forEach(data => processDatastream(data));
-                    messageQueue = []; // Clear the queue
+                    drawWelcomeMessage();
+                    // Process any messages that arrived before config was loaded
+                    if (messageQueue.length > 0) {
+                        messageQueue.forEach(processDatastream);
+                        messageQueue = [];
+                    }
                 }
             });
+
             if (currentUser) {
                 database.ref('users/' + currentUser + '/theme').on('value', (snapshot) => {
-                    if (snapshot.exists()) { userTheme = snapshot.val(); applyTheme(); }
+                    if (snapshot.exists()) {
+                        userTheme = snapshot.val();
+                        applyTheme();
+                    }
                 });
             }
+
             database.ref('decryption_keys').on('value', (snapshot) => { unlockedKeys = snapshot.val() || {}; });
             database.ref('history_cleared_timestamp').on('value', (snapshot) => { if (snapshot.exists() && isConnected) { typeLine('// REMOTE LOGS PURGED BY SOURCE //', 'system-msg'); } });
             database.ref('file_system').on('value', (snapshot) => { fileSystem = snapshot.val() || {}; });
@@ -1269,127 +1457,117 @@
             database.ref('cipher_config').on('value', (snapshot) => { if (snapshot.exists()) { decodingChart = Object.fromEntries(Object.entries(snapshot.val()).map(a => a.reverse())); if (isConnected) typeLine('// Cipher matrix re-initialized by source //', 'system-msg'); } });
             database.ref('custom_commands').on('value', (snapshot) => { customCommands = snapshot.val() || {}; });
             database.ref('player_resources').on('value', (snapshot) => { playerResources = snapshot.val() || { name: "Resources", count: 0 }; });
-
             
-            // Updated: Glitches Listener (Handles System Override)
-            database.ref('glitches').on('value', (snapshot) => { 
-                glitches = snapshot.val() || {}; 
-                const override = glitches.override_state; 
-                
-                // --- System Override Handling ---
-    
-                // Clear previous content and classes
+            // FIXED Glitches listener to handle SVG Overrides correctly
+            database.ref('glitches').on('value', (snapshot) => {
+                glitches = snapshot.val() || {};
+                const override = glitches.override_state;
+
+                // Clear previous content and classes from the System Override Overlay
                 overrideOverlay.innerHTML = '';
-                overrideOverlay.className = ''; 
+                overrideOverlay.className = '';
 
                 if (override) {
-                    // 1. Set the style class (lockout, warning, info, themed)
+                    // Set Type (Color) and Glitch (Effect) classes
                     if (override.type) {
                         overrideOverlay.classList.add(override.type);
                     }
-                    
-                    // 2. Set the glitch effect class (vhs, vr, fractal)
                     if (override.glitch && override.glitch !== 'none') {
-                        overrideOverlay.classList.add(`glitch-${override.glitch}`);
+                        overrideOverlay.classList.add('glitch-' + override.glitch);
                     }
 
-                    // 3. Handle Content (SVG or Text)
-                    if (override.svgContent) {
-                        // Determine settings from the override data
-                        const applyTheme = override.applyTheme === true;
-                        const animate = override.animate === true;
-                        
-                        // Determine Colors for processing
-                        let primaryColor, backgroundColor;
-                        
-                        // For consistency with the 'cat' command, we use the body's background color for negative space replacement.
-                        backgroundColor = getComputedStyle(document.body).getPropertyValue('background-color').trim();
-
-                        // Determine the primary color for theming
-                        // We use the current theme colors if 'applyTheme' is true OR if the style is 'themed'.
-                        if (applyTheme || override.type === 'themed') {
-                                // If 'themed', use the theme variable. If a specific style (lockout/warning/info), 
-                                // the CSS 'color' property of the overlay (set by the class) defines the color.
-                                // Since the overlay classes are set, we can read the computed color.
-                                primaryColor = getComputedStyle(overrideOverlay).color;
-                        } 
-
-                        // Process the SVG for scaling and negative space (using the determined background color)
-                        const processedSvgString = processSVG(override.svgContent, backgroundColor);
-                        
-                        // Render the SVG into the overlay
-                        const tempWrapper = document.createElement('div');
-                        tempWrapper.innerHTML = processedSvgString;
-                        const svgElement = tempWrapper.firstChild;
-
-                        if (svgElement && svgElement.tagName && svgElement.tagName.toLowerCase() === 'svg') {
-                            // Ensure the SVG is visible and scaled appropriately within the overlay
-                            svgElement.style.maxWidth = '90%';
-                            svgElement.style.maxHeight = '90vh';
-                            svgElement.style.width = 'auto'; // Allow it to scale based on content if smaller than max
-                            svgElement.style.height = 'auto';
-
-                            overrideOverlay.appendChild(svgElement);
-
-                            // Apply theming colors and animations if requested
-                            // We pass the background color used in processSVG so applySvgEnhancements knows what defines negative space
-                            if (applyTheme || animate) {
-                                applySvgEnhancements(svgElement, backgroundColor, primaryColor, applyTheme, animate);
-                            }
-                        } else {
-                            console.error("Failed to render SVG in override.", svgElement);
-                            overrideOverlay.textContent = "ERROR: FAILED TO RENDER VISUAL DATA";
-                        }
-
-                    } else if (override.message) {
-                        // Handle text content
+                    // Handle Content (Text or SVG)
+                    if (override.message) {
                         overrideOverlay.textContent = override.message;
-                    }
+                    } else if (override.svgContent) {
+                        // System Override SVG Handling
 
-                    overrideOverlay.style.display = 'flex';
+                        // We must ensure the overlay is visible before calculating computed styles (background and foreground colors).
+                        
+                        // Ensure overlay is visible
+                        overrideOverlay.style.display = 'flex';
+
+                        // Get the background color for negative space detection.
+                        const overrideBackgroundColor = getComputedStyle(overrideOverlay).backgroundColor.trim();
+                        
+                        // FIX: Get the foreground color dictated by the override type (e.g., Red for lockout)
+                        const overrideForegroundColor = getComputedStyle(overrideOverlay).color.trim();
+                        
+                        // Process SVG: Prepare for scaling and handle negative space against the dark overlay background.
+                        const processedSvgString = processSVG(override.svgContent, overrideBackgroundColor);
+                        
+                        // Parse the processed SVG
+                        const parser = new DOMParser();
+                        const doc = parser.parseFromString(processedSvgString, "image/svg+xml");
+                        const svgElement = doc.documentElement;
+
+                        // The CSS handles the robust scaling (max-width/max-height: 100%)
+                        if (svgElement && svgElement.tagName.toLowerCase() === 'svg' && doc.getElementsByTagName("parsererror").length === 0) {
+                                const importedSvgElement = document.importNode(svgElement, true);
+                                overrideOverlay.appendChild(importedSvgElement);
+
+                            // Apply enhancements (Theming and Animation based on GM flags)
+                            const applyTheme = override.applyTheme === true;
+                            const animate = override.animate === true;
+
+                            // If theming is requested, use the override's foreground color; otherwise, pass null.
+                            const themeColorToUse = applyTheme ? overrideForegroundColor : null;
+                            
+                            applySvgEnhancements(importedSvgElement, overrideBackgroundColor, themeColorToUse, applyTheme, animate);
+                        } else {
+                            overrideOverlay.textContent = "ERROR: FAILED TO RENDER OVERRIDE GRAPHIC";
+                        }
+                    }
+                    
+                    // Ensure overlay remains visible if content exists
+                    if (override.message || override.svgContent) {
+                         overrideOverlay.style.display = 'flex';
+                    }
 
                 } else {
-                    // Hide overlay if no override state
                     overrideOverlay.style.display = 'none';
                 }
+                
+                // Handle access reset (existing logic)
+                if (glitches.reset_access_timestamp && isConnected) {
+                    clearanceLevel = 1;
+                    typeLine('// SECURITY CREDENTIALS INVALIDATED. ACCESS LEVEL RESET BY SOURCE. //', 'error-msg');
+                    database.ref('glitches/reset_access_timestamp').remove();
+                }
+            });
 
-                // --- Other Glitch Handling ---
-                if (glitches.reset_access_timestamp && isConnected) { 
-                    clearanceLevel = 1; 
-                    typeLine('// SECURITY CREDENTIALS INVALIDATED. ACCESS LEVEL RESET BY SOURCE. //', 'error-msg'); 
-                    database.ref('glitches/reset_access_timestamp').remove(); 
-                } 
-            });
-            
-            // (Other Database Listeners)
-             // Modified listener to handle the queue
-            database.ref('kohd_datastream').on('value', (snapshot) => {
+
+            // --- UPDATED: Multi-user datastream handling (matching the provided file structure) ---
+            const processDatastreamSnapshot = (snapshot) => {
                 const data = snapshot.val();
-                if (data === null) return; // Ignore null data on startup
+                // --- RACE CONDITION FIX: Queue messages if config isn't loaded yet ---
                 if (!isConfigLoaded) {
-                    messageQueue.push(data);
-                } else {
-                    processDatastream(data);
+                    if (data) messageQueue.push(data);
+                    return;
+                }
+                processDatastream(data);
+            };
+
+            // Listener for broadcast messages (the primary 'kohd_datastream' node)
+            database.ref('kohd_datastream').on('value', processDatastreamSnapshot);
+
+            // (If private messages functionality (kohd_datastream/username) from previous versions is needed, add it here)
+
+
+            // Handle browser close/refresh (Player Connection Tracker Cleanup)
+            window.addEventListener('beforeunload', () => {
+                if (playerConnectionRef) {
+                    // Ensure disconnection is handled cleanly on page unload
+                    playerConnectionRef.onDisconnect().cancel(); // Cancel the previously set onDisconnect
+                    playerConnectionRef.remove(); // Remove immediately
                 }
             });
-            database.ref('direct_messages/' + currentUser).on('value', (snapshot) => {
-                const message = snapshot.val();
-                if (message) {
-                    if (!isConfigLoaded) {
-                         messageQueue.push(message);
-                    } else {
-                        processDatastream(message);
-                    }
-                    snapshot.ref.remove();
-                }
-            });
-            window.addEventListener('beforeunload', () => { 
-                if(playerConnectionRef) { playerConnectionRef.remove(); }
-            });
+
+            loadCommandHistory();
         }
 
-         // (Session Check and initializeApp)
-         const savedUser = localStorage.getItem(SESSION_KEY) || sessionStorage.getItem(SESSION_KEY);
+        // --- INITIAL PAGE LOAD ---
+        const savedUser = localStorage.getItem(SESSION_KEY) || sessionStorage.getItem(SESSION_KEY);
         if (savedUser) {
             currentUser = savedUser;
             terminalContainer.style.display = 'flex';
@@ -1398,17 +1576,21 @@
             startLogin();
         }
     }
+
     async function initializeApp() {
         let config;
+        
+        // Check if running locally
         const isLocal = window.location.protocol === 'file:' || window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-        if (isLocal) {
+
+        if (isLocal) { 
             if (typeof firebaseConfig !== 'undefined') {
                 config = firebaseConfig;
             } else {
-                document.body.innerHTML = '<h1>FATAL ERROR: firebase-config.js not found. This file is required for local development and must be created manually.</h1>';
-                return;
+                    document.body.innerHTML = '<h1>FATAL ERROR: firebase-config.js not found. This file is required for local development and must be created manually.</h1>';
+                    return;
             }
-        } else {
+        } else { 
             try {
                 const response = await fetch('/config');
                 if (!response.ok) {
@@ -1425,7 +1607,9 @@
         const database = firebase.database();
         runApp(database);
     }
+
     initializeApp();
-</script>
+    </script>
 </body>
+
 </html>
