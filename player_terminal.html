@@ -90,11 +90,8 @@
             outline: none;
         }
         
-        /* --- DEPRECATED Inline SVG Styles (Removed) --- */
-        /* The .rendered-svg-container, .svg-close-button and associated styles are removed as we now use an overlay */
-
         
-        /* --- New SVG Fullscreen Overlay Styles --- */
+        /* --- SVG Fullscreen Overlay Styles --- */
         #svg-fullscreen-overlay {
             position: fixed;
             top: 0;
@@ -191,7 +188,6 @@
             color: var(--theme-primary);
         }
         
-        /* NEW: Theme the overlay background */
         .relic-theme #svg-fullscreen-overlay {
              background-color: rgba(26, 33, 35, 0.95);
         }
@@ -211,7 +207,6 @@
             --theme-secondary: #3f3;
         }
         
-        /* NEW */
         .green-theme #svg-fullscreen-overlay {
              background-color: rgba(10, 10, 10, 0.95);
         }
@@ -260,7 +255,6 @@
             --theme-secondary: #51a6ff;
         }
         
-        /* NEW */
         .blue-theme #svg-fullscreen-overlay {
              background-color: rgba(11, 17, 42, 0.95);
         }
@@ -297,7 +291,6 @@
             --theme-secondary: #ffb000;
         }
         
-        /* NEW */
         .amber-theme #svg-fullscreen-overlay {
              background-color: rgba(26, 16, 0, 0.95);
         }
@@ -333,7 +326,6 @@
             --theme-secondary: #8effff;
         }
         
-        /* NEW */
         .hologram-theme #svg-fullscreen-overlay {
              background-color: rgba(3, 4, 9, 0.90);
         }
@@ -387,7 +379,6 @@
             color: var(--theme-primary);
         }
 
-        /* NEW */
         .red-theme #svg-fullscreen-overlay {
              background-color: rgba(28, 5, 5, 0.95);
         }
@@ -430,7 +421,7 @@
             text-transform: uppercase;
             padding: 20px;
             box-sizing: border-box;
-            overflow-y: auto;
+            overflow: hidden; /* Changed from auto to hidden for glitch effects */
             /* Default/Lockout Color */
             color: #ff4136; 
         }
@@ -440,7 +431,6 @@
             color: #FFDC00; /* Yellow/Orange */
         }
         
-        /* FIX: Ensure Info style is defined */
         #system-override-overlay.info {
             color: #00E5FF; /* Cyan/Blue */
         }
@@ -449,93 +439,180 @@
              color: var(--theme-primary);
         }
 
-        /* --- Glitch Effects --- */
+        /* ======================================= */
+        /* --- Glitch Effects (REFINED/NEW) ---    */
+        /* ======================================= */
 
-        /* --- VHS Glitch Effect --- */
+        /* --- 1. REFINED: VHS Glitch Effect --- */
+        /* Toned down significantly: Removed rapid flicker/skew. Added subtle jitter and scanlines. */
         #system-override-overlay.glitch-vhs {
-            animation: vhs-flicker 0.1s infinite;
+            /* Subtle, slow pulsing opacity instead of rapid flicker */
+            animation: vhs-pulse 5s infinite ease-in-out;
         }
 
+        /* Scan Lines */
         #system-override-overlay.glitch-vhs::before {
             content: "";
             position: absolute;
             top: 0; left: 0; right: 0; bottom: 0;
             background: repeating-linear-gradient(
                 0deg,
-                rgba(0, 0, 0, 0.3),
-                rgba(0, 0, 0, 0.3) 3px,
-                transparent 3px,
-                transparent 6px
+                rgba(0, 0, 0, 0.25), /* Darker line */
+                rgba(0, 0, 0, 0.25) 2px,
+                transparent 2px,
+                transparent 4px /* Thicker gap */
             );
             pointer-events: none;
             z-index: 1;
+            /* Slow vertical movement of scan lines */
+            animation: vhs-scanline-move 10s linear infinite;
         }
 
+        /* Subtle Noise and Jitter */
         #system-override-overlay.glitch-vhs::after {
             content: "";
             position: absolute;
             top: 0; left: 0; right: 0; bottom: 0;
-            background: rgba(255, 255, 255, 0.05);
-            animation: vhs-noise 1s steps(10) infinite;
+            /* Very subtle noise texture (using a simple repeating pattern) */
+            background-image: url("data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAQAAAAECAYAAACp8Z5+AAAAHElEQVQYlWP4//8/AxJgYGD4//8/SDkLNgBMAwB84g0h/Hh96wAAAABJRU5ErkJggg==");
+            opacity: 0.15;
+            /* Subtle horizontal jitter */
+            animation: vhs-jitter 0.5s steps(5) infinite;
             pointer-events: none;
             z-index: 2;
         }
 
-        @keyframes vhs-flicker {
-            0% { opacity: 0.8; transform: skewX(0deg); }
-            20% { opacity: 1; transform: skewX(1deg); }
-            40% { opacity: 0.9; transform: skewX(-1deg); }
-            60% { opacity: 1; transform: skewX(0deg); }
-            80% { opacity: 0.8; transform: skewX(0.5deg); }
-            100% { opacity: 1; transform: skewX(-0.5deg); }
+        @keyframes vhs-pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.9; }
         }
 
-        @keyframes vhs-noise {
-            0% { background-position: 0 0; }
-            100% { background-position: 100px 100px; }
+        @keyframes vhs-scanline-move {
+            from { background-position: 0 0; }
+            to { background-position: 0 100%; }
         }
 
-        /* --- VR Glitch (Chromatic Aberration) --- */
+        @keyframes vhs-jitter {
+            0% { transform: translateX(0); }
+            20% { transform: translateX(1px); }
+            40% { transform: translateX(-1px); }
+            60% { transform: translateX(2px); }
+            80% { transform: translateX(-1px); }
+        }
+
+
+        /* --- 2. REFINED: VR Glitch (Chromatic Aberration) --- */
+        /* Now animates the filter effect itself for a dynamic look */
         #system-override-overlay.glitch-vr {
+            /* Keep the subtle spatial shift */
             animation: vr-shift 5s infinite linear alternate;
         }
 
         /* Apply aberration to direct text content (if any) */
         #system-override-overlay.glitch-vr {
+             /* Use the animated text shadow as a fallback/enhancement */
              text-shadow: 2px 0 0 rgba(255, 0, 0, 0.7), -2px 0 0 rgba(0, 0, 255, 0.7);
              animation: chromatic-aberration-text 3s infinite;
         }
 
         @keyframes vr-shift {
             0%, 100% { transform: translate(0, 0); }
-            25% { transform: translate(2px, -1px); }
-            50% { transform: translate(-1px, 1px); }
-            75% { transform: translate(1px, 2px); }
+            25% { transform: translate(1px, -1px); }
+            50% { transform: translate(-1px, 0px); }
+            75% { transform: translate(0px, 1px); }
         }
 
         @keyframes chromatic-aberration-text {
             0% { text-shadow: 2px 0 0 rgba(255, 0, 0, 0.7), -2px 0 0 rgba(0, 0, 255, 0.7); }
             33% { text-shadow: -2px 0 0 rgba(255, 0, 0, 0.7), 2px 0 0 rgba(0, 0, 255, 0.7); }
-            66% { text-shadow: 2px 0 0 rgba(0, 255, 0, 0.7), -2px 0 0 rgba(255, 0, 0, 0.7); }
+            66% { text-shadow: 2px 0 0 rgba(0, 255, 0, 0.7), -2px 0 0 rgba(0, 0, 255, 0.7); }
             100% { text-shadow: -2px 0 0 rgba(0, 255, 0, 0.7), 2px 0 0 rgba(0, 0, 255, 0.7); }
         }
 
-        /* For SVG elements inside VR glitch, we use filter */
-        #system-override-overlay.glitch-vr svg {
-             filter: url(#chromatic-aberration-filter);
+        /* For SVG elements or text containers inside VR glitch, we use the animated filter */
+        /* Filters need to be applied to the content inside the overlay, not just the overlay itself if it contains complex elements */
+        #system-override-overlay.glitch-vr svg,
+        #system-override-overlay.glitch-vr .override-content {
+             filter: url(#chromatic-aberration-filter-animated);
         }
 
 
-        /* --- Fractal Noise (Digital Corruption) --- */
+        /* --- 3. REFINED: Fractal Noise (Digital Corruption) --- */
+        /* Intensity reduced in the filter definitions (see HTML body) */
         #system-override-overlay.glitch-fractal {
-            filter: url(#fractal-noise-filter);
-            animation: digital-corruption 2s infinite;
+            filter: url(#fractal-noise-filter-low);
+            animation: digital-corruption 2.5s infinite steps(10);
         }
 
         @keyframes digital-corruption {
-            0%, 5%, 95%, 100% { opacity: 1; filter: url(#fractal-noise-filter-low); }
-            10%, 30%, 70% { opacity: 0.8; filter: url(#fractal-noise-filter-high); }
-            20%, 50%, 80% { opacity: 1; filter: url(#fractal-noise-filter-medium); }
+            0%, 50%, 100% { filter: url(#fractal-noise-filter-low); }
+            15%, 65% { filter: url(#fractal-noise-filter-medium); }
+            30%, 80% { filter: url(#fractal-noise-filter-high); }
+        }
+
+        /* --- 4. NEW: Digital Block Glitch --- */
+        /* Creates blocky artifacts using SVG filters */
+        #system-override-overlay.glitch-block {
+             filter: url(#block-glitch-filter);
+             animation: block-glitch-anim 1.5s infinite steps(8);
+        }
+
+        @keyframes block-glitch-anim {
+            0%, 100% { filter: url(#block-glitch-filter-0); }
+            25% { filter: url(#block-glitch-filter-1); }
+            50% { filter: url(#block-glitch-filter-2); }
+            75% { filter: url(#block-glitch-filter-3); }
+        }
+
+        /* --- 5. NEW: Color Separation Glitch --- */
+        /* Intense RGB channel separation and horizontal shifting */
+         #system-override-overlay.glitch-separation {
+            animation: separation-shift 2s infinite cubic-bezier(.25,.46,.45,.94);
+            --shift-x: 5px; /* Define the shift amount */
+        }
+
+        /* Apply the filter to the content inside */
+        #system-override-overlay.glitch-separation svg,
+        #system-override-overlay.glitch-separation .override-content {
+             filter: url(#color-separation-filter);
+        }
+
+        @keyframes separation-shift {
+            0%, 100% { transform: translateX(0); }
+            10%, 30%, 50%, 70% { transform: translateX(calc(var(--shift-x) * -1)); }
+            20%, 40%, 60%, 80% { transform: translateX(var(--shift-x)); }
+        }
+
+        /* --- 6. NEW: Screen Tear Glitch --- */
+        /* Horizontal offset of a slice of the screen using CSS clip-path */
+        #system-override-overlay.glitch-tear {
+            animation: screen-tear 3s infinite steps(1);
+        }
+
+        @keyframes screen-tear {
+            0%, 100% { clip-path: inset(0); transform: translateX(0); }
+            10% {
+                /* Clip the top 40% and shift it right */
+                clip-path: polygon(0 0, 100% 0, 100% 40%, 0 40%);
+                transform: translateX(10px);
+            }
+            15% {
+                /* Clip the middle 10% (from 40% to 50%) and shift it left */
+                clip-path: polygon(0 40%, 100% 40%, 100% 50%, 0 50%);
+                transform: translateX(-15px);
+            }
+            20% {
+                 /* Clip the bottom 50% and shift it slightly right */
+                 clip-path: polygon(0 50%, 100% 50%, 100% 100%, 0 100%);
+                 transform: translateX(5px);
+            }
+            /* Pause the effect */
+            25%, 90% { clip-path: inset(0); transform: translateX(0); }
+             95% {
+                /* Quick tear near the top */
+                clip-path: polygon(0 20%, 100% 20%, 100% 30%, 0 30%);
+                transform: translateX(20px);
+            }
         }
         
     </style>
@@ -550,9 +627,13 @@
 
     <svg xmlns="http://www.w3.org/2000/svg" version="1.1" style="display:none;">
         <defs>
-            <filter id="chromatic-aberration-filter">
-                <feOffset in="SourceGraphic" dx="2" dy="0" result="red-shift" />
-                <feOffset in="SourceGraphic" dx="-2" dy="0" result="blue-shift" />
+            <filter id="chromatic-aberration-filter-animated">
+                <feOffset in="SourceGraphic" result="red-shift">
+                    <animate attributeName="dx" dur="3s" values="2; -3; 1; 3; -2" repeatCount="indefinite" />
+                </feOffset>
+                <feOffset in="SourceGraphic" result="blue-shift">
+                     <animate attributeName="dx" dur="3s" values="-2; 3; -1; -3; 2" repeatCount="indefinite" />
+                </feOffset>
                 <feColorMatrix in="red-shift" type="matrix" values="1 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 1 0" result="red" />
                 <feColorMatrix in="blue-shift" type="matrix" values="0 0 0 0 0 0 1 0 0 0 0 0 1 0 0 0 0 0 1 0" result="cyan" />
                 <feBlend in="red" in2="cyan" mode="screen" />
@@ -560,15 +641,58 @@
 
             <filter id="fractal-noise-filter-low">
                 <feTurbulence type="fractalNoise" baseFrequency="0.05" numOctaves="2" result="noise" />
-                <feDisplacementMap in="SourceGraphic" in2="noise" scale="5" xChannelSelector="R" yChannelSelector="G" />
+                <feDisplacementMap in="SourceGraphic" in2="noise" scale="3" xChannelSelector="R" yChannelSelector="G" />
             </filter>
              <filter id="fractal-noise-filter-medium">
                 <feTurbulence type="fractalNoise" baseFrequency="0.08" numOctaves="4" result="noise" />
-                <feDisplacementMap in="SourceGraphic" in2="noise" scale="15" xChannelSelector="R" yChannelSelector="G" />
+                <feDisplacementMap in="SourceGraphic" in2="noise" scale="8" xChannelSelector="R" yChannelSelector="G" />
             </filter>
              <filter id="fractal-noise-filter-high">
                 <feTurbulence type="fractalNoise" baseFrequency="0.1" numOctaves="5" result="noise" />
-                <feDisplacementMap in="SourceGraphic" in2="noise" scale="30" xChannelSelector="R" yChannelSelector="G" />
+                <feDisplacementMap in="SourceGraphic" in2="noise" scale="15" xChannelSelector="R" yChannelSelector="G" />
+            </filter>
+
+            <filter id="block-glitch-filter-0">
+                <feTurbulence type="fractalNoise" baseFrequency="0.1" numOctaves="1" seed="0" result="noise" />
+                <feDisplacementMap in="SourceGraphic" in2="noise" scale="0" />
+            </filter>
+            <filter id="block-glitch-filter-1">
+                <feTurbulence type="fractalNoise" baseFrequency="0.5 0.01" numOctaves="1" seed="1" result="noise" />
+                <feColorMatrix type="saturate" values="0" in="noise" result="monoNoise"/>
+                <feComponentTransfer in="monoNoise" result="thresholdNoise">
+                    <feFuncA type="table" tableValues="0 1 0 0 1"/>
+                </feComponentTransfer>
+                <feMorphology operator="dilate" radius="10 5" in="thresholdNoise" result="blocks"/>
+                <feComposite in="SourceGraphic" in2="blocks" operator="out" result="maskedSource"/>
+                <feFlood flood-color="rgba(255,0,0,0.5)" result="colorFill"/>
+                <feComposite in="colorFill" in2="blocks" operator="in" result="coloredBlocks"/>
+                <feComposite in="maskedSource" in2="coloredBlocks" operator="over"/>
+            </filter>
+            <filter id="block-glitch-filter-2">
+                 <feTurbulence type="fractalNoise" baseFrequency="0.01 0.5" numOctaves="1" seed="2" result="noise" />
+                <feDisplacementMap in="SourceGraphic" in2="noise" scale="20" xChannelSelector="R" yChannelSelector="G" />
+            </filter>
+             <filter id="block-glitch-filter-3">
+                 <feTurbulence type="fractalNoise" baseFrequency="0.2" numOctaves="2" seed="3" result="noise" />
+                <feColorMatrix type="saturate" values="0" in="noise" result="monoNoise"/>
+                <feComponentTransfer in="monoNoise" result="thresholdNoise">
+                    <feFuncA type="discrete" tableValues="0 0.5 1"/>
+                </feComponentTransfer>
+                <feMorphology operator="erode" radius="2" in="thresholdNoise" result="blocks"/>
+                <feComposite in="SourceGraphic" in2="blocks" operator="xor"/>
+            </filter>
+
+             <filter id="color-separation-filter">
+                <feOffset in="SourceGraphic" dx="5" dy="0" result="R-offset" />
+                <feOffset in="SourceGraphic" dx="-5" dy="0" result="B-offset" />
+                <feOffset in="SourceGraphic" dx="0" dy="0" result="G-offset" />
+                
+                <feColorMatrix in="R-offset" type="matrix" values="1 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 1 0" result="R" />
+                <feColorMatrix in="G-offset" type="matrix" values="0 0 0 0 0 0 1 0 0 0 0 0 0 0 0 0 0 0 1 0" result="G" />
+                <feColorMatrix in="B-offset" type="matrix" values="0 0 0 0 0 0 0 0 0 0 0 0 1 0 0 0 0 0 1 0" result="B" />
+                
+                <feBlend in="R" in2="G" mode="screen" result="RG" />
+                <feBlend in="RG" in2="B" mode="screen" />
             </filter>
         </defs>
     </svg>
@@ -869,7 +993,7 @@
             }
 
 
-            // FIXED: Helper function to apply theming and animation.
+            // Helper function to apply theming and animation.
             // Note: 'themingColor' can be the terminal's primary color OR the override's specific color.
             function applySvgEnhancements(svgElement, backgroundColor, themingColor, applyTheme, animate) {
                  if (!svgElement) return;
@@ -1016,7 +1140,7 @@
                 }
             }
 
-            // (typeLine, printLine, processDatastream, drawWelcomeMessage, handleSpecialCommand, handleAutocomplete, handleCommand)
+             // (typeLine, printLine, processDatastream, drawWelcomeMessage, handleSpecialCommand, handleAutocomplete, handleCommand)
              function typeLine(text, className = '', speed = 15, callback = () => { }) {
                 isTyping = true;
                 const line = document.createElement('div');
@@ -1024,7 +1148,10 @@
                 if (className) {
                     className.split(' ').forEach(cls => line.classList.add(cls));
                 }
-                terminal.insertBefore(line, terminal.lastElementChild);
+                // Ensure the prompt wrapper is always the last element
+                const promptWrapper = terminal.querySelector('.prompt-wrapper');
+                terminal.insertBefore(line, promptWrapper);
+                
                 let i = 0;
                 const interval = setInterval(() => {
                     if (i < text.length) {
@@ -1039,6 +1166,7 @@
                     }
                 }, speed);
             }
+            
             function printLine(text, className = '') {
                 const line = document.createElement('div');
                 line.innerHTML = text;
@@ -1046,9 +1174,12 @@
                 if (className) {
                     className.split(' ').forEach(cls => line.classList.add(cls));
                 }
-                terminal.insertBefore(line, terminal.lastElementChild);
+                 // Ensure the prompt wrapper is always the last element
+                const promptWrapper = terminal.querySelector('.prompt-wrapper');
+                terminal.insertBefore(line, promptWrapper);
                 terminal.scrollTop = terminal.scrollHeight;
             }
+
             function processDatastream(data) {
                 const dataString = String(data || '');
                 if (isConnected && dataString) {
@@ -1209,7 +1340,7 @@
                 if (cmd === 'help') {
                     typeLine(`${config.systemName} Command List:`, 'system-msg'); typeLine(`  help          - Displays this list`); typeLine(`  logout        - Ends session and returns to login`); typeLine(`  elevate <pass>  - Elevate security clearance`); typeLine(`  ls            - Lists files in the current directory`); typeLine(`  cat <file>    - Displays the content of a file`); typeLine(`  ${(config.scanCommand || 'scan').padEnd(13, ' ')} - Scan for ${(config.signalNoun || 'signal').toLowerCase()}s on the Network`); typeLine(`  ${(config.connectCommand || 'connect').padEnd(13, ' ')} - Connect to a detected ${(config.signalNoun || 'signal').toLowerCase()}`); typeLine(`  reply <msg>   - Sends a message back to source`); typeLine(`  ping          - Checks connection to the source`); typeLine(`  status        - Displays current system status`); typeLine(`  history       - Shows recent broadcast history`); typeLine(`  cls           - Clears the display`);
                 } else if (cmd === 'logout') {
-                    // FIX: Ensure player connection tracker is removed on logout
+                    // Ensure player connection tracker is removed on logout
                     if (playerConnectionRef) {
                         playerConnectionRef.onDisconnect().cancel(); // Cancel pending disconnect operations
                         playerConnectionRef.remove(); // Remove immediately
@@ -1300,7 +1431,7 @@
                     if (isScanning) { 
                         typeLine(`Attempting to synchronize with ${config.systemName}...`, '', 30, () => { 
                             isConnected = true; 
-                            // FIX: Establish presence tracking (Connected Player Tracker)
+                            // Establish presence tracking (Connected Player Tracker)
                             if (currentUser) {
                                 // Ensure we don't create multiple references if 'connect' is run again
                                 if (!playerConnectionRef) {
@@ -1458,7 +1589,7 @@
             database.ref('custom_commands').on('value', (snapshot) => { customCommands = snapshot.val() || {}; });
             database.ref('player_resources').on('value', (snapshot) => { playerResources = snapshot.val() || { name: "Resources", count: 0 }; });
             
-            // FIXED Glitches listener to handle SVG Overrides correctly
+            // Glitches listener to handle SVG Overrides and Glitch Effects
             database.ref('glitches').on('value', (snapshot) => {
                 glitches = snapshot.val() || {};
                 const override = glitches.override_state;
@@ -1473,24 +1604,30 @@
                         overrideOverlay.classList.add(override.type);
                     }
                     if (override.glitch && override.glitch !== 'none') {
+                        // Ensure the class name matches the new CSS definitions (e.g., glitch-vhs, glitch-tear)
                         overrideOverlay.classList.add('glitch-' + override.glitch);
                     }
+                    
+                     // Ensure overlay is visible before calculating computed styles or adding content
+                     overrideOverlay.style.display = 'flex';
+
+                    // Create a content wrapper div. This is important for filters to apply correctly to content (text or SVG) within the flex container.
+                    const contentWrapper = document.createElement('div');
+                    contentWrapper.className = 'override-content';
+
 
                     // Handle Content (Text or SVG)
                     if (override.message) {
-                        overrideOverlay.textContent = override.message;
+                        contentWrapper.textContent = override.message;
+                        overrideOverlay.appendChild(contentWrapper);
+
                     } else if (override.svgContent) {
                         // System Override SVG Handling
-
-                        // We must ensure the overlay is visible before calculating computed styles (background and foreground colors).
-                        
-                        // Ensure overlay is visible
-                        overrideOverlay.style.display = 'flex';
 
                         // Get the background color for negative space detection.
                         const overrideBackgroundColor = getComputedStyle(overrideOverlay).backgroundColor.trim();
                         
-                        // FIX: Get the foreground color dictated by the override type (e.g., Red for lockout)
+                        // Get the foreground color dictated by the override type (e.g., Red for lockout)
                         const overrideForegroundColor = getComputedStyle(overrideOverlay).color.trim();
                         
                         // Process SVG: Prepare for scaling and handle negative space against the dark overlay background.
@@ -1504,6 +1641,8 @@
                         // The CSS handles the robust scaling (max-width/max-height: 100%)
                         if (svgElement && svgElement.tagName.toLowerCase() === 'svg' && doc.getElementsByTagName("parsererror").length === 0) {
                                 const importedSvgElement = document.importNode(svgElement, true);
+                                
+                                // Append the SVG to the overlay directly (it doesn't need the wrapper div for filters as it's an SVG element)
                                 overrideOverlay.appendChild(importedSvgElement);
 
                             // Apply enhancements (Theming and Animation based on GM flags)
@@ -1519,11 +1658,6 @@
                         }
                     }
                     
-                    // Ensure overlay remains visible if content exists
-                    if (override.message || override.svgContent) {
-                         overrideOverlay.style.display = 'flex';
-                    }
-
                 } else {
                     overrideOverlay.style.display = 'none';
                 }
