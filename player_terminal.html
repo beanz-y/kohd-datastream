@@ -41,13 +41,12 @@
         }
 
         #qol-buttons {
-            position: fixed;
-            bottom: 10px;
-            right: 10px;
+            position: absolute; /* CHANGED: From fixed to absolute for JS control */
+            top: 0;             /* ADDED: Initial position for transform */
+            left: 0;            /* ADDED: Initial position for transform */
             z-index: 5000;
             display: flex;
             gap: 8px;
-            transition: bottom 0.2s ease-out;
         }
 
         #qol-buttons button {
@@ -916,28 +915,28 @@
 
 
         function initializeTerminal() {
-             // (Viewport Listener, applyTheme, partiallyDecode, fullyDecode)
-             if (window.visualViewport) {
-                // Use window.visualViewport.height if available for initial height, otherwise fallback to innerHeight
-                const initialHeight = window.visualViewport.height || window.innerHeight;
-
-                window.visualViewport.addEventListener('resize', () => {
-                    const viewportHeight = window.visualViewport.height;
+            // --- Mobile QOL Button Positioning ---
+            if (window.visualViewport) {
+                const updateButtonPosition = () => {
+                    const viewport = window.visualViewport;
+                    // Calculate positions based on the visual viewport's dimensions and scroll offset
+                    const topPos = viewport.offsetTop + viewport.height - qolButtons.offsetHeight - 10;
+                    const leftPos = viewport.offsetLeft + viewport.width - qolButtons.offsetWidth - 10;
                     
-                    // Calculate keyboard height approximation based on the change from the initial state
-                    const keyboardHeight = initialHeight - viewportHeight;
+                    // Use transform for smooth positioning that isn't affected by the element's own size
+                    qolButtons.style.transform = `translate(${leftPos}px, ${topPos}px)`;
+                };
 
-                    // A threshold (e.g., 150px) helps determine if the difference is likely a keyboard
-                    if (keyboardHeight > 150) { 
-                        // Keyboard is likely open
-                        qolButtons.style.bottom = `${keyboardHeight + 10}px`;
-                    } else {
-                        // Keyboard is closed or height difference is minimal
-                        qolButtons.style.bottom = '10px';
-                    }
-                    // Ensure terminal scrolls to bottom when layout changes
+                // Add event listeners to update the position on scroll and resize (which includes keyboard)
+                window.visualViewport.addEventListener('resize', () => {
+                    updateButtonPosition();
+                    // Also ensure terminal scrolls to bottom when layout changes
                     terminal.scrollTop = terminal.scrollHeight;
                 });
+                window.visualViewport.addEventListener('scroll', updateButtonPosition);
+                
+                // Set initial position
+                updateButtonPosition();
             }
 
             function applyTheme() {
