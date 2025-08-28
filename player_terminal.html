@@ -163,6 +163,17 @@
             opacity: 0;
             animation: fade-in 1s ease-out forwards;
         }
+        
+        .clickable-file {
+            cursor: pointer;
+            text-decoration: underline;
+            display: inline-block; /* Makes it behave like a block for spacing but flows inline */
+            margin-right: 15px; /* Add some space between filenames */
+        }
+        .clickable-file:hover {
+            color: var(--theme-secondary);
+        }
+
 
         /* --- Theme Definitions --- */
          /* --- Theme Definitions --- */
@@ -1101,6 +1112,13 @@
                     };
                     
                     closeButton.onclick = closeOverlay;
+                    
+                    // Adjust container size for keyboard
+                    if (window.visualViewport) {
+                        const viewport = window.visualViewport;
+                        container.style.height = `calc(${viewport.height}px - 90px)`;
+                    }
+
 
                     // Display the overlay
                     overlay.style.display = 'flex';
@@ -1228,34 +1246,31 @@
                 const parts = input.split(' ');
                 const currentPart = parts[parts.length - 1];
                 let potentialCompletions = [];
+
                 if (parts.length === 1) {
                     const baseCommands = ['help', 'logout', 'elevate', 'ls', 'cat', 'reply', 'ping', 'status', 'history', 'cls', config.scanCommand, config.connectCommand].filter(Boolean);
                     const allCommands = [...baseCommands, ...Object.keys(customCommands)];
                     potentialCompletions = allCommands.filter(cmd => cmd.startsWith(currentPart));
-                } else if (parts[0] === 'cat' || parts[0] === 'ls') {
-                    potentialCompletions = Object.keys(fileSystem).map(safeName => {
+                } else if ((parts[0] === 'cat' || parts[0] === 'ls') && parts.length === 2) {
+                    potentialCompletions = Object.keys(fileSystem).filter(key => !fileSystem[key].hidden).map(safeName => {
                         let originalFileName = safeName.replace(/·/g, '.');
                         if (fileSystem[safeName].isSvg) {
-                             let baseName = originalFileName.split('.').slice(0, -1).join('.') || originalFileName;
-                             originalFileName = baseName + '.kohd';
+                            let baseName = originalFileName.split('.').slice(0, -1).join('.') || originalFileName;
+                            return baseName + '.kohd';
                         }
                         return originalFileName;
                     }).filter(name => name.startsWith(currentPart));
                 }
 
                 if (potentialCompletions.length === 1) {
-                    const completion = potentialCompletions[0];
-                    if (parts.length === 1) {
-                        commandInput.value = completion;
-                    } else {
-                        parts[parts.length - 1] = completion;
-                        commandInput.value = parts.join(' ');
-                    }
+                    parts[parts.length - 1] = potentialCompletions[0];
+                    commandInput.value = parts.join(' ');
                 } else if (potentialCompletions.length > 1 && currentPart.length > 0) {
                     printLine(`> ${input}`, 'prompt-text');
                     printLine(potentialCompletions.join('   '), 'system-msg');
                 }
             }
+
 
             function loadCommandHistory() {
                 const history = sessionStorage.getItem(COMMAND_HISTORY_KEY);
@@ -1339,7 +1354,8 @@
                     if (!isConnected) { typeLine('ERROR: Not connected to a system.', 'error-msg'); return; }
                     const fileNames = Object.keys(fileSystem).filter(key => !fileSystem[key].hidden);
                     if (fileNames.length > 0) {
-                        let output = '';
+                        const outputLine = document.createElement('div');
+                        outputLine.className = 'line data-msg-body';
                         fileNames.forEach(safeFileName => {
                             let originalFileName = safeFileName.replace(/·/g, '.');
                             const fileData = fileSystem[safeFileName];
@@ -1347,13 +1363,23 @@
                                 let baseName = originalFileName.split('.').slice(0, -1).join('.') || originalFileName;
                                 originalFileName = baseName + '.kohd';
                             }
+                            
+                            const fileSpan = document.createElement('span');
                             if (fileData.level > clearanceLevel) {
-                                output += `<span class="file-locked">${originalFileName} [LEVEL ${fileData.level}]</span>   `;
+                                fileSpan.className = 'file-locked';
+                                fileSpan.textContent = `${originalFileName} [LEVEL ${fileData.level}]`;
                             } else {
-                                output += `${originalFileName}   `;
+                                fileSpan.className = 'clickable-file';
+                                fileSpan.textContent = originalFileName;
+                                fileSpan.onclick = () => {
+                                    handleCommand(`cat ${originalFileName}`);
+                                };
                             }
+                            outputLine.appendChild(fileSpan);
                         });
-                        printLine(output, 'data-msg-body');
+                        const promptWrapper = terminal.querySelector('.prompt-wrapper');
+                        terminal.insertBefore(outputLine, promptWrapper);
+                        terminal.scrollTop = terminal.scrollHeight;
                     } else {
                         typeLine('Directory is empty.');
                     }
@@ -1518,8 +1544,7 @@
             };
 
             terminal.addEventListener('click', (e) => { 
-                // Since inline SVGs are gone, we don't need to check for specific elements, just ensure focus returns to input.
-                if (e.target !== commandInput && !e.target.closest('button')) { 
+                 if (e.target !== commandInput && !e.target.classList.contains('clickable-file') && !e.target.closest('button')) { 
                     commandInput.focus(); 
                 } 
             });
