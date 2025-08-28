@@ -83,6 +83,7 @@ function cacheDOMElements() {
         fileAccessLevelSelect: document.getElementById('fileAccessLevel'),
         newFileContentInput: document.getElementById('newFileContent'),
         createFileButton: document.getElementById('createFileButton'),
+        fileIsHiddenCheckbox: document.getElementById('fileIsHidden'),
         fileList: document.getElementById('fileList'),
         keyManagementGrid: document.getElementById('keyManagementGrid'),
         unlockAllButton: document.getElementById('unlockAllButton'),
@@ -92,6 +93,7 @@ function cacheDOMElements() {
         svgFileNameInput: document.getElementById('svgFileNameInput'),
         createSvgFileButton: document.getElementById('createSvgFileButton'),
         sendSvgDatastreamButton: document.getElementById('sendSvgDatastreamButton'),
+        svgIsHiddenCheckbox: document.getElementById('svgIsHidden'),
         // Edit Modal Elements
         fileEditModal: document.getElementById('fileEditModal'),
         editModalTitle: document.getElementById('editModalTitle'),
@@ -372,10 +374,15 @@ function initializeEventListeners() {
         const fileName = uiElements.newFileNameInput.value.trim().toLowerCase();
         const accessLevel = parseInt(uiElements.fileAccessLevelSelect.value, 10);
         const fileContent = uiElements.newFileContentInput.value;
+        const isHidden = uiElements.fileIsHiddenCheckbox.checked;
         if (!fileName || !fileContent) { alert('Filename and content cannot be empty.'); return; }
         if (!fileName.includes('.')) { alert('Filename must include an extension (e.g., .txt, .log)'); return; }
         const safeFileName = fileName.replace(/\./g, '·');
-        appState.dbRefs.fileSystem.child(safeFileName).set({ content: fileContent, level: accessLevel });
+        appState.dbRefs.fileSystem.child(safeFileName).set({ 
+            content: fileContent, 
+            level: accessLevel,
+            hidden: isHidden 
+        });
         uiElements.newFileNameInput.value = '';
         uiElements.newFileContentInput.value = '';
     };
@@ -493,10 +500,12 @@ function initializeEventListeners() {
             }
             const safeFileName = newFileName.replace(/\./g, '·');
             const accessLevel = parseInt(uiElements.fileAccessLevelSelect.value, 10);
+            const isHidden = uiElements.svgIsHiddenCheckbox.checked;
             appState.dbRefs.fileSystem.child(safeFileName).set({
                 content: svgContent,
                 level: accessLevel,
-                isSvg: true
+                isSvg: true,
+                hidden: isHidden
             });
             alert(`SVG file "${newFileName}" created successfully.`);
             uiElements.svgFileInput.value = '';
@@ -647,9 +656,7 @@ function displayConnectedPlayers(players) {
 
 // NEW: Renders the unified, filterable chat log
 function updatePlayerRepliesView(allRepliesData) {
-    // Store the latest data in our app's state
     appState.allPlayerReplies = allRepliesData || {};
-    // Get the current filter from the dropdown inside this function
     const filterPlayer = uiElements.playerRepliesSelect.value;
     const display = uiElements.playerRepliesDisplay;
     display.innerHTML = '';
@@ -657,20 +664,21 @@ function updatePlayerRepliesView(allRepliesData) {
     const messagesToShow = [];
 
     // Collate all messages into a single array with metadata
-    Object.entries(appState.allPlayerReplies).forEach(([playerName, messages]) => {
-        if (filterPlayer === 'all' || filterPlayer === playerName) {
-            Object.entries(messages).forEach(([msgId, msgContent]) => {
+    Object.entries(appState.allPlayerReplies).forEach(([msgId, msgData]) => {
+        if (typeof msgData === 'object' && msgData.user && msgData.message) {
+            if (filterPlayer === 'all' || filterPlayer === msgData.user) {
                 messagesToShow.push({
                     key: msgId,
-                    name: playerName,
-                    text: msgContent
+                    name: msgData.user,
+                    text: msgData.message,
+                    timestamp: msgData.timestamp
                 });
-            });
+            }
         }
     });
 
-    // Sort messages chronologically by their Firebase push key
-    messagesToShow.sort((a, b) => a.key.localeCompare(b.key));
+    // Sort messages chronologically by their timestamp (or key as a fallback)
+    messagesToShow.sort((a, b) => (a.timestamp || a.key) - (b.timestamp || b.key));
 
     if (messagesToShow.length === 0) {
         display.innerHTML = (filterPlayer === 'all' || !filterPlayer)
@@ -690,6 +698,7 @@ function updatePlayerRepliesView(allRepliesData) {
 
     display.scrollTop = display.scrollHeight;
 }
+
 
 
 function displayCipherKey(chart) {
@@ -756,10 +765,22 @@ function displayFiles(files) {
                 li.classList.add('locked');
                 displayText += ` [LEVEL ${fileData.level}]`;
             }
+
+            if (fileData.hidden) {
+                displayText += ' [HIDDEN]';
+            }
+
             textSpan.textContent = displayText;
             li.appendChild(textSpan);
 
             const buttonContainer = document.createElement('div');
+            
+            const visibilityButton = document.createElement('button');
+            visibilityButton.textContent = fileData.hidden ? 'Reveal' : 'Hide';
+            visibilityButton.onclick = () => {
+                appState.dbRefs.fileSystem.child(safeFileName).child('hidden').set(!fileData.hidden);
+            };
+            buttonContainer.appendChild(visibilityButton);
 
             const editButton = document.createElement('button');
             editButton.textContent = 'View/Edit';

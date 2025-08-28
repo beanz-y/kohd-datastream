@@ -460,7 +460,6 @@
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
     <script src="firebase-config.js"></script>
     
-    <!-- UPDATED: SVG Processing Script for Themed Preview -->
     <script>
     // SVG Processing Function (Adapted for GM Preview)
     // This function mirrors the logic used in the player terminal to ensure an accurate preview.
@@ -680,7 +679,6 @@
                 </div>
             </fieldset>
             
-            <!-- Updated System Override Fieldset -->
             <fieldset>
                 <legend>System Override</legend>
                 
@@ -725,7 +723,10 @@
                             <option value="none">None</option>
                             <option value="vhs">VHS (Scanlines & Offset)</option>
                             <option value="vr">VR (Chromatic Aberration)</option>
-                            <option value="fractal">Fractal Noise (Digital Corruption)</option>
+                            <option value="fractal">Fractal Noise (Corruption)</option>
+                            <option value="block">Digital Block</option>
+                            <option value="separation">Color Separation</option>
+                            <option value="tear">Screen Tear</option>
                         </select>
 
                         <label for="overrideTimer">Auto-Clear Timer (seconds, 0 = disabled):</label>
@@ -752,7 +753,13 @@
                 </select>
                 <label for="newFileContent">File Content</label>
                 <textarea id="newFileContent" rows="4" placeholder="Enter file content..."></textarea>
-                <button id="createFileButton">Create File</button>
+                 <div class="flex-wrap">
+                    <button id="createFileButton">Create File</button>
+                    <div>
+                        <input type="checkbox" id="fileIsHidden">
+                        <label for="fileIsHidden" style="display: inline;">Start Hidden?</label>
+                    </div>
+                </div>
             </fieldset>
 
             <fieldset>
@@ -764,6 +771,10 @@
                 <div class="flex-wrap">
                     <button id="createSvgFileButton">Create SVG as File</button>
                     <button id="sendSvgDatastreamButton" class="secondary">Send SVG as Datastream</button>
+                     <div>
+                        <input type="checkbox" id="svgIsHidden">
+                        <label for="svgIsHidden" style="display: inline;">Start Hidden?</label>
+                    </div>
                 </div>
             </fieldset>
 
@@ -874,7 +885,6 @@
         </div>
     </div>
 
-    <!-- JavaScript for System Override UI Logic and Themed Preview -->
     <script>
         // Handles the UI logic for the System Override configuration
         document.addEventListener('DOMContentLoaded', () => {

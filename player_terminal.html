@@ -550,69 +550,52 @@
             30%, 80% { filter: url(#fractal-noise-filter-high); }
         }
 
-        /* --- 4. NEW: Digital Block Glitch --- */
-        /* Creates blocky artifacts using SVG filters */
+        /* --- 4. NEW: Digital Block Glitch (Safer) --- */
         #system-override-overlay.glitch-block {
-             filter: url(#block-glitch-filter);
-             animation: block-glitch-anim 1.5s infinite steps(8);
+             filter: url(#block-glitch-filter-0); /* Start with no effect */
+             animation: block-glitch-anim 4s infinite steps(10); /* Slower animation */
         }
-
         @keyframes block-glitch-anim {
-            0%, 100% { filter: url(#block-glitch-filter-0); }
-            25% { filter: url(#block-glitch-filter-1); }
-            50% { filter: url(#block-glitch-filter-2); }
-            75% { filter: url(#block-glitch-filter-3); }
+            0%, 90% { filter: url(#block-glitch-filter-0); } /* Mostly off */
+            92% { filter: url(#block-glitch-filter-1); }
+            94% { filter: url(#block-glitch-filter-2); }
+            96% { filter: url(#block-glitch-filter-3); }
+            98%, 100% { filter: url(#block-glitch-filter-0); }
         }
 
-        /* --- 5. NEW: Color Separation Glitch --- */
-        /* Intense RGB channel separation and horizontal shifting */
+        /* --- 5. NEW: Color Separation Glitch (Safer) --- */
          #system-override-overlay.glitch-separation {
-            animation: separation-shift 2s infinite cubic-bezier(.25,.46,.45,.94);
-            --shift-x: 5px; /* Define the shift amount */
+            animation: separation-shift 5s infinite ease-in-out;
+            --shift-x: 2px; /* Reduced shift amount */
         }
-
-        /* Apply the filter to the content inside */
         #system-override-overlay.glitch-separation svg,
         #system-override-overlay.glitch-separation .override-content {
              filter: url(#color-separation-filter);
         }
-
         @keyframes separation-shift {
             0%, 100% { transform: translateX(0); }
-            10%, 30%, 50%, 70% { transform: translateX(calc(var(--shift-x) * -1)); }
-            20%, 40%, 60%, 80% { transform: translateX(var(--shift-x)); }
+            25%, 75% { transform: translateX(calc(var(--shift-x) * -1)); }
+            50% { transform: translateX(var(--shift-x)); }
         }
 
-        /* --- 6. NEW: Screen Tear Glitch --- */
-        /* Horizontal offset of a slice of the screen using CSS clip-path */
+        /* --- 6. NEW: Screen Tear Glitch (Safer) --- */
         #system-override-overlay.glitch-tear {
-            animation: screen-tear 3s infinite steps(1);
+            animation: screen-tear 5s infinite steps(1); /* Longer duration for less frequency */
         }
-
         @keyframes screen-tear {
             0%, 100% { clip-path: inset(0); transform: translateX(0); }
-            10% {
-                /* Clip the top 40% and shift it right */
-                clip-path: polygon(0 0, 100% 0, 100% 40%, 0 40%);
-                transform: translateX(10px);
+            /* Make the tear happen for a very short duration */
+            5% {
+                clip-path: polygon(0 45%, 100% 45%, 100% 55%, 0 55%);
+                transform: translateX(8px); /* Reduced shift */
             }
-            15% {
-                /* Clip the middle 10% (from 40% to 50%) and shift it left */
-                clip-path: polygon(0 40%, 100% 40%, 100% 50%, 0 50%);
-                transform: translateX(-15px);
+            /* Reset immediately after */
+            6%, 94% { clip-path: inset(0); transform: translateX(0); }
+            95% {
+                clip-path: polygon(0 20%, 100% 20%, 100% 25%, 0 25%);
+                transform: translateX(-5px); /* Reduced shift */
             }
-            20% {
-                 /* Clip the bottom 50% and shift it slightly right */
-                 clip-path: polygon(0 50%, 100% 50%, 100% 100%, 0 100%);
-                 transform: translateX(5px);
-            }
-            /* Pause the effect */
-            25%, 90% { clip-path: inset(0); transform: translateX(0); }
-             95% {
-                /* Quick tear near the top */
-                clip-path: polygon(0 20%, 100% 20%, 100% 30%, 0 30%);
-                transform: translateX(20px);
-            }
+            96% { clip-path: inset(0); transform: translateX(0); }
         }
         
     </style>
@@ -657,34 +640,26 @@
                 <feDisplacementMap in="SourceGraphic" in2="noise" scale="0" />
             </filter>
             <filter id="block-glitch-filter-1">
-                <feTurbulence type="fractalNoise" baseFrequency="0.5 0.01" numOctaves="1" seed="1" result="noise" />
+                <feTurbulence type="fractalNoise" baseFrequency="0.2 0.02" numOctaves="1" seed="1" result="noise" />
                 <feColorMatrix type="saturate" values="0" in="noise" result="monoNoise"/>
                 <feComponentTransfer in="monoNoise" result="thresholdNoise">
-                    <feFuncA type="table" tableValues="0 1 0 0 1"/>
+                    <feFuncA type="table" tableValues="0 1 0"/>
                 </feComponentTransfer>
-                <feMorphology operator="dilate" radius="10 5" in="thresholdNoise" result="blocks"/>
-                <feComposite in="SourceGraphic" in2="blocks" operator="out" result="maskedSource"/>
-                <feFlood flood-color="rgba(255,0,0,0.5)" result="colorFill"/>
-                <feComposite in="colorFill" in2="blocks" operator="in" result="coloredBlocks"/>
-                <feComposite in="maskedSource" in2="coloredBlocks" operator="over"/>
+                <feMorphology operator="dilate" radius="5 2" in="thresholdNoise" result="blocks"/>
+                <feComposite in="SourceGraphic" in2="blocks" operator="out"/>
             </filter>
             <filter id="block-glitch-filter-2">
-                 <feTurbulence type="fractalNoise" baseFrequency="0.01 0.5" numOctaves="1" seed="2" result="noise" />
-                <feDisplacementMap in="SourceGraphic" in2="noise" scale="20" xChannelSelector="R" yChannelSelector="G" />
+                 <feTurbulence type="fractalNoise" baseFrequency="0.02 0.4" numOctaves="1" seed="2" result="noise" />
+                <feDisplacementMap in="SourceGraphic" in2="noise" scale="10" xChannelSelector="R" yChannelSelector="G" />
             </filter>
              <filter id="block-glitch-filter-3">
-                 <feTurbulence type="fractalNoise" baseFrequency="0.2" numOctaves="2" seed="3" result="noise" />
-                <feColorMatrix type="saturate" values="0" in="noise" result="monoNoise"/>
-                <feComponentTransfer in="monoNoise" result="thresholdNoise">
-                    <feFuncA type="discrete" tableValues="0 0.5 1"/>
-                </feComponentTransfer>
-                <feMorphology operator="erode" radius="2" in="thresholdNoise" result="blocks"/>
-                <feComposite in="SourceGraphic" in2="blocks" operator="xor"/>
+                 <feTurbulence type="fractalNoise" baseFrequency="0.1" numOctaves="1" seed="3" result="noise" />
+                <feDisplacementMap in="SourceGraphic" in2="noise" scale="5" xChannelSelector="R" yChannelSelector="B" />
             </filter>
 
              <filter id="color-separation-filter">
-                <feOffset in="SourceGraphic" dx="5" dy="0" result="R-offset" />
-                <feOffset in="SourceGraphic" dx="-5" dy="0" result="B-offset" />
+                <feOffset in="SourceGraphic" dx="2" dy="0" result="R-offset" />
+                <feOffset in="SourceGraphic" dx="-2" dy="0" result="B-offset" />
                 <feOffset in="SourceGraphic" dx="0" dy="0" result="G-offset" />
                 
                 <feColorMatrix in="R-offset" type="matrix" values="1 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 1 0" result="R" />
@@ -1363,7 +1338,7 @@
                     }
                 } else if (cmd === 'ls') {
                     if (!isConnected) { typeLine('ERROR: Not connected to a system.', 'error-msg'); return; }
-                    const fileNames = Object.keys(fileSystem);
+                    const fileNames = Object.keys(fileSystem).filter(key => !fileSystem[key].hidden);
                     if (fileNames.length > 0) {
                         let output = '';
                         fileNames.forEach(safeFileName => {
@@ -1410,7 +1385,7 @@
 
                     if (!argString) {
                         typeLine('ERROR: Missing filename. Usage: cat <filename>', 'error-msg');
-                    } else if (!fileData) {
+                    } else if (!fileData || fileData.hidden) {
                         typeLine(`ERROR: File not found: ${argString}`, 'error-msg');
                     } else if (fileData.level > clearanceLevel) { 
                         typeLine(`ERROR: INSUFFICIENT CLEARANCE. ACCESS LEVEL ${fileData.level} REQUIRED.`, 'error-msg');
@@ -1435,7 +1410,7 @@
                             if (currentUser) {
                                 // Ensure we don't create multiple references if 'connect' is run again
                                 if (!playerConnectionRef) {
-                                     playerConnectionRef = database.ref('connected_players/' + currentUser);
+                                     playerConnectionRef = database.ref('player_connections/' + currentUser);
                                 }
                                 playerConnectionRef.set(true);
                                 // Set up the removal on disconnect (browser close, network loss)
@@ -1685,7 +1660,18 @@
             // Listener for broadcast messages (the primary 'kohd_datastream' node)
             database.ref('kohd_datastream').on('value', processDatastreamSnapshot);
 
-            // (If private messages functionality (kohd_datastream/username) from previous versions is needed, add it here)
+            // Listener for direct messages
+            if (currentUser) {
+                const directMessageRef = database.ref('direct_messages/' + currentUser);
+                directMessageRef.on('value', (snapshot) => {
+                    const data = snapshot.val();
+                    if (data) {
+                        processDatastream(data);
+                        // Clear the message after it's been received
+                        directMessageRef.remove();
+                    }
+                });
+            }
 
 
             // Handle browser close/refresh (Player Connection Tracker Cleanup)
