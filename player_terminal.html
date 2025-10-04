@@ -1335,6 +1335,7 @@
                         playerConnectionRef.remove(); // Remove immediately
                         playerConnectionRef = null;
                     }
+                    sessionStorage.removeItem('daggerheart_connection_state');
                     localStorage.removeItem(SESSION_KEY);
                     sessionStorage.removeItem(SESSION_KEY);
                     location.reload();
@@ -1426,7 +1427,10 @@
                         }
                     }
                 } else if (cmd === (config.scanCommand || 'scan')) {
-                    typeLine(`Scanning the Network for ${(config.signalNoun || 'signal').toLowerCase()}s from ${config.systemName}...`, '', 30, () => { setTimeout(() => { typeLine(`...Faint ${(config.signalNoun || 'signal')} detected. Source confirmed: ${config.systemName}.`, 'system-msg'); }, 1500); }); isScanning = true;
+                    typeLine(`Scanning the Network for ${(config.signalNoun || 'signal').toLowerCase()}s from ${config.systemName}...`, '', 30, () => { setTimeout(() => { typeLine(`...Faint ${(config.signalNoun || 'signal')} detected. Source confirmed: ${config.systemName}.`, 'system-msg'); }, 1500); });
+                    isScanning = true;
+                    const connectionState = { isScanning: true, isConnected: false, systemName: config.systemName };
+                    sessionStorage.setItem('daggerheart_connection_state', JSON.stringify(connectionState));
                 } else if (cmd === (config.connectCommand || 'connect')) {
                     if (isScanning) { 
                         typeLine(`Attempting to synchronize with ${config.systemName}...`, '', 30, () => { 
@@ -1442,6 +1446,8 @@
                                 playerConnectionRef.onDisconnect().remove();
                             }
                             typeLine(`Synchronization complete. Interface active. Awaiting ${config.dataNoun || 'Data'}...`, 'system-msg'); 
+                            const connectionState = { isScanning: true, isConnected: true, systemName: config.systemName };
+                            sessionStorage.setItem('daggerheart_connection_state', JSON.stringify(connectionState));
                         }); 
                     } else { 
                         typeLine(`ERROR: No ${(config.signalNoun || 'signal')} detected. Run ${(config.scanCommand || 'scan').toUpperCase()} first.`, 'error-msg'); 
@@ -1562,6 +1568,21 @@
                 // Handle initialization and message queue
                 if (!isConfigLoaded) {
                     isConfigLoaded = true;
+                    const savedConnectionState = JSON.parse(sessionStorage.getItem('daggerheart_connection_state'));
+                    if (savedConnectionState && savedConnectionState.systemName === config.systemName) {
+                        isConnected = savedConnectionState.isConnected;
+                        isScanning = savedConnectionState.isScanning;
+                        if (isConnected) {
+                            if (currentUser) {
+                                if (!playerConnectionRef) {
+                                    playerConnectionRef = database.ref('player_connections/' + currentUser);
+                                }
+                                playerConnectionRef.set(true);
+                                playerConnectionRef.onDisconnect().remove();
+                            }
+                            printLine(`// RE-ESTABLISHED CONNECTION to ${config.systemName} //`, 'system-msg');
+                        }
+                    }
                     drawWelcomeMessage();
                     // Process any messages that arrived before config was loaded
                     if (messageQueue.length > 0) {
