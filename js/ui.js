@@ -6,8 +6,21 @@ import { transmitDatastream, updateTerminalConfig } from './firebase.js';
 
 // --- DOM Element References ---
 let uiElements;
-// NEW: Variable to track the override auto-clear timeout
+// Variable to track the override auto-clear timeout
 let overrideClearTimeout = null;
+
+// --- Helper function for Drive Links ---
+function convertDriveLink(url) {
+    if (!url) return '';
+    const driveRegex = /\/file\/d\/([a-zA-Z0-9_-]+)/;
+    const match = url.match(driveRegex);
+    if (match && match[1]) return `https://drive.google.com/uc?export=view&id=${match[1]}`;
+    const idRegex = /[?&]id=([a-zA-Z0-9_-]+)/;
+    const idMatch = url.match(idRegex);
+    if (idMatch && idMatch[1]) return `https://drive.google.com/uc?export=view&id=${idMatch[1]}`;
+    return url;
+}
+
 
 // --- Helper function for Presets ---
 function displayPresets() {
@@ -67,13 +80,15 @@ function cacheDOMElements() {
         glitchCommandButton: document.getElementById('glitchCommandButton'),
         glitchCommandSelect: document.getElementById('glitchCommandSelect'),
         
-        // System Override (New/Updated)
+        // System Override
         triggerOverrideButton: document.getElementById('triggerOverrideButton'),
         clearOverrideButton: document.getElementById('clearOverrideButton'),
         overrideContentType: document.getElementById('overrideContentType'),
         overrideTextInput: document.getElementById('overrideTextInput'),
         overrideSvgUpload: document.getElementById('overrideSvgUpload'),
         overrideSvgPreview: document.getElementById('overrideSvgPreview'),
+        overrideGifInput: document.getElementById('overrideGifInput'), // NEW
+        overrideGifPreview: document.getElementById('overrideGifPreview'), // NEW
         overrideType: document.getElementById('overrideType'),
         overrideGlitchEffect: document.getElementById('overrideGlitchEffect'),
         overrideTimer: document.getElementById('overrideTimer'),
@@ -88,12 +103,21 @@ function cacheDOMElements() {
         keyManagementGrid: document.getElementById('keyManagementGrid'),
         unlockAllButton: document.getElementById('unlockAllButton'),
         lockAllButton: document.getElementById('lockAllButton'),
+        
         // SVG Elements
         svgFileInput: document.getElementById('svgFileInput'),
         svgFileNameInput: document.getElementById('svgFileNameInput'),
         createSvgFileButton: document.getElementById('createSvgFileButton'),
         sendSvgDatastreamButton: document.getElementById('sendSvgDatastreamButton'),
         svgIsHiddenCheckbox: document.getElementById('svgIsHidden'),
+        
+        // GIF Elements (NEW)
+        gifUrlInput: document.getElementById('gifUrlInput'),
+        gifFileNameInput: document.getElementById('gifFileNameInput'),
+        createGifFileButton: document.getElementById('createGifFileButton'),
+        sendGifDatastreamButton: document.getElementById('sendGifDatastreamButton'),
+        gifIsHiddenCheckbox: document.getElementById('gifIsHidden'),
+
         // Edit Modal Elements
         fileEditModal: document.getElementById('fileEditModal'),
         editModalTitle: document.getElementById('editModalTitle'),
@@ -207,9 +231,7 @@ function initializeEventListeners() {
         transmitDatastream(finalBurst, target);
     };
 
-    // UPDATED: This listener now simply applies the filter
     uiElements.playerRepliesSelect.onchange = () => {
-        // When the filter changes, just re-render the view using the data we already have.
         updatePlayerRepliesView(appState.allPlayerReplies);
     };
 
@@ -223,8 +245,6 @@ function initializeEventListeners() {
         btn.onclick = () => uiElements.messageInput.value = template;
         uiElements.templateButtons.appendChild(btn);
     });
-
-    // ... (rest of the event listeners are the same)
 
     // Setup Tab Listeners
     uiElements.updateConfigButton.onclick = () => {
@@ -387,7 +407,7 @@ function initializeEventListeners() {
         uiElements.newFileContentInput.value = '';
     };
 
-    // System Override Listeners (Updated)
+    // System Override Listeners (Updated for GIF)
     uiElements.triggerOverrideButton.onclick = () => {
         const contentType = uiElements.overrideContentType.value;
         const type = uiElements.overrideType.value;
@@ -405,15 +425,17 @@ function initializeEventListeners() {
             }
             contentData = { message: message };
         } else if (contentType === 'svg') {
-            // Retrieve the RAW SVG content stored in the data attribute by the gm_encoder.html script
-            // Note: The attribute name was changed in gm_encoder.html to 'data-raw-svg-content'
             const svgContent = uiElements.overrideSvgPreview.getAttribute('data-raw-svg-content');
             if (!svgContent) {
                 alert('Please upload a valid SVG file first.');
                 return;
             }
-            // Note: We send the raw SVG content and the theme flag. The player terminal will handle the theming and animation.
             contentData = { svgContent: svgContent, applyTheme: applyThemeToSvg, animate: true };
+        } else if (contentType === 'gif') { // NEW
+            const rawUrl = uiElements.overrideGifInput.value.trim();
+            const url = convertDriveLink(rawUrl);
+            if (!url) { alert('Please enter a valid GIF URL.'); return; }
+            contentData = { gifUrl: url };
         }
 
         const overrideState = {
@@ -422,7 +444,6 @@ function initializeEventListeners() {
             ...contentData
         };
 
-        // Clear any existing timer before setting a new one
         if (overrideClearTimeout) {
             clearTimeout(overrideClearTimeout);
             overrideClearTimeout = null;
@@ -431,10 +452,8 @@ function initializeEventListeners() {
         appState.dbRefs.glitches.child('override_state').set(overrideState)
             .then(() => {
                 if (timer > 0) {
-                    // Set a client-side timeout (on the GM's browser) to clear the override from Firebase
                     overrideClearTimeout = setTimeout(() => {
                         appState.dbRefs.glitches.child('override_state').remove();
-                        // Notify the GM that the auto-clear executed
                         console.log(`Override auto-cleared after ${timer} seconds.`);
                         overrideClearTimeout = null;
                     }, timer * 1000);
@@ -446,7 +465,6 @@ function initializeEventListeners() {
     };
 
     uiElements.clearOverrideButton.onclick = () => {
-        // If there is an active timer, clear it
         if (overrideClearTimeout) {
             clearTimeout(overrideClearTimeout);
             overrideClearTimeout = null;
@@ -523,6 +541,44 @@ function initializeEventListeners() {
             uiElements.svgFileInput.value = '';
             uiElements.svgFileNameInput.value = '';
         });
+    };
+
+    // NEW: GIF Handling Listeners
+    uiElements.createGifFileButton.onclick = () => {
+        const rawUrl = uiElements.gifUrlInput.value.trim();
+        const url = convertDriveLink(rawUrl);
+        const fileName = uiElements.gifFileNameInput.value.trim().toLowerCase();
+        const accessLevel = 1; // Or add selector for levels if desired
+        const isHidden = uiElements.gifIsHiddenCheckbox.checked;
+
+        if (!url || !fileName) { alert('URL and Filename are required.'); return; }
+        
+        let safeFileName = fileName;
+        if (!safeFileName.includes('.')) safeFileName += '.gif';
+        safeFileName = safeFileName.replace(/\./g, '·');
+
+        appState.dbRefs.fileSystem.child(safeFileName).set({
+            content: url, // Store URL as content
+            level: accessLevel,
+            isGif: true,
+            hidden: isHidden
+        });
+        alert('GIF file created.');
+        uiElements.gifUrlInput.value = '';
+        uiElements.gifFileNameInput.value = '';
+    };
+
+    uiElements.sendGifDatastreamButton.onclick = () => {
+        const rawUrl = uiElements.gifUrlInput.value.trim();
+        const url = convertDriveLink(rawUrl);
+        const target = uiElements.messageTargetSelect.value;
+        
+        if (!url) { alert('URL is required.'); return; }
+
+        const finalBurst = `GIF::${url}`;
+        uiElements.outputBurst.textContent = "GIF Datastream Sent";
+        transmitDatastream(finalBurst, target);
+        uiElements.gifUrlInput.value = ''; // Optional: clear after send
     };
 
     // Admin Tab listeners
@@ -603,13 +659,9 @@ function initializeEventListeners() {
     displayPresets();
 }
 
-// --- Functions to update UI from Firebase state ---
-
-// UPDATED: Displays the list of currently connected players and updates dropdowns
 function displayConnectedPlayers(players) {
     const playerNames = players ? Object.keys(players) : [];
 
-    // Update the connected players list
     uiElements.connectedPlayersList.innerHTML = '';
     if (playerNames.length === 0) {
         const li = document.createElement('li');
@@ -624,7 +676,6 @@ function displayConnectedPlayers(players) {
         });
     }
 
-    // Update the message target dropdown
     const currentTarget = uiElements.messageTargetSelect.value;
     uiElements.messageTargetSelect.innerHTML = '<option value="all">All Players (Broadcast)</option>';
     playerNames.forEach(name => {
@@ -635,7 +686,6 @@ function displayConnectedPlayers(players) {
     });
     uiElements.messageTargetSelect.value = playerNames.includes(currentTarget) ? currentTarget : 'all';
 
-    // Update the player replies dropdown
     const currentReplyTarget = uiElements.playerRepliesSelect.value;
     uiElements.playerRepliesSelect.innerHTML = '<option value="all">All Players</option>';
     playerNames.forEach(name => {
@@ -650,11 +700,9 @@ function displayConnectedPlayers(players) {
     } else {
         uiElements.playerRepliesSelect.value = 'all';
     }
-    // Trigger a redraw of the chat view in case the selected player disconnected
     updatePlayerRepliesView(appState.allPlayerReplies, uiElements.playerRepliesSelect.value);
 }
 
-// NEW: Renders the unified, filterable chat log
 function updatePlayerRepliesView(allRepliesData) {
     appState.allPlayerReplies = allRepliesData || {};
     const filterPlayer = uiElements.playerRepliesSelect.value;
@@ -663,7 +711,6 @@ function updatePlayerRepliesView(allRepliesData) {
 
     const messagesToShow = [];
 
-    // Collate all messages into a single array with metadata
     Object.entries(appState.allPlayerReplies).forEach(([msgId, msgData]) => {
         if (typeof msgData === 'object' && msgData.user && msgData.message) {
             if (filterPlayer === 'all' || filterPlayer === msgData.user) {
@@ -677,7 +724,6 @@ function updatePlayerRepliesView(allRepliesData) {
         }
     });
 
-    // Sort messages chronologically by their timestamp (or key as a fallback)
     messagesToShow.sort((a, b) => (a.timestamp || a.key) - (b.timestamp || b.key));
 
     if (messagesToShow.length === 0) {
@@ -687,7 +733,6 @@ function updatePlayerRepliesView(allRepliesData) {
         return;
     }
 
-    // Render the sorted messages
     messagesToShow.forEach(msg => {
         const msgDiv = document.createElement('div');
         msgDiv.textContent = `${msg.name}: ${msg.text}`;
@@ -759,6 +804,10 @@ function displayFiles(files) {
             if (fileData.isSvg) {
                 let baseName = originalFileName.split('.').slice(0, -1).join('.') || originalFileName;
                 displayText = baseName + '.kohd';
+            } else if (fileData.isGif) { // NEW
+                let baseName = originalFileName.split('.').slice(0, -1).join('.') || originalFileName;
+                if (!baseName.endsWith('.gif')) displayText = baseName + '.gif'; 
+                else displayText = originalFileName;
             }
 
             if (fileData.level > 1) {
@@ -786,7 +835,15 @@ function displayFiles(files) {
             editButton.textContent = 'View/Edit';
             editButton.onclick = () => {
                 uiElements.editModalTitle.textContent = `Editing File`;
-                uiElements.editModalFileName.value = fileData.isSvg ? displayText.split(' ')[0] : originalFileName;
+                // Logic to set editing filename based on type
+                if (fileData.isSvg) {
+                     uiElements.editModalFileName.value = displayText.split(' ')[0];
+                } else if (fileData.isGif) {
+                    uiElements.editModalFileName.value = displayText; // Generally keeps original
+                } else {
+                    uiElements.editModalFileName.value = originalFileName;
+                }
+                
                 uiElements.editModalAccessLevel.value = fileData.level;
                 uiElements.editModalTextarea.value = fileData.content;
                 uiElements.fileEditModal.style.display = 'block';
@@ -839,7 +896,7 @@ function updatePlayerResources(resources) {
 
 function displayUsers(users) {
     uiElements.userList.innerHTML = '';
-    uiElements.resetUserSelect.innerHTML = ''; // Clear the dropdown first
+    uiElements.resetUserSelect.innerHTML = ''; 
 
     if (users) {
         const defaultOption = document.createElement('option');
@@ -870,16 +927,8 @@ function displayUsers(users) {
     }
 }
 
-// Updated: Handle System Override (GM Preview and Timer Management)
 function handleSystemOverride(override) {
-    // This function primarily handles the GM's awareness of the override state.
-    // The player terminal handles the actual rendering of SVG, text, and glitches.
-    
-    // Note: The GM interface does not typically display the full overlay.
-    // We only use this function to manage the timer if it was cleared remotely.
-
     if (!override) {
-        // If an override is cleared (e.g., by another GM or the timer finishing), ensure our local timer is also cancelled.
         if (overrideClearTimeout) {
             clearTimeout(overrideClearTimeout);
             overrideClearTimeout = null;
@@ -900,7 +949,7 @@ export {
     initializeEventListeners,
     displayHistory,
     displayConnectedPlayers,
-    updatePlayerRepliesView, // REPLACED displayPlayerChatHistory
+    updatePlayerRepliesView,
     displayCipherKey,
     generateKeySwitches,
     displayFiles,

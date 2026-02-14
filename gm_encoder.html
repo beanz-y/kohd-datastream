@@ -26,7 +26,6 @@
             margin: 0;
         }
 
-        /* Note: The GM encoder does not display the overlay itself, but we keep the styles for potential future use or consistency */
         #system-override-overlay {
             display: none;
             position: fixed;
@@ -51,7 +50,6 @@
             color: var(--primary-color);
         }
 
-        /* Styles for the new File Edit Modal */
         .modal {
             display: none;
             position: fixed;
@@ -431,7 +429,6 @@
             align-items: center;
         }
 
-        /* New Styles for Override Configuration */
         .override-config {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
@@ -449,7 +446,7 @@
             background-color: var(--dark-element-bg);
             margin-top: 10px;
             border-radius: 4px;
-            color: var(--text-color); /* Ensure default text is visible */
+            color: var(--text-color); 
         }
         #overrideSvgPreview svg {
             max-width: 100%;
@@ -461,8 +458,6 @@
     <script src="firebase-config.js"></script>
     
     <script>
-    // SVG Processing Function (Adapted for GM Preview)
-    // This function mirrors the logic used in the player terminal to ensure an accurate preview.
     function processAndThemeSVG(svgContent, primaryColor, backgroundColor) {
         if (!svgContent) return '';
 
@@ -475,7 +470,6 @@
             return svgContent;
         }
 
-        // Handle scaling attributes (viewBox, width, height)
         if (!svg.getAttribute('viewBox')) {
             const width = svg.getAttribute('width');
             const height = svg.getAttribute('height');
@@ -488,10 +482,8 @@
             }
         }
         svg.setAttribute('width', '100%');
-        svg.setAttribute('height', 'auto'); // Changed to auto for preview container
+        svg.setAttribute('height', 'auto'); 
 
-
-        // Theming and Negative Space Handling
         const whiteKeywords = ['white', '#ffffff', '#fff'];
         const whiteRgbRegex = /^rgb\(\s*255\s*,\s*255\s*,\s*255\s*\)$/i;
         const elements = svg.getElementsByTagName('*');
@@ -499,10 +491,6 @@
         for (const element of elements) {
             const tagName = element.tagName.toLowerCase();
             let isNegativeSpace = false;
-
-            // 1. Identify and replace negative space (white) with background color.
-            // REFINED LOGIC: We primarily target 'line' and 'path' for automatic negative space conversion when white.
-            // Shapes like 'circle', 'rect', 'ellipse', 'polygon' are less likely to be negative space when white.
             
             if (tagName === 'line' || tagName === 'path') {
                 const strokeAttr = element.getAttribute('stroke');
@@ -513,9 +501,7 @@
                         isNegativeSpace = true;
                     }
                 }
-                // Check fill for paths (as they can represent cutouts)
-                 const fillAttr = element.getAttribute('fill');
-                // We check fill even if stroke was negative space, as a path might have both.
+                const fillAttr = element.getAttribute('fill');
                 if (fillAttr) {
                     const normalizedFill = fillAttr.trim().toLowerCase();
                     if (whiteKeywords.includes(normalizedFill) || whiteRgbRegex.test(normalizedFill)) {
@@ -525,26 +511,20 @@
                 }
             }
 
-            // 2. Apply primary theme color to non-negative space elements
             if (!isNegativeSpace) {
                  if (element.hasAttribute('stroke') && element.getAttribute('stroke') !== 'none') {
-                    // This will also catch white strokes on circles/rects and turn them primaryColor
                     element.setAttribute('stroke', primaryColor);
                 }
                 if (element.hasAttribute('fill') && element.getAttribute('fill') !== 'none') {
-                    // This catches black fills (common default) AND white fills (e.g., white circles) and turns them primaryColor.
                     const fillAttr = element.getAttribute('fill');
                     if (fillAttr) {
                          const normalizedFill = fillAttr.trim().toLowerCase();
-                         // Check against black or white variations
                          if (normalizedFill === 'black' || normalizedFill === '#000000' || normalizedFill === '#000' || whiteKeywords.includes(normalizedFill) || whiteRgbRegex.test(normalizedFill)) {
                              element.setAttribute('fill', primaryColor);
                          } else {
-                            // For consistency, force primaryColor for other colors too if applyTheme is intended.
                              element.setAttribute('fill', primaryColor);
                         }
                     } else {
-                         // Handle cases where fill attribute exists but might be empty string
                          element.setAttribute('fill', primaryColor);
                     }
                 }
@@ -694,6 +674,7 @@
                         <select id="overrideContentType">
                             <option value="text">Text Message</option>
                             <option value="svg">SVG Graphic</option>
+                            <option value="gif">GIF / Image URL</option>
                         </select>
 
                         <div id="overrideTextConfig">
@@ -705,6 +686,14 @@
                             <label for="overrideSvgUpload">Upload SVG:</label>
                             <input type="file" id="overrideSvgUpload" accept=".svg">
                             <div id="overrideSvgPreview">SVG Preview...</div>
+                        </div>
+
+                        <div id="overrideGifConfig" style="display: none;">
+                            <label for="overrideGifInput">GIF Direct Link (Google Drive supported):</label>
+                            <input type="text" id="overrideGifInput" placeholder="Paste Google Drive link here...">
+                            <div id="overrideGifPreview" class="live-display" style="min-height: 100px; display: flex; justify-content: center; align-items: center;">
+                                No GIF loaded.
+                            </div>
                         </div>
                     </fieldset>
 
@@ -774,6 +763,24 @@
                      <div>
                         <input type="checkbox" id="svgIsHidden">
                         <label for="svgIsHidden" style="display: inline;">Start Hidden?</label>
+                    </div>
+                </div>
+            </fieldset>
+
+            <fieldset>
+                <legend>External Media (GIF)</legend>
+                <label for="gifUrlInput">GIF Direct Link (Google Drive supported)</label>
+                <input type="text" id="gifUrlInput" placeholder="Paste link here...">
+                
+                <label for="gifFileNameInput">New Filename (e.g., animation.gif)</label>
+                <input type="text" id="gifFileNameInput" placeholder="Enter filename...">
+                
+                <div class="flex-wrap">
+                    <button id="createGifFileButton">Create GIF File</button>
+                    <button id="sendGifDatastreamButton" class="secondary">Send GIF Datastream</button>
+                     <div>
+                        <input type="checkbox" id="gifIsHidden">
+                        <label for="gifIsHidden" style="display: inline;">Start Hidden?</label>
                     </div>
                 </div>
             </fieldset>
@@ -886,46 +893,72 @@
     </div>
 
     <script>
-        // Handles the UI logic for the System Override configuration
         document.addEventListener('DOMContentLoaded', () => {
             const contentTypeSelect = document.getElementById('overrideContentType');
             const textConfig = document.getElementById('overrideTextConfig');
             const svgConfig = document.getElementById('overrideSvgConfig');
+            const gifConfig = document.getElementById('overrideGifConfig'); // NEW
             const svgUpload = document.getElementById('overrideSvgUpload');
             const svgPreview = document.getElementById('overrideSvgPreview');
+            const gifInput = document.getElementById('overrideGifInput'); // NEW
+            const gifPreview = document.getElementById('overrideGifPreview'); // NEW
             const themeSvgWrapper = document.getElementById('overrideThemeSvgWrapper');
             const overrideTypeSelect = document.getElementById('overrideType');
             const applyThemeCheckbox = document.getElementById('overrideApplyThemeToSvg');
 
-            // Define colors based on CSS variables for preview
             const styles = getComputedStyle(document.documentElement);
-            const COLOR_PRIMARY = styles.getPropertyValue('--primary-color').trim(); // Cyan/Blue (Default/Themed)
-            const COLOR_SECONDARY = styles.getPropertyValue('--secondary-color').trim(); // Orange (Warning fallback)
-            const COLOR_CRITICAL = styles.getPropertyValue('--critical-color').trim(); // Red (Lockout)
-            // Use the dark element background for the preview box background
+            const COLOR_PRIMARY = styles.getPropertyValue('--primary-color').trim();
+            const COLOR_SECONDARY = styles.getPropertyValue('--secondary-color').trim();
+            const COLOR_CRITICAL = styles.getPropertyValue('--critical-color').trim();
             const COLOR_BACKGROUND = styles.getPropertyValue('--dark-element-bg').trim(); 
 
-            const updateVisibility = () => {
-                const isText = contentTypeSelect.value === 'text';
-                textConfig.style.display = isText ? 'block' : 'none';
-                svgConfig.style.display = isText ? 'none' : 'block';
-                if (themeSvgWrapper) {
-                    themeSvgWrapper.style.display = isText ? 'none' : 'block';
+            // Helper function for converting Drive links
+            function convertDriveLink(url) {
+                if (!url) return '';
+                const driveRegex = /\/file\/d\/([a-zA-Z0-9_-]+)/;
+                const match = url.match(driveRegex);
+                if (match && match[1]) {
+                    return `https://drive.google.com/uc?export=view&id=${match[1]}`;
                 }
-                // Trigger preview update when switching to SVG view, in case settings changed
-                if (!isText) {
+                const idRegex = /[?&]id=([a-zA-Z0-9_-]+)/;
+                const idMatch = url.match(idRegex);
+                if (idMatch && idMatch[1]) {
+                    return `https://drive.google.com/uc?export=view&id=${idMatch[1]}`;
+                }
+                return url;
+            }
+
+            const updateVisibility = () => {
+                const type = contentTypeSelect.value;
+                textConfig.style.display = type === 'text' ? 'block' : 'none';
+                svgConfig.style.display = type === 'svg' ? 'block' : 'none';
+                gifConfig.style.display = type === 'gif' ? 'block' : 'none'; // NEW
+                
+                if (themeSvgWrapper) {
+                    themeSvgWrapper.style.display = type === 'svg' ? 'block' : 'none';
+                }
+                if (type === 'svg') {
                     updateSvgPreview();
                 }
             };
             
             contentTypeSelect.addEventListener('change', updateVisibility);
 
-            // Function to update the SVG preview visualization with theming
+            // Listener for GIF Preview
+            if (gifInput) {
+                gifInput.addEventListener('input', () => {
+                    const url = convertDriveLink(gifInput.value.trim());
+                    if (url) {
+                        gifPreview.innerHTML = `<img src="${url}" style="max-width: 100%; max-height: 150px;">`;
+                    } else {
+                        gifPreview.innerHTML = 'No GIF loaded.';
+                    }
+                });
+            }
+
             const updateSvgPreview = () => {
-                // data-raw-svg-content holds the original uploaded SVG
                 const rawSvg = svgPreview.getAttribute('data-raw-svg-content');
                 if (!rawSvg) {
-                    // Only reset the text if there's no SVG content and it's not already the placeholder text
                     if (svgPreview.innerHTML !== 'SVG Preview...') {
                          svgPreview.innerHTML = 'SVG Preview...';
                     }
@@ -936,13 +969,11 @@
                 let primaryColor = COLOR_PRIMARY;
 
                 if (applyTheme) {
-                    // Determine the color based on the selected style if theme is applied
                     switch (overrideTypeSelect.value) {
                         case 'lockout':
                             primaryColor = COLOR_CRITICAL;
                             break;
                         case 'warning':
-                            // Using a specific yellow for warning, fallback to orange if preferred
                             primaryColor = '#FFDC00'; 
                             break;
                         case 'info':
@@ -951,15 +982,12 @@
                             primaryColor = COLOR_PRIMARY;
                             break;
                     }
-                    // Process the SVG string with the determined colors
                     const themedSvg = processAndThemeSVG(rawSvg, primaryColor, COLOR_BACKGROUND);
                     svgPreview.innerHTML = themedSvg;
                 } else {
-                    // If theme is not applied, display the raw SVG but ensure scaling for the preview box
                     const parser = new DOMParser();
                     const doc = parser.parseFromString(rawSvg, "image/svg+xml");
                     const svg = doc.documentElement;
-                    // Ensure basic scaling attributes are set for the preview
                     svg.setAttribute('width', '100%');
                     svg.setAttribute('height', 'auto');
                     const serializer = new XMLSerializer();
@@ -967,11 +995,9 @@
                 }
             };
 
-            // Update preview when style or checkbox changes
             if (overrideTypeSelect) overrideTypeSelect.addEventListener('change', updateSvgPreview);
             if (applyThemeCheckbox) applyThemeCheckbox.addEventListener('change', updateSvgPreview);
 
-            // Handle SVG upload and initial preview
             if (svgUpload) {
                 svgUpload.addEventListener('change', () => {
                     const file = svgUpload.files[0];
@@ -979,10 +1005,7 @@
                         const reader = new FileReader();
                         reader.onload = (e) => {
                             if (e.target.result.includes('<svg')) {
-                                // Store the raw SVG content. This is used both for theming (as the source) 
-                                // and for transmission (ui.js reads this attribute).
                                 svgPreview.setAttribute('data-raw-svg-content', e.target.result);
-                                // Update the preview visualization with the current theme settings
                                 updateSvgPreview();
                             } else {
                                 svgPreview.innerHTML = 'Invalid SVG file format.';
@@ -997,7 +1020,6 @@
                 });
             }
 
-            // Initialize display state
             updateVisibility();
         });
     </script>
@@ -1020,13 +1042,11 @@
             }
         }
         
-        // Ensure the active tab content is displayed on load
          document.addEventListener('DOMContentLoaded', () => {
              const activeContent = document.querySelector('.tab-content.active');
              if (activeContent) {
                  activeContent.style.display = "block";
              } else {
-                 // Fallback if no tab is marked active in HTML
                  openTab(null, 'transmit');
                  const firstTab = document.querySelector('.tab-link');
                  if (firstTab) firstTab.classList.add('active');
