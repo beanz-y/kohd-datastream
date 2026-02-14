@@ -41,9 +41,9 @@
         }
 
         #qol-buttons {
-            position: absolute; 
-            top: 0;             
-            left: 0;            
+            position: absolute; /* CHANGED: From fixed to absolute for JS control */
+            top: 0;             /* ADDED: Initial position for transform */
+            left: 0;            /* ADDED: Initial position for transform */
             z-index: 5000;
             display: flex;
             gap: 8px;
@@ -90,14 +90,16 @@
         }
         
         
-        /* --- Visual Fullscreen Overlay Styles --- */
+        /* --- SVG Fullscreen Overlay Styles --- */
         #svg-fullscreen-overlay {
             position: fixed;
             top: 0;
             left: 0;
             width: 100vw;
+            /* Use dvh for better mobile compatibility */
             height: 100dvh; 
-            z-index: 9000; 
+            /* Background color handled by theme-specific overrides below */
+            z-index: 9000; /* Below system override (10000), above terminal */
             display: flex;
             flex-direction: column;
             align-items: center;
@@ -105,22 +107,29 @@
         }
 
         .svg-responsive-wrapper {
+          /* 1. Define the boundaries.
+             Allow space for the close button (approx 50px) and padding (e.g., 20px top/bottom, 40px left/right) */
           width: calc(100vw - 40px);
-          height: calc(100dvh - 90px); 
+          height: calc(100dvh - 90px); /* 50px for button + 40px vertical padding */
+
+          /* 2. Use Flexbox to center the SVG within the boundaries */
           display: flex;
-          justify-content: center; 
-          align-items: center;    
+          justify-content: center; /* Center horizontally */
+          align-items: center;     /* Center vertically */
+
           box-sizing: border-box;
           overflow: hidden;
         }
 
-        /* Styling for the SVG/IMG element itself */
+        /* Styling for the SVG element itself */
+        /* This applies to both the new overlay AND the System Override overlay SVGs */
         .svg-responsive-wrapper svg,
-        .svg-responsive-wrapper img,
-        #system-override-overlay svg,
-        #system-override-overlay img {
+        #system-override-overlay svg {
+          /* 3. The crucial constraints */
           max-width: 100%;
           max-height: 100%;
+
+          /* 4. Allow the browser to calculate the size while maintaining aspect ratio */
           width: auto;
           height: auto;
         }
@@ -133,6 +142,7 @@
             border: 1px solid currentColor;
             text-align: center;
             font-family: inherit;
+            /* Ensure button uses the secondary color */
             color: var(--theme-secondary); 
         }
 
@@ -146,6 +156,7 @@
         @keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
         
         .svg-draw-path {
+            /* stroke-dasharray/offset are set dynamically in JS */
             animation: draw-line 1.5s ease-out forwards;
         }
         .svg-fade-in {
@@ -156,8 +167,8 @@
         .clickable-file {
             cursor: pointer;
             text-decoration: underline;
-            display: inline-block; 
-            margin-right: 15px; 
+            display: inline-block; /* Makes it behave like a block for spacing but flows inline */
+            margin-right: 15px; /* Add some space between filenames */
         }
         .clickable-file:hover {
             color: var(--theme-secondary);
@@ -165,6 +176,7 @@
 
 
         /* --- Theme Definitions --- */
+         /* --- Theme Definitions --- */
         body.relic-theme {
             background-color: #1a2123;
             color: #d4d4d4;
@@ -404,7 +416,7 @@
 
         /* --- System Override Styles --- */
         #system-override-overlay {
-            display: none; 
+            display: none; /* Starts hidden */
             position: fixed;
             top: 0;
             left: 0;
@@ -419,55 +431,182 @@
             text-transform: uppercase;
             padding: 20px;
             box-sizing: border-box;
-            overflow: hidden; 
+            overflow: hidden; /* Changed from auto to hidden for glitch effects */
+            /* Default/Lockout Color */
             color: #ff4136; 
         }
 
-        #system-override-overlay.warning { color: #FFDC00; }
-        #system-override-overlay.info { color: #00E5FF; }
-        #system-override-overlay.themed { color: var(--theme-primary); }
+        /* Override Types (Colors) */
+        #system-override-overlay.warning {
+            color: #FFDC00; /* Yellow/Orange */
+        }
+        
+        #system-override-overlay.info {
+            color: #00E5FF; /* Cyan/Blue */
+        }
+
+        #system-override-overlay.themed {
+             color: var(--theme-primary);
+        }
 
         /* ======================================= */
-        /* --- Glitch Effects ---    */
+        /* --- Glitch Effects (REFINED/NEW) ---    */
         /* ======================================= */
 
-        /* VHS Glitch */
-        #system-override-overlay.glitch-vhs { animation: vhs-pulse 5s infinite ease-in-out; }
+        /* --- 1. REFINED: VHS Glitch Effect --- */
+        /* Toned down significantly: Removed rapid flicker/skew. Added subtle jitter and scanlines. */
+        #system-override-overlay.glitch-vhs {
+            /* Subtle, slow pulsing opacity instead of rapid flicker */
+            animation: vhs-pulse 5s infinite ease-in-out;
+        }
+
+        /* Scan Lines */
         #system-override-overlay.glitch-vhs::before {
-            content: ""; position: absolute; top: 0; left: 0; right: 0; bottom: 0;
-            background: repeating-linear-gradient(0deg, rgba(0, 0, 0, 0.25), rgba(0, 0, 0, 0.25) 2px, transparent 2px, transparent 4px);
-            pointer-events: none; z-index: 1; animation: vhs-scanline-move 10s linear infinite;
+            content: "";
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: repeating-linear-gradient(
+                0deg,
+                rgba(0, 0, 0, 0.25), /* Darker line */
+                rgba(0, 0, 0, 0.25) 2px,
+                transparent 2px,
+                transparent 4px /* Thicker gap */
+            );
+            pointer-events: none;
+            z-index: 1;
+            /* Slow vertical movement of scan lines */
+            animation: vhs-scanline-move 10s linear infinite;
         }
+
+        /* Subtle Noise and Jitter */
         #system-override-overlay.glitch-vhs::after {
-            content: ""; position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+            content: "";
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            /* Very subtle noise texture (using a simple repeating pattern) */
             background-image: url("data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAQAAAAECAYAAACp8Z5+AAAAHElEQVQYlWP4//8/AxJgYGD4//8/SDkLNgBMAwB84g0h/Hh96wAAAABJRU5ErkJggg==");
-            opacity: 0.15; animation: vhs-jitter 0.5s steps(5) infinite; pointer-events: none; z-index: 2;
+            opacity: 0.15;
+            /* Subtle horizontal jitter */
+            animation: vhs-jitter 0.5s steps(5) infinite;
+            pointer-events: none;
+            z-index: 2;
         }
-        @keyframes vhs-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.9; } }
-        @keyframes vhs-scanline-move { from { background-position: 0 0; } to { background-position: 0 100%; } }
-        @keyframes vhs-jitter { 0% { transform: translateX(0); } 20% { transform: translateX(1px); } 40% { transform: translateX(-1px); } 60% { transform: translateX(2px); } 80% { transform: translateX(-1px); } }
 
-        /* VR Glitch */
-        #system-override-overlay.glitch-vr { animation: vr-shift 5s infinite linear alternate; text-shadow: 2px 0 0 rgba(255, 0, 0, 0.7), -2px 0 0 rgba(0, 0, 255, 0.7); }
-        @keyframes vr-shift { 0%, 100% { transform: translate(0, 0); } 25% { transform: translate(1px, -1px); } 50% { transform: translate(-1px, 0px); } 75% { transform: translate(0px, 1px); } }
-        #system-override-overlay.glitch-vr svg, #system-override-overlay.glitch-vr .override-content { filter: url(#chromatic-aberration-filter-animated); }
+        @keyframes vhs-pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.9; }
+        }
 
-        /* Fractal Noise */
-        #system-override-overlay.glitch-fractal { filter: url(#fractal-noise-filter-low); animation: digital-corruption 2.5s infinite steps(10); }
-        @keyframes digital-corruption { 0%, 50%, 100% { filter: url(#fractal-noise-filter-low); } 15%, 65% { filter: url(#fractal-noise-filter-medium); } 30%, 80% { filter: url(#fractal-noise-filter-high); } }
+        @keyframes vhs-scanline-move {
+            from { background-position: 0 0; }
+            to { background-position: 0 100%; }
+        }
 
-        /* Digital Block */
-        #system-override-overlay.glitch-block { filter: url(#block-glitch-filter-0); animation: block-glitch-anim 4s infinite steps(10); }
-        @keyframes block-glitch-anim { 0%, 90% { filter: url(#block-glitch-filter-0); } 92% { filter: url(#block-glitch-filter-1); } 94% { filter: url(#block-glitch-filter-2); } 96% { filter: url(#block-glitch-filter-3); } 98%, 100% { filter: url(#block-glitch-filter-0); } }
+        @keyframes vhs-jitter {
+            0% { transform: translateX(0); }
+            20% { transform: translateX(1px); }
+            40% { transform: translateX(-1px); }
+            60% { transform: translateX(2px); }
+            80% { transform: translateX(-1px); }
+        }
 
-        /* Color Separation */
-         #system-override-overlay.glitch-separation { animation: separation-shift 5s infinite ease-in-out; --shift-x: 2px; }
-        #system-override-overlay.glitch-separation svg, #system-override-overlay.glitch-separation .override-content { filter: url(#color-separation-filter); }
-        @keyframes separation-shift { 0%, 100% { transform: translateX(0); } 25%, 75% { transform: translateX(calc(var(--shift-x) * -1)); } 50% { transform: translateX(var(--shift-x)); } }
 
-        /* Screen Tear */
-        #system-override-overlay.glitch-tear { animation: screen-tear 5s infinite steps(1); }
-        @keyframes screen-tear { 0%, 100% { clip-path: inset(0); transform: translateX(0); } 5% { clip-path: polygon(0 45%, 100% 45%, 100% 55%, 0 55%); transform: translateX(8px); } 6%, 94% { clip-path: inset(0); transform: translateX(0); } 95% { clip-path: polygon(0 20%, 100% 20%, 100% 25%, 0 25%); transform: translateX(-5px); } 96% { clip-path: inset(0); transform: translateX(0); } }
+        /* --- 2. REFINED: VR Glitch (Chromatic Aberration) --- */
+        /* Now animates the filter effect itself for a dynamic look */
+        #system-override-overlay.glitch-vr {
+            /* Keep the subtle spatial shift */
+            animation: vr-shift 5s infinite linear alternate;
+        }
+
+        /* Apply aberration to direct text content (if any) */
+        #system-override-overlay.glitch-vr {
+             /* Use the animated text shadow as a fallback/enhancement */
+             text-shadow: 2px 0 0 rgba(255, 0, 0, 0.7), -2px 0 0 rgba(0, 0, 255, 0.7);
+             animation: chromatic-aberration-text 3s infinite;
+        }
+
+        @keyframes vr-shift {
+            0%, 100% { transform: translate(0, 0); }
+            25% { transform: translate(1px, -1px); }
+            50% { transform: translate(-1px, 0px); }
+            75% { transform: translate(0px, 1px); }
+        }
+
+        @keyframes chromatic-aberration-text {
+            0% { text-shadow: 2px 0 0 rgba(255, 0, 0, 0.7), -2px 0 0 rgba(0, 0, 255, 0.7); }
+            33% { text-shadow: -2px 0 0 rgba(255, 0, 0, 0.7), 2px 0 0 rgba(0, 0, 255, 0.7); }
+            66% { text-shadow: 2px 0 0 rgba(0, 255, 0, 0.7), -2px 0 0 rgba(0, 0, 255, 0.7); }
+            100% { text-shadow: -2px 0 0 rgba(0, 255, 0, 0.7), 2px 0 0 rgba(0, 0, 255, 0.7); }
+        }
+
+        /* For SVG elements or text containers inside VR glitch, we use the animated filter */
+        /* Filters need to be applied to the content inside the overlay, not just the overlay itself if it contains complex elements */
+        #system-override-overlay.glitch-vr svg,
+        #system-override-overlay.glitch-vr .override-content {
+             filter: url(#chromatic-aberration-filter-animated);
+        }
+
+
+        /* --- 3. REFINED: Fractal Noise (Digital Corruption) --- */
+        /* Intensity reduced in the filter definitions (see HTML body) */
+        #system-override-overlay.glitch-fractal {
+            filter: url(#fractal-noise-filter-low);
+            animation: digital-corruption 2.5s infinite steps(10);
+        }
+
+        @keyframes digital-corruption {
+            0%, 50%, 100% { filter: url(#fractal-noise-filter-low); }
+            15%, 65% { filter: url(#fractal-noise-filter-medium); }
+            30%, 80% { filter: url(#fractal-noise-filter-high); }
+        }
+
+        /* --- 4. NEW: Digital Block Glitch (Safer) --- */
+        #system-override-overlay.glitch-block {
+             filter: url(#block-glitch-filter-0); /* Start with no effect */
+             animation: block-glitch-anim 4s infinite steps(10); /* Slower animation */
+        }
+        @keyframes block-glitch-anim {
+            0%, 90% { filter: url(#block-glitch-filter-0); } /* Mostly off */
+            92% { filter: url(#block-glitch-filter-1); }
+            94% { filter: url(#block-glitch-filter-2); }
+            96% { filter: url(#block-glitch-filter-3); }
+            98%, 100% { filter: url(#block-glitch-filter-0); }
+        }
+
+        /* --- 5. NEW: Color Separation Glitch (Safer) --- */
+         #system-override-overlay.glitch-separation {
+            animation: separation-shift 5s infinite ease-in-out;
+            --shift-x: 2px; /* Reduced shift amount */
+        }
+        #system-override-overlay.glitch-separation svg,
+        #system-override-overlay.glitch-separation .override-content {
+             filter: url(#color-separation-filter);
+        }
+        @keyframes separation-shift {
+            0%, 100% { transform: translateX(0); }
+            25%, 75% { transform: translateX(calc(var(--shift-x) * -1)); }
+            50% { transform: translateX(var(--shift-x)); }
+        }
+
+        /* --- 6. NEW: Screen Tear Glitch (Safer) --- */
+        #system-override-overlay.glitch-tear {
+            animation: screen-tear 5s infinite steps(1); /* Longer duration for less frequency */
+        }
+        @keyframes screen-tear {
+            0%, 100% { clip-path: inset(0); transform: translateX(0); }
+            /* Make the tear happen for a very short duration */
+            5% {
+                clip-path: polygon(0 45%, 100% 45%, 100% 55%, 0 55%);
+                transform: translateX(8px); /* Reduced shift */
+            }
+            /* Reset immediately after */
+            6%, 94% { clip-path: inset(0); transform: translateX(0); }
+            95% {
+                clip-path: polygon(0 20%, 100% 20%, 100% 25%, 0 25%);
+                transform: translateX(-5px); /* Reduced shift */
+            }
+            96% { clip-path: inset(0); transform: translateX(0); }
+        }
         
     </style>
 </head>
@@ -628,49 +767,72 @@
         const doubledSymbols = ['<<', '>>', '%%', '^^', '&&', '**', '--', '++', '@@'];
         const allSymbols = [...doubledSymbols, '$', ':', '#', '<', '>', '%', '^', '&', '*', '-', '+', '@'];
         
+        // Initialize playerConnectionRef
         let playerConnectionRef = null;
+
         let commandHistory = [];
         let historyIndex = -1;
         const COMMAND_HISTORY_KEY = 'command_history_session';
 
+        // --- STATE FOR RACE CONDITION FIX ---
         let isConfigLoaded = false;
         let messageQueue = [];
 
+
+        /**
+         * Processes SVG content for scaling preparation and negative space replacement.
+         * Prepares SVG for CSS responsive scaling by ensuring viewBox and removing fixed dimensions.
+         * Negative space replacement (white to background color) is restricted to 'line' and 'path' elements.
+         */
         function processSVG(svgContent, themeBackgroundColor) {
             const parser = new DOMParser();
+            // Ensure svgContent is treated as a string and trimmed
             const doc = parser.parseFromString(String(svgContent).trim(), "image/svg+xml");
             const svg = doc.documentElement;
 
+            // Check for parsing errors
             if (!svg || svg.tagName.toLowerCase() === 'parsererror' || doc.getElementsByTagName("parsererror").length > 0) {
                 console.error("Error parsing SVG content.");
+                // Return original content if parsing fails critically, or an empty string if input was invalid
                 return svgContent || ''; 
             }
 
+            // Handle scaling (viewBox, width, height)
+            // 1. Ensure 'viewBox' is present (essential for aspect ratio).
             if (!svg.getAttribute('viewBox')) {
                 const width = svg.getAttribute('width');
                 const height = svg.getAttribute('height');
                 if (width && height) {
                     const cleanWidth = parseFloat(width);
                     const cleanHeight = parseFloat(height);
+                    // Ensure valid dimensions before creating viewBox
                     if (!isNaN(cleanWidth) && !isNaN(cleanHeight) && cleanWidth > 0 && cleanHeight > 0) {
                         svg.setAttribute('viewBox', `0 0 ${cleanWidth} ${cleanHeight}`);
                     }
                 }
             }
             
+            // 2. CRITICAL: Remove fixed 'width' and 'height' attributes for CSS scaling.
             svg.removeAttribute('width');
             svg.removeAttribute('height');
 
+            // 3. Ensure the SVG scales uniformly
             if (!svg.getAttribute('preserveAspectRatio')) {
                 svg.setAttribute('preserveAspectRatio', 'xMidYMid meet');
             }
 
+            // Handle Negative Space Replacement (Replace white with the background color)
+            // This helps handle SVGs that use white lines/shapes as cutouts.
             const whiteKeywords = ['white', '#ffffff', '#fff'];
             const whiteRgbRegex = /^rgb\(\s*255\s*,\s*255\s*,\s*255\s*\)$/i;
             const elements = svg.getElementsByTagName('*');
             for (const element of elements) {
                 const tagName = element.tagName.toLowerCase();
+                
+                // REFINED LOGIC: Only apply automatic negative space replacement to lines and paths.
+                // Shapes like circles, rects, etc., will retain their white color here and be themed later.
                 if (tagName === 'line' || tagName === 'path') {
+                    // Check stroke
                     const strokeAttr = element.getAttribute('stroke');
                     if (strokeAttr) {
                         const normalizedStroke = strokeAttr.trim().toLowerCase();
@@ -678,6 +840,8 @@
                             element.setAttribute('stroke', themeBackgroundColor);
                         }
                     }
+
+                    // Check fill (for paths which might be cutouts)
                     const fillAttr = element.getAttribute('fill');
                     if (fillAttr) {
                         const normalizedFill = fillAttr.trim().toLowerCase();
@@ -685,6 +849,8 @@
                             element.setAttribute('fill', themeBackgroundColor);
                         }
                     }
+
+                    // Check CSS styles (less common but possible)
                     const styleAttr = element.getAttribute('style');
                     if (styleAttr) {
                         let updatedStyle = styleAttr;
@@ -703,6 +869,7 @@
             return serializer.serializeToString(svg);
         }
 
+        // (startLogin and handleLoginAttempt)
         function startLogin() {
             terminalContainer.style.display = 'none';
             loginOverlay.style.display = 'flex';
@@ -759,19 +926,27 @@
 
 
         function initializeTerminal() {
+            // --- Mobile QOL Button Positioning ---
             if (window.visualViewport) {
                 const updateButtonPosition = () => {
                     const viewport = window.visualViewport;
+                    // Calculate positions based on the visual viewport's dimensions and scroll offset
                     const topPos = viewport.offsetTop + viewport.height - qolButtons.offsetHeight - 10;
                     const leftPos = viewport.offsetLeft + viewport.width - qolButtons.offsetWidth - 10;
+                    
+                    // Use transform for smooth positioning that isn't affected by the element's own size
                     qolButtons.style.transform = `translate(${leftPos}px, ${topPos}px)`;
                 };
 
+                // Add event listeners to update the position on scroll and resize (which includes keyboard)
                 window.visualViewport.addEventListener('resize', () => {
                     updateButtonPosition();
+                    // Also ensure terminal scrolls to bottom when layout changes
                     terminal.scrollTop = terminal.scrollHeight;
                 });
                 window.visualViewport.addEventListener('scroll', updateButtonPosition);
+                
+                // Set initial position
                 updateButtonPosition();
             }
 
@@ -783,6 +958,7 @@
                 }
             }
             
+            // Added String() casting to handle potential non-string values from history
             function partiallyDecode(fullStream) { if (Object.keys(decodingChart).length === 0) return fullStream; const parts = String(fullStream).match(/(.*?)\$:(.*):#(.*)/); if (!parts) return fullStream; const leadingNoise = parts[1], encodedPart = parts[2], trailingNoise = parts[3]; let decodedContent = ''; for (let i = 0; i < encodedPart.length; i += 2) { const pair = encodedPart.substring(i, i + 2); const char = decodingChart[pair]; if (char && unlockedKeys[char]) { decodedContent += char; } else { decodedContent += pair; } } return `${leadingNoise}$:${decodedContent}:#${trailingNoise}`; }
             function fullyDecode(fullStream) {
                 const parts = String(fullStream).match(/(.*?)\$:(.*):#(.*)/);
@@ -801,42 +977,66 @@
                 return decodedContent;
             }
 
+
+            // Helper function to apply theming and animation.
+            // Note: 'themingColor' can be the terminal's primary color OR the override's specific color.
             function applySvgEnhancements(svgElement, backgroundColor, themingColor, applyTheme, animate) {
                  if (!svgElement) return;
+
+                 // Define white keywords here as they are needed for comparison
                  const whiteKeywords = ['white', '#ffffff', '#fff'];
 
                  requestAnimationFrame(() => {
                     svgElement.querySelectorAll('path, polyline, line, circle, rect, ellipse, polygon').forEach(el => {
                         const tagName = el.tagName.toLowerCase();
+                        
+                        // Check if the element was marked as negative space during processSVG.
+                        // If the current stroke or fill matches the background color, it's negative space.
                         const strokeAttr = el.getAttribute('stroke');
                         const fillAttr = el.getAttribute('fill');
                         
                         let isNegativeSpace = false;
-                        if (strokeAttr && strokeAttr === backgroundColor) isNegativeSpace = true;
-                        if (fillAttr && fillAttr === backgroundColor) isNegativeSpace = true;
+                        // We check against the specific backgroundColor passed in, as processSVG used that exact value.
+                        if (strokeAttr && strokeAttr === backgroundColor) {
+                            isNegativeSpace = true;
+                        }
+                        if (fillAttr && fillAttr === backgroundColor) {
+                            isNegativeSpace = true;
+                        }
 
                         if (!isNegativeSpace) {
+                            // Apply Theming (Coloring) - Positive Space
+                            // We check applyTheme AND themingColor (themingColor might be null if theming is off)
                             if (applyTheme && themingColor) {
                                 if (el.hasAttribute('stroke') && el.getAttribute('stroke') !== 'none') {
+                                    // This will theme strokes, including white strokes preserved by processSVG
                                     el.setAttribute('stroke', themingColor);
                                 }
                                 
+                                // Handle fill attributes
                                 if (el.hasAttribute('fill') && el.getAttribute('fill') !== 'none') {
+                                     // If the fill is currently black OR white (preserved by processSVG), replace it
                                     const currentFill = el.getAttribute('fill').toLowerCase();
+                                    
                                     if (currentFill === 'black' || currentFill === '#000000' || currentFill === '#000' || whiteKeywords.includes(currentFill)) {
                                          el.setAttribute('fill', themingColor);
                                     } else {
+                                        // Otherwise, force the theming color for strict theming
                                         el.setAttribute('fill', themingColor);
                                     }
                                 }
                                 
+                                // Ensure elements (especially paths) default to 'none' fill if not specified, so they don't block the background if they only have a stroke
                                 if (!el.hasAttribute('fill') && ['path', 'polyline', 'polygon', 'rect', 'circle', 'ellipse'].includes(tagName)) {
+                                    // If it has a stroke, default fill to none. If it has no stroke and no fill, it's invisible anyway.
                                      el.setAttribute('fill', 'none');
                                 }
                             }
                             
+                            // Apply Animation
                             if (animate) {
                                  if (['path', 'polyline', 'line'].includes(tagName)) {
+                                    // Only animate elements that have a stroke
                                     if (el.hasAttribute('stroke') && el.getAttribute('stroke') !== 'none') {
                                         if (typeof el.getTotalLength === 'function') {
                                             const length = el.getTotalLength();
@@ -848,12 +1048,14 @@
                                         }
                                     }
                                 } else {
+                                    // Fade in shapes (circles, rects, etc.)
                                     el.classList.add('svg-fade-in');
                                 }
                             }
                         }
                     });
                     
+                     // Handle text color separately if theming is applied
                     if (applyTheme && themingColor) {
                         svgElement.querySelectorAll('text').forEach(el => {
                             el.setAttribute('fill', themingColor);
@@ -862,8 +1064,9 @@
                 });
             }
 
-            // --- UNIFIED VISUAL RENDERER (SVG + GIF) ---
-            function renderVisualMedia(content, type = 'svg') {
+            // Renders SVG into the fullscreen overlay (used for 'cat' command and datastreams)
+            function renderThemedSvg(svgContent) {
+                // Get references to the overlay elements
                 const overlay = document.getElementById('svg-fullscreen-overlay');
                 const container = document.getElementById('svg-display-container');
                 const closeButton = overlay.querySelector('.svg-overlay-close-button');
@@ -873,59 +1076,63 @@
                     return;
                 }
 
-                container.innerHTML = ''; // Clear previous content
+                // Clear previous content
+                container.innerHTML = '';
 
-                if (type === 'svg') {
-                    const primaryColor = getComputedStyle(document.body).getPropertyValue('--theme-primary').trim();
-                    const backgroundColor = getComputedStyle(document.body).backgroundColor.trim();
-                    const processedSvgString = processSVG(content, backgroundColor);
-                    const parser = new DOMParser();
-                    const doc = parser.parseFromString(processedSvgString, "image/svg+xml");
-                    const svgElement = doc.documentElement;
+                // Get current theme colors
+                const primaryColor = getComputedStyle(document.body).getPropertyValue('--theme-primary').trim();
+                // Get the actual computed background color of the body for negative space replacement
+                const backgroundColor = getComputedStyle(document.body).backgroundColor.trim();
 
-                    if (svgElement && svgElement.tagName && svgElement.tagName.toLowerCase() === 'svg' && doc.getElementsByTagName("parsererror").length === 0) {
-                        const importedSvgElement = document.importNode(svgElement, true);
-                        container.appendChild(importedSvgElement);
-                        applySvgEnhancements(importedSvgElement, backgroundColor, primaryColor, true, true);
-                    } else {
-                        console.error("Failed to render SVG in overlay after processing.", processedSvgString);
-                        printLine("Error: Could not render visual data.", "error-msg");
-                        return;
-                    }
-                } else if (type === 'gif') {
-                    const img = document.createElement('img');
-                    img.src = content;
-                    img.style.maxWidth = '100%';
-                    img.style.maxHeight = '100%';
-                    img.style.objectFit = 'contain';
-                    img.style.boxShadow = `0 0 20px ${getComputedStyle(document.body).getPropertyValue('--theme-primary')}`;
+                // Process SVG (scaling prep and negative space replacement)
+                // This also handles the initial parsing validation within processSVG.
+                const processedSvgString = processSVG(svgContent, backgroundColor);
+                
+                // We need to re-parse the processed string to get the element for appending and enhancements
+                const parser = new DOMParser();
+                const doc = parser.parseFromString(processedSvgString, "image/svg+xml");
+                const svgElement = doc.documentElement;
+
+                // Check if parsing resulted in a valid SVG element after processing
+                if (svgElement && svgElement.tagName && svgElement.tagName.toLowerCase() === 'svg' && doc.getElementsByTagName("parsererror").length === 0) {
                     
-                    img.onerror = () => {
-                         printLine("ERROR: UNABLE TO DECODE IMAGE STREAM.", "error-msg");
-                         overlay.style.display = 'none';
+                    // Import the node into the current document before appending
+                    const importedSvgElement = document.importNode(svgElement, true);
+                    container.appendChild(importedSvgElement);
+                    
+                    // Apply enhancements (theming colors and animation)
+                    // For standard viewing, we always apply the theme and animation.
+                    applySvgEnhancements(importedSvgElement, backgroundColor, primaryColor, true, true);
+
+                    // Setup close button event listener
+                    const closeOverlay = () => {
+                        overlay.style.display = 'none';
+                        container.innerHTML = ''; // Clear SVG when closed
+                        commandInput.focus(); // Refocus terminal input
                     };
                     
-                    container.appendChild(img);
-                }
+                    closeButton.onclick = closeOverlay;
+                    
+                    // Adjust container size for keyboard
+                    if (window.visualViewport) {
+                        const viewport = window.visualViewport;
+                        container.style.height = `calc(${viewport.height}px - 90px)`;
+                    }
 
-                // Common Display Logic
-                const closeOverlay = () => {
-                    overlay.style.display = 'none';
-                    container.innerHTML = '';
-                    commandInput.focus();
-                };
-                closeButton.onclick = closeOverlay;
-                
-                if (window.visualViewport) {
-                    const viewport = window.visualViewport;
-                    container.style.height = `calc(${viewport.height}px - 90px)`;
-                }
 
-                overlay.style.display = 'flex';
-                terminal.scrollTop = terminal.scrollHeight;
+                    // Display the overlay
+                    overlay.style.display = 'flex';
+                    
+                    // Scroll terminal to bottom
+                    terminal.scrollTop = terminal.scrollHeight;
+
+                } else {
+                    console.error("Failed to render SVG in overlay after processing.", processedSvgString);
+                    printLine("Error: Could not render visual data.", "error-msg");
+                }
             }
 
-
+             // (typeLine, printLine, processDatastream, drawWelcomeMessage, handleSpecialCommand, handleAutocomplete, handleCommand)
              function typeLine(text, className = '', speed = 15, callback = () => { }) {
                 isTyping = true;
                 const line = document.createElement('div');
@@ -933,6 +1140,7 @@
                 if (className) {
                     className.split(' ').forEach(cls => line.classList.add(cls));
                 }
+                // Ensure the prompt wrapper is always the last element
                 const promptWrapper = terminal.querySelector('.prompt-wrapper');
                 terminal.insertBefore(line, promptWrapper);
                 
@@ -958,6 +1166,7 @@
                 if (className) {
                     className.split(' ').forEach(cls => line.classList.add(cls));
                 }
+                 // Ensure the prompt wrapper is always the last element
                 const promptWrapper = terminal.querySelector('.prompt-wrapper');
                 terminal.insertBefore(line, promptWrapper);
                 terminal.scrollTop = terminal.scrollHeight;
@@ -969,16 +1178,10 @@
                     if (dataString.startsWith('SVG::')) {
                         const svgContent = dataString.substring(5);
                         printLine('&nbsp;');
+                        // Updated: SVGs now open in the overlay.
                         typeLine(`>>> INCOMING VISUAL DATASTREAM. OPENING VIEWER... <<<`, 'data-msg-header', 20, () => {
-                            renderVisualMedia(svgContent, 'svg');
-                        });
-                        return;
-                    }
-                    if (dataString.startsWith('GIF::')) {
-                        const gifUrl = dataString.substring(5);
-                        printLine('&nbsp;');
-                        typeLine(`>>> INCOMING VISUAL DATASTREAM. OPENING VIEWER... <<<`, 'data-msg-header', 20, () => {
-                            renderVisualMedia(gifUrl, 'gif');
+                            renderThemedSvg(svgContent);
+                            // We don't need the "END OF DATA" message when using the overlay viewer.
                         });
                         return;
                     }
@@ -1055,10 +1258,6 @@
                             let baseName = originalFileName.split('.').slice(0, -1).join('.') || originalFileName;
                             return baseName + '.kohd';
                         }
-                        if (fileSystem[safeName].isGif) {
-                             let baseName = originalFileName.split('.').slice(0, -1).join('.') || originalFileName;
-                            if (!baseName.endsWith('.gif')) return baseName + '.gif'; 
-                        }
                         return originalFileName;
                     }).filter(name => name.startsWith(currentPart));
                 }
@@ -1088,6 +1287,7 @@
             function handleCommand(fullCmd) {
                 if (glitches.glitched_command && fullCmd.startsWith(glitches.glitched_command)) { printLine(`> ${fullCmd}`, 'prompt-text'); typeLine(`//_COMMAND MALFUNCTION: [${glitches.glitched_command.toUpperCase()}] OFFLINE_//`, 'error-msg'); return; }
                 
+                // Add command to history
                 if (commandHistory.length === 0 || commandHistory[commandHistory.length - 1] !== fullCmd) {
                     commandHistory.push(fullCmd);
                     saveCommandHistory();
@@ -1129,9 +1329,10 @@
                 if (cmd === 'help') {
                     typeLine(`${config.systemName} Command List:`, 'system-msg'); typeLine(`  help          - Displays this list`); typeLine(`  logout        - Ends session and returns to login`); typeLine(`  elevate <pass>  - Elevate security clearance`); typeLine(`  ls            - Lists files in the current directory`); typeLine(`  cat <file>    - Displays the content of a file`); typeLine(`  ${(config.scanCommand || 'scan').padEnd(13, ' ')} - Scan for ${(config.signalNoun || 'signal').toLowerCase()}s on the Network`); typeLine(`  ${(config.connectCommand || 'connect').padEnd(13, ' ')} - Connect to a detected ${(config.signalNoun || 'signal').toLowerCase()}`); typeLine(`  reply <msg>   - Sends a message back to source`); typeLine(`  ping          - Checks connection to the source`); typeLine(`  status        - Displays current system status`); typeLine(`  history       - Shows recent broadcast history`); typeLine(`  cls           - Clears the display`);
                 } else if (cmd === 'logout') {
+                    // Ensure player connection tracker is removed on logout
                     if (playerConnectionRef) {
-                        playerConnectionRef.onDisconnect().cancel(); 
-                        playerConnectionRef.remove(); 
+                        playerConnectionRef.onDisconnect().cancel(); // Cancel pending disconnect operations
+                        playerConnectionRef.remove(); // Remove immediately
                         playerConnectionRef = null;
                     }
                     sessionStorage.removeItem('daggerheart_connection_state');
@@ -1163,10 +1364,6 @@
                                 let baseName = originalFileName.split('.').slice(0, -1).join('.') || originalFileName;
                                 originalFileName = baseName + '.kohd';
                             }
-                            if (fileData.isGif) {
-                                let baseName = originalFileName.split('.').slice(0, -1).join('.') || originalFileName;
-                                if (!baseName.endsWith('.gif')) originalFileName = baseName + '.gif'; 
-                            }
                             
                             const fileSpan = document.createElement('span');
                             if (fileData.level > clearanceLevel) {
@@ -1190,30 +1387,27 @@
                 } else if (cmd === 'cat') {
                     if (!isConnected) { typeLine('ERROR: Not connected to a system.', 'error-msg'); return; }
                     
+                    // Handle potential .kohd extension for SVGs
                     let safeArg = argString.replace(/\./g, '·');
                     let fileData = fileSystem[safeArg];
 
-                    if (!fileData) {
-                         if (argString.toLowerCase().endsWith('.kohd')) {
-                            const baseName = argString.substring(0, argString.length - 5);
-                            const potentialSvgNames = [baseName.replace(/\./g, '·') + '·svg', baseName.replace(/\./g, '·')];
-                            for (const potentialName of potentialSvgNames) {
-                                if (fileSystem[potentialName] && fileSystem[potentialName].isSvg) {
-                                    fileData = fileSystem[potentialName];
-                                    break;
-                                }
-                            }
-                        } else if (argString.toLowerCase().endsWith('.gif')) {
-                            const baseName = argString.substring(0, argString.length - 4);
-                            const potentialNames = [baseName.replace(/\./g, '·') + '·gif', baseName.replace(/\./g, '·')];
-                            for (const potentialName of potentialNames) {
-                                if (fileSystem[potentialName] && fileSystem[potentialName].isGif) {
-                                    fileData = fileSystem[potentialName];
-                                    break;
-                                }
+                    // If the file isn't found directly, try looking for the base name if it's an SVG request
+                    if (!fileData && argString.toLowerCase().endsWith('.kohd')) {
+                        const baseName = argString.substring(0, argString.length - 5);
+                        // Check common patterns for how the SVG might be stored internally
+                        const potentialSvgNames = [
+                            baseName.replace(/\./g, '·') + '·svg',
+                            baseName.replace(/\./g, '·')
+                        ];
+                        
+                        for (const potentialName of potentialSvgNames) {
+                            if (fileSystem[potentialName] && fileSystem[potentialName].isSvg) {
+                                fileData = fileSystem[potentialName];
+                                break;
                             }
                         }
                     }
+
 
                     if (!argString) {
                         typeLine('ERROR: Missing filename. Usage: cat <filename>', 'error-msg');
@@ -1222,12 +1416,10 @@
                     } else if (fileData.level > clearanceLevel) { 
                         typeLine(`ERROR: INSUFFICIENT CLEARANCE. ACCESS LEVEL ${fileData.level} REQUIRED.`, 'error-msg');
                     } else {
+                        // UPDATED: For SVGs, we open the overlay instead of printing inline
                         if (fileData.isSvg) {
                             typeLine(`// Rendering visual data file: ${argString} //`, 'system-msg');
-                            renderVisualMedia(fileData.content, 'svg');
-                        } else if (fileData.isGif) {
-                            typeLine(`// Rendering visual data file: ${argString} //`, 'system-msg');
-                            renderVisualMedia(fileData.content, 'gif');
+                            renderThemedSvg(fileData.content);
                         } else {
                             typeLine(`--- BEGIN FILE: ${argString} ---`, 'data-msg-header');
                             printLine(fileData.content, 'data-msg-body');
@@ -1243,11 +1435,14 @@
                     if (isScanning) { 
                         typeLine(`Attempting to synchronize with ${config.systemName}...`, '', 30, () => { 
                             isConnected = true; 
+                            // Establish presence tracking (Connected Player Tracker)
                             if (currentUser) {
+                                // Ensure we don't create multiple references if 'connect' is run again
                                 if (!playerConnectionRef) {
                                      playerConnectionRef = database.ref('player_connections/' + currentUser);
                                 }
                                 playerConnectionRef.set(true);
+                                // Set up the removal on disconnect (browser close, network loss)
                                 playerConnectionRef.onDisconnect().remove();
                             }
                             typeLine(`Synchronization complete. Interface active. Awaiting ${config.dataNoun || 'Data'}...`, 'system-msg'); 
@@ -1266,6 +1461,7 @@
                 } else if (cmd === 'reply') {
                     if (isConnected) { 
                         if (argString) { 
+                            // Updated to use the multi-user reply structure
                             if (currentUser) {
                                 database.ref('player_replies').push({
                                     user: currentUser,
@@ -1281,12 +1477,14 @@
                         typeLine('ERROR: Must be connected to send a reply.', 'error-msg'); 
                     }
                 } else if (cmd === 'history') {
+                    // Fetch the last 10 messages from the history
                     database.ref('datastream_history').limitToLast(10).once('value', (snapshot) => {
                         const history = snapshot.val();
                         if (history) {
                             typeLine(`Recent Broadcast History:`, 'system-msg', 20, () => {
                                 Object.values(history).forEach((msg, i) => {
-                                    if (typeof msg === 'string' && (msg.startsWith('SVG::') || msg.startsWith('GIF::'))) return; 
+                                    // Don't show SVG history in the text history
+                                    if (typeof msg === 'string' && msg.startsWith('SVG::')) return; 
                                     const decoded = partiallyDecode(msg);
                                     printLine(`- ${decoded}`, 'data-msg-body');
                                 });
@@ -1300,6 +1498,7 @@
                 }
             }
 
+            // (Event Listeners: keydown, buttons, click)
             commandInput.addEventListener('keydown', (e) => {
                 if (isTyping) return;
 
@@ -1356,6 +1555,7 @@
                 } 
             });
 
+            // (Firebase Listeners)
             database.ref('terminal_config').on('value', (snapshot) => {
                 const newConfig = snapshot.val();
                 if (newConfig) {
@@ -1365,6 +1565,7 @@
                 }
                 applyTheme();
                 
+                // Handle initialization and message queue
                 if (!isConfigLoaded) {
                     isConfigLoaded = true;
                     const savedConnectionState = JSON.parse(sessionStorage.getItem('daggerheart_connection_state'));
@@ -1383,6 +1584,7 @@
                         }
                     }
                     drawWelcomeMessage();
+                    // Process any messages that arrived before config was loaded
                     if (messageQueue.length > 0) {
                         messageQueue.forEach(processDatastream);
                         messageQueue = [];
@@ -1407,61 +1609,80 @@
             database.ref('custom_commands').on('value', (snapshot) => { customCommands = snapshot.val() || {}; });
             database.ref('player_resources').on('value', (snapshot) => { playerResources = snapshot.val() || { name: "Resources", count: 0 }; });
             
+            // Glitches listener to handle SVG Overrides and Glitch Effects
             database.ref('glitches').on('value', (snapshot) => {
                 glitches = snapshot.val() || {};
                 const override = glitches.override_state;
 
+                // Clear previous content and classes from the System Override Overlay
                 overrideOverlay.innerHTML = '';
                 overrideOverlay.className = '';
 
                 if (override) {
-                    if (override.type) overrideOverlay.classList.add(override.type);
-                    if (override.glitch && override.glitch !== 'none') overrideOverlay.classList.add('glitch-' + override.glitch);
+                    // Set Type (Color) and Glitch (Effect) classes
+                    if (override.type) {
+                        overrideOverlay.classList.add(override.type);
+                    }
+                    if (override.glitch && override.glitch !== 'none') {
+                        // Ensure the class name matches the new CSS definitions (e.g., glitch-vhs, glitch-tear)
+                        overrideOverlay.classList.add('glitch-' + override.glitch);
+                    }
                     
+                     // Ensure overlay is visible before calculating computed styles or adding content
                      overrideOverlay.style.display = 'flex';
 
+                    // Create a content wrapper div. This is important for filters to apply correctly to content (text or SVG) within the flex container.
                     const contentWrapper = document.createElement('div');
                     contentWrapper.className = 'override-content';
 
+
+                    // Handle Content (Text or SVG)
                     if (override.message) {
                         contentWrapper.textContent = override.message;
                         overrideOverlay.appendChild(contentWrapper);
 
                     } else if (override.svgContent) {
+                        // System Override SVG Handling
+
+                        // Get the background color for negative space detection.
                         const overrideBackgroundColor = getComputedStyle(overrideOverlay).backgroundColor.trim();
+                        
+                        // Get the foreground color dictated by the override type (e.g., Red for lockout)
                         const overrideForegroundColor = getComputedStyle(overrideOverlay).color.trim();
                         
+                        // Process SVG: Prepare for scaling and handle negative space against the dark overlay background.
                         const processedSvgString = processSVG(override.svgContent, overrideBackgroundColor);
+                        
+                        // Parse the processed SVG
                         const parser = new DOMParser();
                         const doc = parser.parseFromString(processedSvgString, "image/svg+xml");
                         const svgElement = doc.documentElement;
 
+                        // The CSS handles the robust scaling (max-width/max-height: 100%)
                         if (svgElement && svgElement.tagName.toLowerCase() === 'svg' && doc.getElementsByTagName("parsererror").length === 0) {
                                 const importedSvgElement = document.importNode(svgElement, true);
+                                
+                                // Append the SVG to the overlay directly (it doesn't need the wrapper div for filters as it's an SVG element)
                                 overrideOverlay.appendChild(importedSvgElement);
 
+                            // Apply enhancements (Theming and Animation based on GM flags)
                             const applyTheme = override.applyTheme === true;
                             const animate = override.animate === true;
+
+                            // If theming is requested, use the override's foreground color; otherwise, pass null.
                             const themeColorToUse = applyTheme ? overrideForegroundColor : null;
                             
                             applySvgEnhancements(importedSvgElement, overrideBackgroundColor, themeColorToUse, applyTheme, animate);
                         } else {
                             overrideOverlay.textContent = "ERROR: FAILED TO RENDER OVERRIDE GRAPHIC";
                         }
-                    } else if (override.gifUrl) {
-                        const img = document.createElement('img');
-                        img.src = override.gifUrl;
-                        img.className = 'override-content';
-                        img.style.maxWidth = '100%';
-                        img.style.maxHeight = '100%';
-                        img.style.objectFit = 'contain';
-                        overrideOverlay.appendChild(img);
                     }
                     
                 } else {
                     overrideOverlay.style.display = 'none';
                 }
                 
+                // Handle access reset (existing logic)
                 if (glitches.reset_access_timestamp && isConnected) {
                     clearanceLevel = 1;
                     typeLine('// SECURITY CREDENTIALS INVALIDATED. ACCESS LEVEL RESET BY SOURCE. //', 'error-msg');
@@ -1469,8 +1690,11 @@
                 }
             });
 
+
+            // --- UPDATED: Multi-user datastream handling (matching the provided file structure) ---
             const processDatastreamSnapshot = (snapshot) => {
                 const data = snapshot.val();
+                // --- RACE CONDITION FIX: Queue messages if config isn't loaded yet ---
                 if (!isConfigLoaded) {
                     if (data) messageQueue.push(data);
                     return;
@@ -1478,30 +1702,36 @@
                 processDatastream(data);
             };
 
+            // Listener for broadcast messages (the primary 'kohd_datastream' node)
             database.ref('kohd_datastream').on('value', processDatastreamSnapshot);
 
+            // Listener for direct messages
             if (currentUser) {
                 const directMessageRef = database.ref('direct_messages/' + currentUser);
                 directMessageRef.on('value', (snapshot) => {
                     const data = snapshot.val();
                     if (data) {
                         processDatastream(data);
+                        // Clear the message after it's been received
                         directMessageRef.remove();
                     }
                 });
             }
 
 
+            // Handle browser close/refresh (Player Connection Tracker Cleanup)
             window.addEventListener('beforeunload', () => {
                 if (playerConnectionRef) {
-                    playerConnectionRef.onDisconnect().cancel(); 
-                    playerConnectionRef.remove(); 
+                    // Ensure disconnection is handled cleanly on page unload
+                    playerConnectionRef.onDisconnect().cancel(); // Cancel the previously set onDisconnect
+                    playerConnectionRef.remove(); // Remove immediately
                 }
             });
 
             loadCommandHistory();
         }
 
+        // --- INITIAL PAGE LOAD ---
         const savedUser = localStorage.getItem(SESSION_KEY) || sessionStorage.getItem(SESSION_KEY);
         if (savedUser) {
             currentUser = savedUser;
@@ -1514,6 +1744,8 @@
 
     async function initializeApp() {
         let config;
+        
+        // Check if running locally
         const isLocal = window.location.protocol === 'file:' || window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
 
         if (isLocal) { 
